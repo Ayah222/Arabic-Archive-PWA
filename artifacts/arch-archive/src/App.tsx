@@ -1,0 +1,70 @@
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppProvider, useAppContext } from "@/context/AppContext";
+import { AppLayout } from "@/components/layout/AppLayout";
+import NotFound from "@/pages/not-found";
+
+import Login from "./pages/login";
+import Dashboard from "./pages/dashboard";
+import Projects from "./pages/projects";
+import ProjectDetails from "./pages/project-details";
+import Documents from "./pages/documents";
+
+const queryClient = new QueryClient();
+
+const ProtectedRoute = ({ component: Component, ...rest }: any) => {
+  const { userType } = useAppContext();
+  
+  if (!userType) {
+    return <Redirect to="/login" />;
+  }
+
+  return (
+    <AppLayout>
+      <Component {...rest} />
+    </AppLayout>
+  );
+};
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/login" component={Login} />
+      <Route path="/dashboard">
+        <ProtectedRoute component={Dashboard} />
+      </Route>
+      <Route path="/projects/:id">
+        {params => <ProtectedRoute component={ProjectDetails} id={params.id} />}
+      </Route>
+      <Route path="/projects">
+        <ProtectedRoute component={Projects} />
+      </Route>
+      <Route path="/documents">
+        <ProtectedRoute component={Documents} />
+      </Route>
+      <Route path="/">
+        <Redirect to="/dashboard" />
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AppProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </AppProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

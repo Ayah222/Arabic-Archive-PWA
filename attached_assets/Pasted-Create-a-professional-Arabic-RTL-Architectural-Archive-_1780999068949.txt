@@ -1,0 +1,512 @@
+Create a professional Arabic RTL Architectural Archive Management System for architecture, engineering, urban planning, and contracting companies.
+
+IMPORTANT REQUIREMENTS
+
+- Tech Stack: React + TypeScript
+- Styling: Tailwind CSS
+- Icons: Lucide React
+- Charts: Recharts
+- Responsive Design
+- Arabic RTL Interface
+- Enterprise-Level UI
+- No Backend
+- No Database
+- No API Integration
+- Mock Data Only
+- Clean Component Architecture
+- Dark Mode + Light Mode
+- Professional Folder Structure
+
+==================================================
+PROJECT PURPOSE
+==================================================
+
+Build a large-scale Architectural Archive Management System designed for architectural, engineering, planning, and contracting companies.
+
+The system should simulate a real enterprise document archive platform using local mock data only.
+
+The interface language must be Arabic and RTL.
+
+Both Manager and Data Entry users have full permissions in this prototype.
+
+==================================================
+COLOR SYSTEM
+==================================================
+
+Primary Identity:
+Navy Blue
+
+DARK MODE
+
+Primary:
+#0A192F
+
+Secondary:
+#112240
+
+Accent:
+#1E3A5F
+
+Hover:
+#274472
+
+Text:
+#E6F1FF
+
+LIGHT MODE
+
+Primary:
+#F8FAFC
+
+Secondary:
+#E2E8F0
+
+Accent:
+#1E3A8A
+
+Hover:
+#2563EB
+
+Text:
+#0F172A
+
+The theme switcher must update:
+
+- Sidebar
+- Navbar
+- Cards
+- Tables
+- Forms
+- Buttons
+- Charts
+- Dialogs
+
+==================================================
+AUTHENTICATION
+==================================================
+
+Create Login Page.
+
+Login Types:
+
+1. Manager
+2. Data Entry
+
+Fields:
+
+- Username
+- Password
+
+Components:
+
+- Logo Placeholder
+- System Name
+- Login Button
+- Dark Mode Toggle
+
+For this prototype:
+
+Manager and Data Entry have identical permissions.
+
+==================================================
+APPLICATION LAYOUT
+==================================================
+
+After Login show:
+
+- Top Navigation Bar
+- Collapsible Sidebar
+- Main Content Area
+
+RTL Layout Required.
+
+==================================================
+SIDEBAR MENU
+==================================================
+
+Create Sidebar with:
+
+1. Dashboard
+2. Projects
+3. Documents
+
+Use professional enterprise icons.
+
+==================================================
+DASHBOARD PAGE
+==================================================
+
+Create Executive Dashboard.
+
+==================================================
+STATISTICS CARDS
+==================================================
+
+Display KPI Cards:
+
+1. Total Projects
+2. Completed Projects
+3. Active Projects
+
+Each card contains:
+
+- Icon
+- Title
+- Count
+- Small Trend Indicator
+
+Interactions:
+
+Click Total Projects
+→ Navigate to Projects Page
+
+Click Completed Projects
+→ Navigate to Projects Page with Completed Filter
+
+Click Active Projects
+→ Navigate to Projects Page with Active Filter
+
+==================================================
+LATEST PROJECTS TABLE
+==================================================
+
+Create section:
+
+Latest Projects
+
+Columns:
+
+- Project Number
+- Project Name
+- Client
+- Creation Date
+- Last Update Date
+- Project Status
+
+Status:
+
+- Active
+- Completed
+
+Features:
+
+- Search
+- Sorting
+- Pagination
+- Status Badges
+
+==================================================
+PROJECTS PAGE
+==================================================
+
+Create dedicated Projects Page.
+
+Features:
+
+- Search Projects
+- Grid View
+- Table View
+
+Filters:
+
+- All
+- Active
+- Completed
+- Newest First
+- Oldest First
+
+Sorting based on project creation date.
+
+==================================================
+PROJECT CARD
+==================================================
+
+Each project must display:
+
+- Project Cover Image
+- Project Number
+- Project Name
+- Client Name
+- Status
+- Creation Date
+- Last Update Date
+
+Display image in:
+
+- Grid View
+- Table View
+
+==================================================
+PROJECT DETAILS PAGE
+==================================================
+
+When user clicks any project:
+
+Navigate to:
+
+/projects/:id
+
+Create a complete Project Details Page.
+
+==================================================
+PROJECT HEADER
+==================================================
+
+Top Section contains:
+
+- Large Project Cover Image
+- Project Name
+- Project Number
+- Client Name
+- Project Status
+- Project Creation Date
+
+Professional enterprise project profile design.
+
+==================================================
+PROJECT CATEGORIES
+==================================================
+
+Below header create responsive icon cards grid.
+
+Display square cards.
+
+Each card contains:
+
+- Icon
+- Arabic Label
+- Document Count
+
+Cards must be clickable.
+
+Categories:
+
+1. Contracts
+2. Quotations
+3. Employees Data
+4. Reports
+5. Images
+6. Meetings
+7. Letters
+8. Contractors
+9. Drawings
+
+Suggested Icons:
+
+Contracts → File Signature
+Quotations → Receipt
+Employees Data → Users
+Reports → Bar Chart
+Images → Image
+Meetings → Calendar
+Letters → Mail
+Contractors → Hard Hat
+Drawings → Blueprint / Ruler
+
+Card Features:
+
+- Hover Effect
+- Modern Animation
+- Responsive Design
+
+==================================================
+LATEST DOCUMENTS SECTION
+==================================================
+
+Below category cards create:
+
+Latest Documents
+
+Table Columns:
+
+- Document Number
+- Document Name
+- Document Type
+- Added Date
+
+Show recent documents related to the opened project.
+
+==================================================
+VIEW ALL DOCUMENTS
+==================================================
+
+Add Button:
+
+View All Documents
+
+Navigates to:
+
+/documents
+
+==================================================
+DOCUMENTS PAGE
+==================================================
+
+Create complete Documents Module.
+
+Features:
+
+- Search
+- Filter by Document Type
+- Filter by Project
+- Sort by Date
+- Responsive Table
+
+Columns:
+
+- Document Number
+- Document Name
+- Project Name
+- Document Type
+- Added Date
+
+==================================================
+GLOBAL DOCUMENT NUMBERING SYSTEM
+==================================================
+
+Every document added anywhere in the system must automatically receive a unique sequential number.
+
+Examples:
+
+Images:
+
+PIC-1
+PIC-2
+PIC-3
+
+Reports:
+
+REP-1
+REP-2
+
+Contracts:
+
+CON-1
+CON-2
+
+The numbering must be GLOBAL across all projects.
+
+Example:
+
+Project A:
+PIC-10
+
+Project B:
+PIC-11
+
+Project C:
+PIC-12
+
+Do NOT restart numbering for each project.
+
+==================================================
+ADD NEW PROJECT
+==================================================
+
+Create Add New Project Dialog.
+
+Fields:
+
+- Project Name
+- Auto Generated Project Number
+- Project Start Date
+- Project Status
+
+Status Options:
+
+- Active
+- Completed
+
+Additional Fields:
+
+- Client Name
+- Project Cover Image Upload
+
+==================================================
+DOCUMENTS SECTION INSIDE PROJECT CREATION
+==================================================
+
+While creating a project allow user to add documents.
+
+For every document require:
+
+- Document Name
+- Document Type
+
+Document Types:
+
+- Contract
+- Quotation
+- Employee Data
+- Report
+- Image
+- Meeting
+- Letter
+- Contractor
+- Drawing
+
+Automatically generate document numbers.
+
+==================================================
+MOCK DATA
+==================================================
+
+Generate realistic mock data.
+
+Minimum:
+
+30 Projects
+
+Each project contains:
+
+- ID
+- Project Number
+- Project Name
+- Client Name
+- Cover Image
+- Creation Date
+- Last Update Date
+- Status
+
+Generate sample documents for each project.
+
+Generate realistic Arabic architectural project names.
+
+==================================================
+UI/UX REQUIREMENTS
+==================================================
+
+Design Style:
+
+- Modern Enterprise SaaS
+- Architectural Industry Theme
+- Minimalist
+- Professional
+- Clean Typography
+- Rounded Cards
+- Soft Shadows
+- Spacious Layout
+- High Readability
+
+==================================================
+TECHNICAL REQUIREMENTS
+==================================================
+
+- Reusable Components
+- Clean Folder Structure
+- TypeScript Types
+- RTL Support
+- Responsive Design
+- Dark Mode Persistence
+- Mock Data Architecture
+- Professional Code Organization
+
+IMPORTANT:
+
+Do NOT create any backend.
+Do NOT use any database.
+Do NOT connect to APIs.
+Do NOT implement authentication server logic.
+Use local mock data only.
+
+Build a fully navigable, production-quality frontend prototype suitable for demonstrating an Architectural Archive Management System.
