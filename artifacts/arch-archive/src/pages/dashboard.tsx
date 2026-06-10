@@ -187,6 +187,11 @@ export default function Dashboard() {
               })}
             </TableBody>
           </Table>
+          <div className="p-4 border-t border-border flex justify-center">
+            <Button variant="outline" asChild data-testid="dashboard-view-all-docs-btn">
+              <Link href="/documents">عرض جميع المستندات</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

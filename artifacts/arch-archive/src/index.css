@@ -153,57 +153,68 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255,255,255, .12);
+  --badge-outline: rgba(255,255,255, .08);
 
   --opaque-button-border-intensity: 9;
 
   --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-2: rgba(255,255,255, .08);
 
-  --background: 216 65% 11%;
-  --foreground: 214 100% 95%;
-  --border: 218 58% 16%;
+  /* Deep navy background */
+  --background: 216 55% 9%;
+  --foreground: 213 80% 93%;
+  --border: 216 44% 18%;
 
-  --card: 218 58% 16%;
-  --card-foreground: 214 100% 95%;
-  --card-border: 218 58% 16%;
+  /* Cards are one shade lighter than background for depth */
+  --card: 216 50% 13%;
+  --card-foreground: 213 80% 93%;
+  --card-border: 216 44% 18%;
 
-  --sidebar: 216 65% 11%;
-  --sidebar-foreground: 214 100% 95%;
-  --sidebar-border: 218 58% 16%;
-  --sidebar-primary: 214 52% 25%;
-  --sidebar-primary-foreground: 214 100% 95%;
-  --sidebar-accent: 218 58% 16%;
-  --sidebar-accent-foreground: 214 100% 95%;
-  --sidebar-ring: 217 49% 30%;
+  /* Sidebar matches background */
+  --sidebar: 216 55% 9%;
+  --sidebar-foreground: 213 80% 93%;
+  --sidebar-border: 216 44% 18%;
+  --sidebar-primary: 215 60% 34%;
+  --sidebar-primary-foreground: 213 80% 93%;
+  --sidebar-accent: 216 46% 17%;
+  --sidebar-accent-foreground: 213 80% 93%;
+  --sidebar-ring: 215 60% 44%;
 
-  --popover: 216 65% 11%;
-  --popover-foreground: 214 100% 95%;
-  --popover-border: 218 58% 16%;
+  /* Popovers and dropdowns are slightly lighter than cards */
+  --popover: 216 50% 14%;
+  --popover-foreground: 213 80% 93%;
+  --popover-border: 216 44% 20%;
 
-  --primary: 214 52% 25%;
-  --primary-foreground: 214 100% 95%;
+  /* Primary = bright navy blue */
+  --primary: 215 72% 52%;
+  --primary-foreground: 216 55% 9%;
 
-  --secondary: 218 58% 16%;
-  --secondary-foreground: 214 100% 95%;
+  /* Secondary = subtle navy for hover backgrounds */
+  --secondary: 216 46% 17%;
+  --secondary-foreground: 213 80% 93%;
 
-  --muted: 218 58% 16%;
-  --muted-foreground: 214 100% 95%;
+  /* Muted = slightly lighter for subdued backgrounds */
+  --muted: 216 44% 16%;
+  --muted-foreground: 213 40% 60%;
 
-  --accent: 214 52% 25%;
-  --accent-foreground: 214 100% 95%;
+  /* Accent = mid-navy for interactive highlights */
+  --accent: 215 60% 34%;
+  --accent-foreground: 213 80% 93%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 214 100% 95%;
+  /* Inputs have visible bg */
+  --input: 216 46% 17%;
+  --ring: 215 72% 52%;
 
-  --input: 218 58% 16%;
-  --ring: 217 49% 30%;
-  --chart-1: 214 52% 25%;
-  --chart-2: 217 49% 30%;
-  --chart-3: 142 71% 45%;
-  --chart-4: 218 58% 16%;
-  --chart-5: 214 100% 95%;
+  /* Destructive slightly more vibrant */
+  --destructive: 0 72% 38%;
+  --destructive-foreground: 213 80% 93%;
+
+  --chart-1: 215 72% 52%;
+  --chart-2: 215 60% 44%;
+  --chart-3: 142 60% 42%;
+  --chart-4: 216 44% 22%;
+  --chart-5: 213 80% 93%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);

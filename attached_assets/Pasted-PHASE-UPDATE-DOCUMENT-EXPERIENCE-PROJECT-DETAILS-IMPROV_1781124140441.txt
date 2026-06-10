@@ -1,0 +1,346 @@
+PHASE UPDATE – DOCUMENT EXPERIENCE & PROJECT DETAILS IMPROVEMENTS
+
+Continue working on the existing Architectural Archive Management System.
+
+IMPORTANT:
+
+* Do NOT rebuild the application.
+* Modify the existing implementation only.
+* Keep React + TypeScript + Tailwind CSS.
+* Keep Arabic RTL support.
+* Keep Dark Mode and Light Mode.
+* Keep existing mock data architecture.
+* Keep all existing project management features.
+
+==================================================
+DASHBOARD - LATEST DOCUMENTS TABLE
+==================================
+
+In Dashboard page:
+
+Latest Documents section currently contains a table.
+
+Add:
+
+"View All"
+
+button below the table exactly like the Latest Projects section.
+
+Requirements:
+
+* Keep current functionality.
+* Place View All at the bottom of the section.
+* Align with RTL layout.
+* Use the same design language as Latest Projects.
+
+==================================================
+DARK MODE IMPROVEMENTS
+======================
+
+Improve dark mode consistency across the application.
+
+Requirements:
+
+* Better color harmony.
+* Consistent navy blue shades.
+* Better contrast between cards and backgrounds.
+* Better readability for tables.
+* Better readability for filters.
+* Better hover states.
+* Better badge colors.
+* Better dropdown colors.
+
+Avoid overly bright colors.
+
+Create a premium enterprise appearance.
+
+==================================================
+PROJECT HEADER REDESIGN
+=======================
+
+When opening any project:
+
+Display ALL project information directly on the project cover image.
+
+Overlay project information on top of the banner image.
+
+Display:
+
+* Project Name
+* Project Number
+* Client Name
+* Project Status
+* City
+* Project Type
+* Creation Date
+* Last Updated Date
+
+Requirements:
+
+* Elegant overlay.
+* Semi-transparent background.
+* Responsive layout.
+* Modern enterprise style.
+
+==================================================
+ADD DOCUMENTS INSIDE PROJECT
+============================
+
+Inside Project Details page add:
+
+"Add Documents"
+
+button.
+
+When clicked open a modal/dialog.
+
+==================================================
+MULTIPLE DOCUMENT UPLOAD
+========================
+
+The user must be able to upload multiple documents in one operation.
+
+Requirements:
+
+Allow:
+
+* Select multiple files.
+* Choose document type for each file.
+* Review all selected files before saving.
+
+Example:
+
+File 1 → Contract
+File 2 → Drawing
+File 3 → Image
+File 4 → Report
+
+Then press one Save button.
+
+Do NOT require repeating the upload process for each document.
+
+==================================================
+DOCUMENT PREVIEW SYSTEM
+=======================
+
+Every uploaded document must support preview.
+
+Requirements:
+
+Supported previews:
+
+PDF:
+
+* Display embedded PDF preview.
+
+Images:
+
+* Display image preview.
+
+Word Documents:
+
+* Show document icon and preview panel mockup.
+
+Excel Files:
+
+* Show spreadsheet preview mockup.
+
+Drawings:
+
+* Show large preview image.
+
+==================================================
+CATEGORY DOCUMENTS IMPROVEMENT
+==============================
+
+When opening:
+
+* Contracts
+* Reports
+* Drawings
+* Images
+* Meetings
+* Letters
+* Quotations
+* Contractors
+* Employee Data
+
+Do NOT only display a table.
+
+Instead:
+
+Display:
+
+1. Documents List
+2. Document Preview Area
+
+Layout:
+
+Left Side:
+
+* Documents
+
+Right Side:
+
+* Preview Panel
+
+When user selects a document:
+
+Immediately show preview.
+
+No additional page navigation required.
+
+==================================================
+VIEW ALL DOCUMENTS INSIDE PROJECT
+=================================
+
+Currently:
+
+"View All Documents"
+
+navigates to Documents page.
+
+Remove this behavior.
+
+New behavior:
+
+When user clicks:
+
+"View All Documents"
+
+inside a project:
+
+Show all project documents inside the SAME project page.
+
+Do NOT navigate away.
+
+==================================================
+PROJECT DOCUMENTS SECTION
+=========================
+
+Create expandable section:
+
+All Project Documents
+
+Display all documents related to the current project.
+
+==================================================
+MULTIPLE VIEW MODES
+===================
+
+For All Project Documents add view modes similar to Projects page.
+
+Modes:
+
+1. Grid View
+2. List View
+3. Table View
+
+==================================================
+GRID VIEW
+=========
+
+Each document card should display:
+
+* Document Thumbnail
+* Document Number
+* Document Type
+* Upload Date
+
+If document is:
+
+Image:
+
+* Show image thumbnail.
+
+PDF:
+
+* Show generated preview thumbnail.
+
+Word:
+
+* Show document preview thumbnail.
+
+Excel:
+
+* Show spreadsheet thumbnail.
+
+==================================================
+LIST VIEW
+=========
+
+Compact horizontal cards.
+
+Show:
+
+* Thumbnail
+* Name
+* Type
+* Date
+
+==================================================
+TABLE VIEW
+==========
+
+Columns:
+
+* Preview
+* Document Number
+* Document Type
+* Upload Date
+* Actions
+
+==================================================
+INSTANT DOCUMENT PREVIEW
+========================
+
+Regardless of selected view mode:
+
+When user clicks any document:
+
+Immediately open preview panel.
+
+Preview should appear:
+
+* In side drawer
+  OR
+* Modal dialog
+
+without navigating to another page.
+
+==================================================
+PREVIEW FEATURES
+================
+
+Preview modal should contain:
+
+* Large preview area
+* Document Number
+* Document Type
+* Upload Date
+
+Actions:
+
+* Close
+* Download (mock action)
+
+==================================================
+UI/UX REQUIREMENTS
+==================
+
+Maintain enterprise SaaS design.
+
+Requirements:
+
+* Professional spacing.
+* Smooth animations.
+* Responsive layouts.
+* Modern cards.
+* Consistent dark mode.
+* RTL support.
+
+The document experience should resemble a professional document management system rather than a simple file table.
+
+Do not add backend.
+Do not add database.
+Keep everything based on local mock data.
