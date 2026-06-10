@@ -155,9 +155,8 @@ export default function Dashboard() {
 
       {/* Recent Documents */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-0">
+        <CardHeader className="pb-0">
           <CardTitle className="text-lg">أحدث المستندات</CardTitle>
-          <Link href="/documents" className="text-sm text-primary hover:underline" data-testid="dashboard-view-all-docs">عرض الكل</Link>
         </CardHeader>
         <CardContent className="p-0 mt-4">
           <Table>

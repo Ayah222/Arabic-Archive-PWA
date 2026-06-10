@@ -4,8 +4,7 @@ import { DocumentType } from '../../types';
 import { docTypeLabels } from '../../lib/docUtils';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
-import { Badge } from '../ui/badge';
-import { Upload, Trash2, Plus, CheckCircle2 } from 'lucide-react';
+import { Upload, Trash2, Plus, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface AddDocumentsDialogProps {
   open: boolean;
@@ -16,12 +15,33 @@ interface AddDocumentsDialogProps {
 interface FileRow {
   file: File;
   type: DocumentType | '';
+  error?: string;
 }
 
 const DOC_TYPES: DocumentType[] = [
   'contract', 'quotation', 'employee_data', 'report',
   'image', 'meeting', 'letter', 'contractor', 'drawing',
 ];
+
+const IMAGE_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'avif', 'heic', 'heif', 'ico',
+]);
+
+function getExtension(filename: string): string {
+  return filename.split('.').pop()?.toLowerCase() || '';
+}
+
+function isImageFile(filename: string): boolean {
+  return IMAGE_EXTENSIONS.has(getExtension(filename));
+}
+
+function validateRow(file: File, type: DocumentType | ''): string | undefined {
+  if (type === 'image' && !isImageFile(file.name)) {
+    const ext = getExtension(file.name) || 'غير معروف';
+    return `نوع الملف "${ext}" ليس صورة. يجب اختيار ملف بامتداد: jpg، jpeg، png، gif، webp، bmp، svg، tiff`;
+  }
+  return undefined;
+}
 
 export default function AddDocumentsDialog({ open, onOpenChange, projectId }: AddDocumentsDialogProps) {
   const { addDocument, getNextDocNumber } = useAppContext();
@@ -41,16 +61,23 @@ export default function AddDocumentsDialog({ open, onOpenChange, projectId }: Ad
   };
 
   const handleTypeChange = (index: number, type: DocumentType) => {
-    setRows(prev => prev.map((r, i) => i === index ? { ...r, type } : r));
+    setRows(prev => prev.map((r, i) => {
+      if (i !== index) return r;
+      const error = validateRow(r.file, type);
+      return { ...r, type, error };
+    }));
   };
 
   const handleRemove = (index: number) => {
     setRows(prev => prev.filter((_, i) => i !== index));
   };
 
+  const hasErrors = rows.some(r => !!r.error);
   const allTypesSelected = rows.length > 0 && rows.every(r => r.type !== '');
+  const canSave = allTypesSelected && !hasErrors;
 
   const handleSave = () => {
+    if (!canSave) return;
     rows.forEach(row => {
       if (!row.type) return;
       addDocument({
@@ -119,75 +146,74 @@ export default function AddDocumentsDialog({ open, onOpenChange, projectId }: Ad
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">{rows.length} ملف محدد</p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setRows([])}
-                >
+                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setRows([])}>
                   مسح الكل
                 </Button>
               </div>
 
               <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
                 {rows.map((row, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 transition-colors"
-                    data-testid={`file-row-${index}`}
-                  >
-                    {/* File icon */}
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-primary uppercase">
-                        {row.file.name.split('.').pop()?.slice(0, 3) || 'DOC'}
-                      </span>
-                    </div>
-
-                    {/* File name */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" title={row.file.name}>{row.file.name}</p>
-                      <p className="text-xs text-muted-foreground">{(row.file.size / 1024).toFixed(0)} KB</p>
-                    </div>
-
-                    {/* Type selector */}
-                    <div className="w-36 shrink-0">
-                      <select
-                        className={selectClass}
-                        value={row.type}
-                        onChange={e => handleTypeChange(index, e.target.value as DocumentType)}
-                        data-testid={`select-file-type-${index}`}
-                      >
-                        <option value="" disabled>نوع المستند</option>
-                        {DOC_TYPES.map(t => (
-                          <option key={t} value={t}>{docTypeLabels[t]}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Status */}
-                    {row.type ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
-                    )}
-
-                    {/* Remove */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="w-7 h-7 text-destructive hover:bg-destructive/10 shrink-0"
-                      onClick={() => handleRemove(index)}
+                  <div key={index} className="space-y-1">
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${row.error ? 'border-destructive bg-destructive/5' : 'border-border bg-muted/20 hover:bg-muted/40'}`}
+                      data-testid={`file-row-${index}`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                      {/* File icon */}
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${row.error ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                        <span className={`text-xs font-bold uppercase ${row.error ? 'text-destructive' : 'text-primary'}`}>
+                          {getExtension(row.file.name).slice(0, 3) || 'DOC'}
+                        </span>
+                      </div>
+
+                      {/* File name */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" title={row.file.name}>{row.file.name}</p>
+                        <p className="text-xs text-muted-foreground">{(row.file.size / 1024).toFixed(0)} KB</p>
+                      </div>
+
+                      {/* Type selector */}
+                      <div className="w-36 shrink-0">
+                        <select
+                          className={`${selectClass} ${row.error ? 'border-destructive focus:ring-destructive' : ''}`}
+                          value={row.type}
+                          onChange={e => handleTypeChange(index, e.target.value as DocumentType)}
+                          data-testid={`select-file-type-${index}`}
+                        >
+                          <option value="" disabled>نوع المستند</option>
+                          {DOC_TYPES.map(t => (
+                            <option key={t} value={t}>{docTypeLabels[t]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Status icon */}
+                      {row.error ? (
+                        <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                      ) : row.type ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                      )}
+
+                      {/* Remove */}
+                      <Button type="button" variant="ghost" size="icon" className="w-7 h-7 text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleRemove(index)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Error message */}
+                    {row.error && (
+                      <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/8 border border-destructive/20">
+                        <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+                        <p className="text-xs text-destructive leading-relaxed">{row.error}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
-              {!allTypesSelected && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+              {!allTypesSelected && !hasErrors && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
                   يرجى تحديد نوع لجميع الملفات قبل الحفظ
                 </p>
               )}
@@ -200,7 +226,7 @@ export default function AddDocumentsDialog({ open, onOpenChange, projectId }: Ad
           <Button
             type="button"
             onClick={handleSave}
-            disabled={!allTypesSelected}
+            disabled={!canSave}
             className="gap-2"
             data-testid="button-save-documents"
           >

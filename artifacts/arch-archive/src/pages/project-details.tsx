@@ -9,12 +9,10 @@ import {
   ArrowRight, FileSignature, Receipt, Users, BarChart2,
   Image as ImageIcon, Calendar, Mail, HardHat, Ruler,
   Pencil, Trash2, MapPin, Building2, Plus, LayoutGrid,
-  List, Table2, Download, Eye, FileText, Clock,
+  List, Table2, Download, Eye, FileText, Clock, CheckSquare,
 } from 'lucide-react';
 import { Document, DocumentType, PROJECT_TYPES } from '../types';
-import {
-  getPreviewType, getThumbnailUrl, previewTypeColors, docTypeLabels,
-} from '../lib/docUtils';
+import { getPreviewType, getThumbnailUrl, previewTypeColors, docTypeLabels } from '../lib/docUtils';
 import EditProjectDialog from '../components/projects/EditProjectDialog';
 import AddDocumentsDialog from '../components/documents/AddDocumentsDialog';
 import DocumentPreviewModal from '../components/documents/DocumentPreviewModal';
@@ -25,18 +23,15 @@ import {
 } from '../components/ui/alert-dialog';
 
 interface ProjectDetailsProps { id: string; }
-
 type ViewMode = 'grid' | 'list' | 'table';
 
-/* ─────────────────────────────────────── */
-/* Shared thumbnail component              */
-/* ─────────────────────────────────────── */
+/* ── Shared thumbnail ── */
 function DocThumb({ doc, size = 'md' }: { doc: Document; size?: 'sm' | 'md' | 'lg' }) {
   const pt = getPreviewType(doc.type);
   const thumb = getThumbnailUrl(doc.id, doc.type);
   const col = previewTypeColors[pt];
-  const dim = size === 'sm' ? 'w-10 h-10' : size === 'lg' ? 'w-full h-48' : 'w-full h-36';
-  const iconSize = size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-2xl' : 'text-base';
+  const dim = size === 'sm' ? 'w-10 h-10' : size === 'lg' ? 'w-full h-40' : 'w-full h-32';
+  const iconSize = size === 'sm' ? 'text-xs' : 'text-base';
 
   if (pt === 'image' && thumb) {
     return (
@@ -53,9 +48,7 @@ function DocThumb({ doc, size = 'md' }: { doc: Document; size?: 'sm' | 'md' | 'l
   );
 }
 
-/* ─────────────────────────────────────── */
-/* Inline preview panel (split view)       */
-/* ─────────────────────────────────────── */
+/* ── Inline split-view preview panel ── */
 function InlinePreview({ doc }: { doc: Document | null }) {
   if (!doc) {
     return (
@@ -68,11 +61,8 @@ function InlinePreview({ doc }: { doc: Document | null }) {
   const pt = getPreviewType(doc.type);
   const thumb = getThumbnailUrl(doc.id, doc.type);
   const col = previewTypeColors[pt];
-  const typeLabel = docTypeLabels[doc.type];
-
   return (
     <div className="flex-1 rounded-xl border border-border bg-card overflow-hidden flex flex-col min-h-80">
-      {/* Preview area */}
       <div className="flex-1 bg-muted/30 flex items-center justify-center p-4">
         {pt === 'image' && thumb ? (
           <img src={thumb} alt={doc.name} className="max-h-72 max-w-full rounded-lg object-contain shadow-md" />
@@ -83,9 +73,8 @@ function InlinePreview({ doc }: { doc: Document | null }) {
           </div>
         )}
       </div>
-      {/* Meta */}
       <div className="p-4 border-t border-border space-y-3">
-        <p className="font-semibold text-sm truncate" title={doc.name}>{doc.name}</p>
+        <p className="font-semibold text-sm truncate">{doc.name}</p>
         <div className="grid grid-cols-3 gap-2 text-xs">
           <div>
             <p className="text-muted-foreground">الرقم</p>
@@ -93,7 +82,7 @@ function InlinePreview({ doc }: { doc: Document | null }) {
           </div>
           <div>
             <p className="text-muted-foreground">النوع</p>
-            <Badge variant="outline" className="text-xs mt-0.5">{typeLabel}</Badge>
+            <Badge variant="outline" className="text-xs mt-0.5">{docTypeLabels[doc.type]}</Badge>
           </div>
           <div>
             <p className="text-muted-foreground">التاريخ</p>
@@ -101,19 +90,16 @@ function InlinePreview({ doc }: { doc: Document | null }) {
           </div>
         </div>
         <Button size="sm" className="w-full gap-2" onClick={() => alert('تحميل المستند (محاكاة)')}>
-          <Download className="w-3.5 h-3.5" />
-          تحميل
+          <Download className="w-3.5 h-3.5" />تحميل
         </Button>
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────────────────── */
-/* Main page component                     */
-/* ─────────────────────────────────────── */
+/* ══════════════════════════════════════ */
 export default function ProjectDetails({ id }: ProjectDetailsProps) {
-  const { projects, documents, deleteProject } = useAppContext();
+  const { projects, documents, deleteProject, deleteDocument, deleteDocuments } = useAppContext();
   const [, setLocation] = useLocation();
 
   const [selectedCategory, setSelectedCategory] = useState<DocumentType | 'all'>('all');
@@ -123,6 +109,9 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const [addDocsOpen, setAddDocsOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [splitPreviewDoc, setSplitPreviewDoc] = useState<Document | null>(null);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [singleDeleteDoc, setSingleDeleteDoc] = useState<Document | null>(null);
 
   const project = projects.find(p => p.id === id);
 
@@ -166,12 +155,46 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const handleDelete = () => { deleteProject(id); setLocation('/projects'); };
 
   const handleCategoryClick = (type: DocumentType) => {
-    if (type === selectedCategory) {
-      setSelectedCategory('all');
-      setSplitPreviewDoc(null);
+    if (type === selectedCategory) { setSelectedCategory('all'); setSplitPreviewDoc(null); }
+    else { setSelectedCategory(type); setSplitPreviewDoc(null); setSelectedDocs(new Set()); }
+  };
+
+  /* ── Selection helpers ── */
+  const toggleSelect = (docId: string) => {
+    setSelectedDocs(prev => {
+      const next = new Set(prev);
+      next.has(docId) ? next.delete(docId) : next.add(docId);
+      return next;
+    });
+  };
+
+  const isAllSelected = filteredDocs.length > 0 && filteredDocs.every(d => selectedDocs.has(d.id));
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedDocs(new Set());
     } else {
-      setSelectedCategory(type);
-      setSplitPreviewDoc(null);
+      setSelectedDocs(new Set(filteredDocs.map(d => d.id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    deleteDocuments(Array.from(selectedDocs));
+    setSelectedDocs(new Set());
+    setSplitPreviewDoc(null);
+    setBulkDeleteOpen(false);
+  };
+
+  const handleSingleDelete = (doc: Document) => {
+    setSingleDeleteDoc(doc);
+  };
+
+  const confirmSingleDelete = () => {
+    if (singleDeleteDoc) {
+      deleteDocument(singleDeleteDoc.id);
+      if (splitPreviewDoc?.id === singleDeleteDoc.id) setSplitPreviewDoc(null);
+      if (previewDoc?.id === singleDeleteDoc.id) setPreviewDoc(null);
+      setSelectedDocs(prev => { const n = new Set(prev); n.delete(singleDeleteDoc.id); return n; });
+      setSingleDeleteDoc(null);
     }
   };
 
@@ -180,98 +203,160 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
     ? 'جميع مستندات المشروع'
     : `مستندات: ${categories.find(c => c.type === selectedCategory)?.label}`;
 
-  /* ─── View Mode rendering helpers ─── */
-  const renderGridDoc = (doc: Document) => (
-    <Card
-      key={doc.id}
-      className="overflow-hidden cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-      onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
-      data-testid={`doc-card-${doc.id}`}
-    >
-      <DocThumb doc={doc} size="lg" />
-      <CardContent className="p-3">
-        <p className="font-mono text-xs text-primary font-bold mb-1">{doc.number}</p>
-        <p className="text-xs font-medium leading-tight truncate mb-2" title={doc.name}>{doc.name}</p>
-        <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-xs">{docTypeLabels[doc.type]}</Badge>
-          <span className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString('ar-SA')}</span>
-        </div>
-      </CardContent>
-    </Card>
+  /* ── Checkbox element ── */
+  const Checkbox = ({ checked, onChange, onClick }: { checked: boolean; onChange: () => void; onClick?: (e: React.MouseEvent) => void }) => (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      onClick={onClick}
+      className="w-4 h-4 rounded border-border cursor-pointer accent-primary shrink-0"
+    />
   );
 
-  const renderListDoc = (doc: Document) => (
-    <div
-      key={doc.id}
-      className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary cursor-pointer transition-all"
-      onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
-      data-testid={`doc-list-${doc.id}`}
-    >
-      <DocThumb doc={doc} size="sm" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{doc.name}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="font-mono text-xs text-primary">{doc.number}</span>
-          <Badge variant="outline" className="text-xs h-4">{docTypeLabels[doc.type]}</Badge>
+  /* ── Grid card ── */
+  const renderGridDoc = (doc: Document) => {
+    const isSelected = selectedDocs.has(doc.id);
+    return (
+      <div
+        key={doc.id}
+        className={`relative rounded-xl border overflow-hidden cursor-pointer transition-all group ${isSelected ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-border bg-card hover:border-primary hover:shadow-md'}`}
+        onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
+        data-testid={`doc-card-${doc.id}`}
+      >
+        {/* Checkbox overlay */}
+        <div
+          className="absolute top-2 right-2 z-10"
+          onClick={e => { e.stopPropagation(); toggleSelect(doc.id); }}
+        >
+          <Checkbox checked={isSelected} onChange={() => toggleSelect(doc.id)} />
+        </div>
+        {/* Delete on hover */}
+        <div
+          className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={e => { e.stopPropagation(); handleSingleDelete(doc); }}
+        >
+          <button className="w-6 h-6 rounded-md bg-destructive/90 text-white flex items-center justify-center hover:bg-destructive">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <DocThumb doc={doc} size="lg" />
+        <div className="p-3">
+          <p className="font-mono text-xs text-primary font-bold mb-1">{doc.number}</p>
+          <p className="text-xs font-medium leading-tight truncate mb-2" title={doc.name}>{doc.name}</p>
+          <div className="flex items-center justify-between">
+            <Badge variant="outline" className="text-xs">{docTypeLabels[doc.type]}</Badge>
+            <span className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString('ar-SA')}</span>
+          </div>
         </div>
       </div>
-      <div className="text-left shrink-0">
-        <p className="text-xs text-muted-foreground whitespace-nowrap">{new Date(doc.createdAt).toLocaleDateString('ar-SA')}</p>
-      </div>
-    </div>
-  );
+    );
+  };
 
+  /* ── List item ── */
+  const renderListDoc = (doc: Document) => {
+    const isSelected = selectedDocs.has(doc.id);
+    return (
+      <div
+        key={doc.id}
+        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-card hover:border-primary'}`}
+        data-testid={`doc-list-${doc.id}`}
+      >
+        <div onClick={e => e.stopPropagation()}>
+          <Checkbox checked={isSelected} onChange={() => toggleSelect(doc.id)} />
+        </div>
+        <div
+          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+          onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
+        >
+          <DocThumb doc={doc} size="sm" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{doc.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="font-mono text-xs text-primary">{doc.number}</span>
+              <Badge variant="outline" className="text-xs h-4">{docTypeLabels[doc.type]}</Badge>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+            {new Date(doc.createdAt).toLocaleDateString('ar-SA')}
+          </p>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); handleSingleDelete(doc); }}
+          className="shrink-0 w-7 h-7 rounded-md text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors"
+          title="حذف المستند"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  };
+
+  /* ── Table ── */
   const renderTableDocs = () => (
     <Table>
       <TableHeader>
         <TableRow className="border-b-2 border-border bg-muted/60">
-          <TableHead className="text-right font-bold text-foreground py-3 px-4 w-16">معاينة</TableHead>
+          <TableHead className="text-right py-3 px-3 w-10">
+            <Checkbox checked={isAllSelected} onChange={toggleSelectAll} />
+          </TableHead>
+          <TableHead className="text-right font-bold text-foreground py-3 px-3 w-14">معاينة</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">رقم المستند</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">اسم المستند</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">نوع المستند</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">تاريخ الإضافة</TableHead>
-          <TableHead className="text-right font-bold text-foreground py-3 px-4 w-20">الإجراءات</TableHead>
+          <TableHead className="text-right font-bold text-foreground py-3 px-3 w-20">الإجراءات</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {filteredDocs.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">لا توجد مستندات</TableCell>
+            <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">لا توجد مستندات</TableCell>
           </TableRow>
-        ) : filteredDocs.map((doc, i) => (
-          <TableRow
-            key={doc.id}
-            className={`border-b border-border hover:bg-muted/40 transition-colors cursor-pointer ${i % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}
-            onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
-          >
-            <TableCell className="py-2 px-4">
-              <DocThumb doc={doc} size="sm" />
-            </TableCell>
-            <TableCell className="font-mono text-sm font-bold text-primary py-3 px-4">{doc.number}</TableCell>
-            <TableCell className="font-medium max-w-[240px] truncate py-3 px-4">{doc.name}</TableCell>
-            <TableCell className="py-3 px-4">
-              <Badge variant="outline" className="bg-muted text-xs">{docTypeLabels[doc.type]}</Badge>
-            </TableCell>
-            <TableCell className="py-3 px-4 text-muted-foreground whitespace-nowrap text-sm">
-              {new Date(doc.createdAt).toLocaleDateString('ar-SA')}
-            </TableCell>
-            <TableCell className="py-3 px-4">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={e => { e.stopPropagation(); setPreviewDoc(doc); }}
-              >
-                <Eye className="w-3.5 h-3.5" />
-              </Button>
-            </TableCell>
-          </TableRow>
-        ))}
+        ) : filteredDocs.map((doc, i) => {
+          const isSelected = selectedDocs.has(doc.id);
+          return (
+            <TableRow
+              key={doc.id}
+              className={`border-b border-border transition-colors ${isSelected ? 'bg-primary/5' : i % 2 === 0 ? 'bg-background hover:bg-muted/40' : 'bg-muted/10 hover:bg-muted/40'}`}
+            >
+              <TableCell className="py-2 px-3" onClick={e => e.stopPropagation()}>
+                <Checkbox checked={isSelected} onChange={() => toggleSelect(doc.id)} />
+              </TableCell>
+              <TableCell className="py-2 px-3">
+                <div
+                  className="cursor-pointer"
+                  onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
+                >
+                  <DocThumb doc={doc} size="sm" />
+                </div>
+              </TableCell>
+              <TableCell className="font-mono text-sm font-bold text-primary py-3 px-4 cursor-pointer" onClick={() => setPreviewDoc(doc)}>{doc.number}</TableCell>
+              <TableCell className="font-medium max-w-[220px] truncate py-3 px-4 cursor-pointer" onClick={() => setPreviewDoc(doc)}>{doc.name}</TableCell>
+              <TableCell className="py-3 px-4">
+                <Badge variant="outline" className="bg-muted text-xs">{docTypeLabels[doc.type]}</Badge>
+              </TableCell>
+              <TableCell className="py-3 px-4 text-muted-foreground whitespace-nowrap text-sm">
+                {new Date(doc.createdAt).toLocaleDateString('ar-SA')}
+              </TableCell>
+              <TableCell className="py-3 px-3">
+                <div className="flex items-center gap-1">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setPreviewDoc(doc)}>
+                    <Eye className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleSingleDelete(doc)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
 
-  /* ─── Documents content area ─── */
+  /* ── Documents content ── */
   const renderDocsContent = () => {
     if (filteredDocs.length === 0) {
       return (
@@ -288,23 +373,37 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
     if (isSplitView) {
       return (
         <div className="flex gap-4">
-          {/* List panel (right in RTL) */}
           <div className="w-72 shrink-0 space-y-2 max-h-[520px] overflow-y-auto pl-2">
-            {filteredDocs.map(doc => (
-              <div
-                key={doc.id}
-                className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${splitPreviewDoc?.id === doc.id ? 'border-primary bg-primary/8 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/40'}`}
-                onClick={() => setSplitPreviewDoc(doc)}
-              >
-                <DocThumb doc={doc} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate">{doc.name}</p>
-                  <p className="font-mono text-xs text-primary">{doc.number}</p>
+            {filteredDocs.map(doc => {
+              const isSelected = selectedDocs.has(doc.id);
+              return (
+                <div
+                  key={doc.id}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all group ${splitPreviewDoc?.id === doc.id ? 'border-primary bg-primary/8 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/40'}`}
+                >
+                  <div onClick={e => e.stopPropagation()} className="shrink-0">
+                    <Checkbox checked={isSelected} onChange={() => toggleSelect(doc.id)} />
+                  </div>
+                  <div
+                    className="flex items-center gap-2 flex-1 min-w-0"
+                    onClick={() => setSplitPreviewDoc(doc)}
+                  >
+                    <DocThumb doc={doc} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate">{doc.name}</p>
+                      <p className="font-mono text-xs text-primary">{doc.number}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleSingleDelete(doc); }}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 w-6 h-6 rounded text-destructive hover:bg-destructive/10 flex items-center justify-center transition-all"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          {/* Preview panel (left in RTL) */}
           <InlinePreview doc={splitPreviewDoc} />
         </div>
       );
@@ -317,52 +416,40 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
         </div>
       );
     }
-    if (viewMode === 'list') {
-      return <div className="space-y-2">{filteredDocs.map(renderListDoc)}</div>;
-    }
+    if (viewMode === 'list') return <div className="space-y-2">{filteredDocs.map(renderListDoc)}</div>;
     return <div className="overflow-auto">{renderTableDocs()}</div>;
   };
 
-  /* ─── Render ─── */
+  /* ══════════════ RENDER ══════════════ */
   return (
     <div className="space-y-6">
 
       {/* ── Top action bar ── */}
       <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          onClick={() => setLocation('/projects')}
-          className="gap-2 pr-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
-          data-testid="button-back-projects"
-        >
+        <Button variant="ghost" onClick={() => setLocation('/projects')} className="gap-2 pr-0 hover:bg-transparent text-muted-foreground hover:text-foreground" data-testid="button-back-projects">
           <ArrowRight className="w-4 h-4" />
           العودة للمشاريع
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2" data-testid="button-edit-project">
-            <Pencil className="w-4 h-4" />
-            تعديل
+            <Pencil className="w-4 h-4" />تعديل
           </Button>
           <Button onClick={() => setAddDocsOpen(true)} size="sm" className="gap-2" data-testid="button-add-documents">
-            <Plus className="w-4 h-4" />
-            إضافة مستندات
+            <Plus className="w-4 h-4" />إضافة مستندات
           </Button>
           <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)} className="gap-2" data-testid="button-delete-project">
-            <Trash2 className="w-4 h-4" />
-            حذف
+            <Trash2 className="w-4 h-4" />حذف
           </Button>
         </div>
       </div>
 
-      {/* ── Banner with full info overlay ── */}
+      {/* ── Banner ── */}
       <div className="relative w-full rounded-2xl overflow-hidden shadow-xl" style={{ height: '420px' }}>
         <img src={project.coverImage} alt={project.name} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
 
-        {/* Multi-layer gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
-
-        {/* Top-left badge strip */}
+        {/* Top badges */}
         <div className="absolute top-5 right-5 flex items-center gap-2">
           <Badge className={`text-sm px-3 py-1 font-semibold shadow-lg ${project.status === 'active' ? 'bg-emerald-500/90 hover:bg-emerald-600 text-white' : 'bg-blue-500/90 hover:bg-blue-600 text-white'}`}>
             {project.status === 'active' ? '● نشط' : '✓ مكتمل'}
@@ -370,41 +457,38 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           <span className="font-mono text-xs text-white/70 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-md">{project.number}</span>
         </div>
 
-        {/* Bottom info overlay */}
+        {/* Bottom info — clean text, no boxes */}
         <div className="absolute bottom-0 inset-x-0 p-6 space-y-4">
-          {/* Project name */}
-          <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow-lg">
+          <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
             {project.name}
           </h1>
-
-          {/* Info grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-              <p className="text-white/50 text-xs mb-0.5">العميل</p>
-              <p className="text-white font-semibold text-sm truncate">{project.client}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
+            <div>
+              <p className="text-white/55 text-xs mb-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>العميل</p>
+              <p className="text-white font-bold text-sm truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{project.client}</p>
             </div>
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-white/10 flex gap-2">
-              <MapPin className="w-4 h-4 text-white/40 mt-0.5 shrink-0" />
+            <div className="flex gap-1.5 items-start">
+              <MapPin className="w-3.5 h-3.5 text-white/50 mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="text-white/50 text-xs mb-0.5">المدينة</p>
-                <p className="text-white font-semibold text-sm truncate">{project.city}</p>
+                <p className="text-white/55 text-xs mb-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>المدينة</p>
+                <p className="text-white font-bold text-sm truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{project.city}</p>
               </div>
             </div>
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-white/10 flex gap-2">
-              <Building2 className="w-4 h-4 text-white/40 mt-0.5 shrink-0" />
+            <div className="flex gap-1.5 items-start">
+              <Building2 className="w-3.5 h-3.5 text-white/50 mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="text-white/50 text-xs mb-0.5">نوع المشروع</p>
-                <p className="text-white font-semibold text-sm truncate">{PROJECT_TYPES[project.projectType]}</p>
+                <p className="text-white/55 text-xs mb-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>نوع المشروع</p>
+                <p className="text-white font-bold text-sm truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{PROJECT_TYPES[project.projectType]}</p>
               </div>
             </div>
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Clock className="w-3 h-3 text-white/40" />
-                <p className="text-white/50 text-xs">تاريخ الإنشاء</p>
+            <div>
+              <div className="flex items-center gap-1 mb-0.5">
+                <Clock className="w-3 h-3 text-white/50" />
+                <p className="text-white/55 text-xs" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>تاريخ الإنشاء</p>
               </div>
-              <p className="text-white font-medium text-xs">{new Date(project.createdAt).toLocaleDateString('ar-SA')}</p>
-              <p className="text-white/50 text-xs mt-1.5">آخر تحديث</p>
-              <p className="text-white font-medium text-xs">{new Date(project.updatedAt).toLocaleDateString('ar-SA')}</p>
+              <p className="text-white font-medium text-xs" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{new Date(project.createdAt).toLocaleDateString('ar-SA')}</p>
+              <p className="text-white/55 text-xs mt-1.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>آخر تحديث</p>
+              <p className="text-white font-medium text-xs" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>{new Date(project.updatedAt).toLocaleDateString('ar-SA')}</p>
             </div>
           </div>
         </div>
@@ -415,7 +499,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">أقسام المستندات</h2>
           {selectedCategory !== 'all' && (
-            <Button variant="ghost" size="sm" onClick={() => { setSelectedCategory('all'); setSplitPreviewDoc(null); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setSelectedCategory('all'); setSplitPreviewDoc(null); setSelectedDocs(new Set()); }}>
               عرض كل المستندات
             </Button>
           )}
@@ -448,14 +532,29 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 
       {/* ── Documents Section ── */}
       <Card>
-        {/* Section toolbar */}
+        {/* Bulk action bar */}
+        {selectedDocs.size > 0 && (
+          <div className="px-4 py-2.5 border-b border-border bg-primary/5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">تم تحديد {selectedDocs.size} مستند</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedDocs(new Set())}>إلغاء التحديد</Button>
+              <Button variant="destructive" size="sm" className="gap-2" onClick={() => setBulkDeleteOpen(true)}>
+                <Trash2 className="w-3.5 h-3.5" />
+                حذف المحددة
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Toolbar */}
         <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold">{sectionTitle}</h2>
             <Badge variant="secondary" className="font-mono text-xs">{filteredDocs.length}</Badge>
           </div>
-
-          {/* Controls — hide view mode buttons when in split view */}
           <div className="flex items-center gap-2">
             {!isSplitView && (
               <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
@@ -472,16 +571,12 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
               </div>
             )}
             <Button size="sm" variant="outline" className="gap-2" onClick={() => setAddDocsOpen(true)}>
-              <Plus className="w-4 h-4" />
-              إضافة
+              <Plus className="w-4 h-4" />إضافة
             </Button>
           </div>
         </div>
 
-        {/* Documents content */}
-        <div className="p-4">
-          {renderDocsContent()}
-        </div>
+        <div className="p-4">{renderDocsContent()}</div>
       </Card>
 
       {/* ── Dialogs ── */}
@@ -489,6 +584,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
       <AddDocumentsDialog open={addDocsOpen} onOpenChange={setAddDocsOpen} projectId={id} />
       <EditProjectDialog open={editOpen} onOpenChange={setEditOpen} project={project} />
 
+      {/* Project delete */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -499,12 +595,44 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 flex-row-reverse sm:flex-row-reverse">
             <AlertDialogCancel data-testid="button-cancel-delete">إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete">
               حذف المشروع
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk documents delete */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف المستندات المحددة</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم حذف <span className="font-semibold text-foreground">{selectedDocs.size} مستند</span> بشكل نهائي. هل أنت متأكد؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 flex-row-reverse sm:flex-row-reverse">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف {selectedDocs.size} مستند
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Single document delete */}
+      <AlertDialog open={!!singleDeleteDoc} onOpenChange={open => !open && setSingleDeleteDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف المستند</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم حذف "<span className="font-semibold text-foreground">{singleDeleteDoc?.name}</span>" بشكل نهائي.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 flex-row-reverse sm:flex-row-reverse">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSingleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف المستند
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

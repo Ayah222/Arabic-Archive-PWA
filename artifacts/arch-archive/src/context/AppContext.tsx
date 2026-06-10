@@ -14,6 +14,8 @@ interface AppContextType {
   deleteProject: (id: string) => void;
   documents: Document[];
   addDocument: (doc: Document) => void;
+  deleteDocument: (id: string) => void;
+  deleteDocuments: (ids: string[]) => void;
   getNextDocNumber: (type: DocumentType) => string;
 }
 
@@ -73,6 +75,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const deleteDocument = (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+  };
+
+  const deleteDocuments = (ids: string[]) => {
+    const idSet = new Set(ids);
+    setDocuments(prev => prev.filter(d => !idSet.has(d.id)));
+  };
+
   const getNextDocNumber = (type: DocumentType) => {
     const prefixes: Record<DocumentType, string> = {
       contract: 'CON', quotation: 'QUO', employee_data: 'EMP',
@@ -88,7 +99,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       theme, toggleTheme, userType, login, logout,
       projects, addProject, updateProject, deleteProject,
-      documents, addDocument, getNextDocNumber,
+      documents, addDocument, deleteDocument, deleteDocuments, getNextDocNumber,
     }}>
       {children}
     </AppContext.Provider>

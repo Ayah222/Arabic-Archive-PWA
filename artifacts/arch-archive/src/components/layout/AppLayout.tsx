@@ -73,7 +73,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </h2>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* User type badge */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted border border-border">
+              <User className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-medium whitespace-nowrap">
+                {userType === 'manager' ? 'مدير النظام' : 'موظف إدخال بيانات'}
+              </span>
+            </div>
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </Button>
