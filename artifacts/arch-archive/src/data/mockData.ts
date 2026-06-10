@@ -1,6 +1,6 @@
-import { Project, Document, DocumentType } from '../types';
+import { Project, Document, DocumentType, ProjectType, CITIES } from '../types';
 
-export const projectNames = [
+const projectNames = [
   "مشروع برج الأعمال المركزي",
   "تطوير كورنيش الملك فهد",
   "مشروع مستشفى الأمل التخصصي",
@@ -30,7 +30,7 @@ export const projectNames = [
   "مشروع المجمع التجاري الفاخر",
   "توسعة الطريق الدائري الجنوبي",
   "مشروع المركز المالي العالمي",
-  "تخطيط المنطقة الصناعية الجديدة"
+  "تخطيط المنطقة الصناعية الجديدة",
 ];
 
 const clients = [
@@ -40,7 +40,19 @@ const clients = [
   "وزارة الصحة",
   "الهيئة الملكية",
   "شركة التطوير العمراني",
-  "الشركة الوطنية للاستثمار"
+  "الشركة الوطنية للاستثمار",
+  "وزارة التعليم",
+  "أمانة منطقة مكة المكرمة",
+  "هيئة تطوير المنطقة الشرقية",
+];
+
+const projectTypes: ProjectType[] = [
+  'commercial', 'residential', 'healthcare', 'urban_planning', 'residential',
+  'infrastructure', 'educational', 'infrastructure', 'urban_planning', 'infrastructure',
+  'landscape', 'mixed_use', 'infrastructure', 'commercial', 'mixed_use',
+  'infrastructure', 'administrative', 'infrastructure', 'administrative', 'mixed_use',
+  'healthcare', 'mixed_use', 'residential', 'administrative', 'infrastructure',
+  'hospitality', 'commercial', 'infrastructure', 'commercial', 'industrial',
 ];
 
 const typePrefixes: Record<DocumentType, string> = {
@@ -52,52 +64,66 @@ const typePrefixes: Record<DocumentType, string> = {
   meeting: 'MTG',
   letter: 'LTR',
   contractor: 'CTR',
-  drawing: 'DRW'
+  drawing: 'DRW',
 };
 
 const docCounts: Record<DocumentType, number> = {
-  contract: 0,
-  quotation: 0,
-  employee_data: 0,
-  report: 0,
-  image: 0,
-  meeting: 0,
-  letter: 0,
-  contractor: 0,
-  drawing: 0
+  contract: 0, quotation: 0, employee_data: 0, report: 0, image: 0,
+  meeting: 0, letter: 0, contractor: 0, drawing: 0,
+};
+
+const docNamesByType: Record<DocumentType, string[]> = {
+  contract: ['عقد تنفيذ الأعمال', 'عقد الاستشارة الهندسية', 'عقد التوريد', 'عقد الصيانة'],
+  quotation: ['عرض سعر مقاولة', 'عرض سعر توريد مواد', 'عرض سعر تصميم', 'عرض سعر إشراف'],
+  employee_data: ['بيانات المهندس المشرف', 'بيانات فريق التصميم', 'بيانات المراقب الميداني'],
+  report: ['تقرير التقدم الشهري', 'تقرير الجودة', 'تقرير الموقع', 'تقرير الانتهاء'],
+  image: ['صور الموقع الابتدائية', 'صور مرحلة الإنشاء', 'صور التسليم النهائي'],
+  meeting: ['محضر الاجتماع التأسيسي', 'اجتماع متابعة التنفيذ', 'اجتماع التسليم'],
+  letter: ['خطاب إشعار البدء', 'خطاب تمديد المدة', 'خطاب المطالبة المالية'],
+  contractor: ['بيانات المقاول الرئيسي', 'بيانات مقاول الكهرباء', 'بيانات مقاول السباكة'],
+  drawing: ['مخططات الموقع العام', 'مخططات المعمارية', 'مخططات الإنشائية', 'مخططات الكهربائية'],
 };
 
 export const mockProjects: Project[] = projectNames.map((name, index) => {
   const isCompleted = index % 3 === 0;
+  const baseDate = new Date(2023, 0, 1).getTime();
+  const createdAt = new Date(baseDate + index * 15 * 24 * 60 * 60 * 1000).toISOString();
+  const updatedAt = new Date(baseDate + index * 15 * 24 * 60 * 60 * 1000 + Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000).toISOString();
   return {
     id: `proj_${index + 1}`,
     number: `PRJ-${String(index + 1).padStart(3, '0')}`,
     name,
     client: clients[index % clients.length],
+    city: CITIES[index % CITIES.length],
+    projectType: projectTypes[index],
     status: isCompleted ? 'completed' : 'active',
-    createdAt: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
-    updatedAt: new Date(Date.now() - Math.random() * 1000000000).toISOString(),
-    coverImage: `https://picsum.photos/seed/arch_${index + 1}/800/400`
+    createdAt,
+    updatedAt,
+    coverImage: `https://picsum.photos/seed/arch_${index + 1}/800/400`,
   };
 });
 
 export const mockDocuments: Document[] = [];
 
 mockProjects.forEach((project) => {
-  const numDocs = Math.floor(Math.random() * 10) + 5;
+  const numDocs = Math.floor(Math.random() * 8) + 4;
   const types: DocumentType[] = Object.keys(typePrefixes) as DocumentType[];
-  
+
   for (let i = 0; i < numDocs; i++) {
     const type = types[Math.floor(Math.random() * types.length)];
     docCounts[type]++;
-    
+    const nameOptions = docNamesByType[type];
+    const docName = nameOptions[Math.floor(Math.random() * nameOptions.length)];
+
     mockDocuments.push({
-      id: `doc_${Math.random().toString(36).substring(2, 9)}`,
+      id: `doc_${project.id}_${i}`,
       number: `${typePrefixes[type]}-${docCounts[type]}`,
-      name: `مستند ${typePrefixes[type]} لمشروع ${project.number}`,
+      name: `${docName} - ${project.name.split(' ').slice(0, 3).join(' ')}`,
       type,
       projectId: project.id,
-      createdAt: new Date(Date.now() - Math.random() * 5000000000).toISOString(),
+      createdAt: new Date(
+        new Date(project.createdAt).getTime() + Math.floor(Math.random() * 60) * 24 * 60 * 60 * 1000
+      ).toISOString(),
     });
   }
 });

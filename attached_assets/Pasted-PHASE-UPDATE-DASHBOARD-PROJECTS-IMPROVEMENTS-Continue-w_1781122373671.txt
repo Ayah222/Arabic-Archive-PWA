@@ -1,0 +1,342 @@
+PHASE UPDATE – DASHBOARD & PROJECTS IMPROVEMENTS
+
+Continue working on the existing Architectural Archive Management System.
+
+IMPORTANT:
+
+* Do NOT rebuild the application.
+* Modify the existing implementation only.
+* Keep React + TypeScript + Tailwind CSS.
+* Keep RTL Arabic support.
+* Keep Dark Mode / Light Mode.
+* Keep Navy Blue design system.
+* Keep existing mock data architecture.
+
+==================================================
+DASHBOARD IMPROVEMENTS
+======================
+
+Remove completely:
+
+1. Recently Added Projects Chart
+2. Project Status Chart
+
+The Dashboard should only contain:
+
+* KPI Statistics Cards
+* Latest Projects Table
+
+==================================================
+LATEST PROJECTS TABLE IMPROVEMENTS
+==================================
+
+Improve table appearance.
+
+Requirements:
+
+* Stronger table borders.
+* Clear row separation.
+* Better column spacing.
+* Professional enterprise table styling.
+* Sticky table header.
+
+Move "View All" button:
+
+Current:
+
+* Located at top of section.
+
+Required:
+
+* Place it below the table as the last element of the section.
+
+==================================================
+NEW PROJECT FIELD: CITY
+=======================
+
+Add a new project field:
+
+City
+
+Examples:
+
+* Jeddah
+* Makkah
+* Madinah
+* Riyadh
+* Dammam
+* Khobar
+* Taif
+* Yanbu
+* Tabuk
+* Abha
+
+Store city with every project.
+
+Display city in:
+
+* Project Card
+* Project Table
+* Project Details Page
+
+==================================================
+NEW PROJECT FIELD: PROJECT TYPE
+===============================
+
+Add project type field.
+
+Available types:
+
+* Residential
+* Commercial
+* Administrative
+* Hospitality
+* Educational
+* Healthcare
+* Industrial
+* Religious
+* Mixed Use
+* Infrastructure
+* Landscape
+* Urban Planning
+
+Store project type with every project.
+
+Display project type in:
+
+* Project Cards
+* Project Table
+* Project Details Page
+
+==================================================
+NEW PROJECT FORM IMPROVEMENTS
+=============================
+
+Inside Add New Project Form:
+
+Add:
+
+City Dropdown
+
+Project Type Dropdown
+
+Use Select menus.
+
+No free text input.
+
+==================================================
+DOCUMENT UPLOAD IMPROVEMENTS
+============================
+
+Inside Add Project Dialog:
+
+Current:
+
+Document Name
+Document Type
+
+Replace with:
+
+Upload Document
+Document Type
+
+Requirements:
+
+* Remove Document Name field completely.
+* Add upload control.
+* Uploaded file name should be extracted automatically.
+
+Document Type Select:
+
+Default placeholder:
+
+"Select Document Type"
+
+The placeholder should be visible initially.
+
+Only after opening dropdown should user see:
+
+* Contract
+* Quotation
+* Employee Data
+* Report
+* Image
+* Meeting
+* Letter
+* Contractor
+* Drawing
+
+==================================================
+NEW PROJECT SORTING OPTION
+==========================
+
+Projects Page currently supports:
+
+* Newest First
+* Oldest First
+
+Add:
+
+* Last Updated
+
+Last Updated must sort projects based on:
+
+updatedDate
+
+Examples of updates:
+
+* New document added
+* Project edited
+* New attachment uploaded
+
+==================================================
+PROJECT MANAGEMENT ACTIONS
+==========================
+
+Inside Project Details Page add:
+
+1. Edit Project Button
+2. Delete Project Button
+
+==================================================
+EDIT PROJECT
+============
+
+Allow editing:
+
+* Project Name
+* Client Name
+* City
+* Project Type
+* Status
+* Start Date
+* Cover Image
+
+Changes should update project data immediately.
+
+==================================================
+DELETE PROJECT
+==============
+
+Add delete confirmation dialog.
+
+Message example:
+
+"Are you sure you want to delete this project?"
+
+Provide:
+
+* Cancel
+* Delete
+
+==================================================
+PROJECT FILTERS IMPROVEMENTS
+============================
+
+Add advanced filtering.
+
+Filters:
+
+1. City
+2. Project Type
+3. Client
+
+All filters should work together.
+
+==================================================
+PROJECT STATUS FILTER REDESIGN
+==============================
+
+Current:
+
+Buttons:
+
+* All
+* Active
+* Completed
+
+Remove status buttons.
+
+Replace them with a dropdown filter.
+
+Label:
+
+Project Status
+
+Options:
+
+* All
+* Active
+* Completed
+
+Use the same design style as other filters.
+
+==================================================
+PROJECTS TABLE IMPROVEMENTS
+===========================
+
+Add new columns:
+
+* City
+* Project Type
+
+Updated columns:
+
+* Project Number
+* Project Name
+* Client
+* City
+* Project Type
+* Status
+* Creation Date
+* Last Update Date
+
+==================================================
+PROJECT DETAILS PAGE IMPROVEMENTS
+=================================
+
+Inside project header display:
+
+* Project Name
+* Project Number
+* Client
+* City
+* Project Type
+* Status
+* Creation Date
+* Last Update Date
+
+Maintain existing project image banner.
+
+==================================================
+MOCK DATA UPDATE
+================
+
+Update all sample projects.
+
+Every project must contain:
+
+* city
+* projectType
+* updatedDate
+
+Generate realistic combinations for architectural projects.
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Maintain professional enterprise appearance.
+
+Focus on:
+
+* Better spacing
+* Cleaner filters section
+* Better table readability
+* Consistent dropdown styling
+* Responsive behavior
+* RTL support
+
+Do not add backend.
+Do not add database.
+Keep everything based on local mock data.
