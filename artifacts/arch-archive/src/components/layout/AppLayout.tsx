@@ -45,6 +45,25 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           })}
         </nav>
 
+        {/* Botanical divider */}
+        <div className="px-4 py-3 opacity-[0.18] pointer-events-none overflow-hidden">
+          <svg viewBox="0 0 200 36" className="w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10,18 C35,4 65,0 100,6 C135,12 165,4 190,18"
+              stroke="#bbd7c8" strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M55,18 C65,8 80,5 100,6 C120,7 135,8 145,18"
+              stroke="#bbd7c8" strokeWidth="0.9" strokeLinecap="round" opacity="0.7"/>
+            <ellipse cx="100" cy="6" rx="7" ry="4" fill="#6dab8c" opacity="0.8"/>
+            <ellipse cx="35" cy="14" rx="5" ry="3" transform="rotate(-20 35 14)" fill="#6dab8c" opacity="0.6"/>
+            <ellipse cx="165" cy="14" rx="5" ry="3" transform="rotate(20 165 14)" fill="#6dab8c" opacity="0.6"/>
+            <ellipse cx="68" cy="9" rx="4" ry="2.5" transform="rotate(-10 68 9)" fill="#bbd7c8" opacity="0.7"/>
+            <ellipse cx="132" cy="9" rx="4" ry="2.5" transform="rotate(10 132 9)" fill="#bbd7c8" opacity="0.7"/>
+            <circle cx="10" cy="18" r="2" fill="#bbd7c8" opacity="0.6"/>
+            <circle cx="190" cy="18" r="2" fill="#bbd7c8" opacity="0.6"/>
+            <circle cx="100" cy="30" r="1.5" fill="#bbd7c8" opacity="0.4"/>
+            <path d="M100,6 L100,30" stroke="#bbd7c8" strokeWidth="0.8" opacity="0.5" strokeLinecap="round"/>
+          </svg>
+        </div>
+
         <div className="p-4 border-t border-sidebar-border mt-auto">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
