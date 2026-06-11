@@ -67,6 +67,17 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ═══════════════════════════════════════════════
+   COLOUR PALETTE — Ebony / Tamarind / Italian Plum
+                    Hearth Gold / Sonora Shade / Frappe
+   Ebony        #130A0D  → 340 31%  6%
+   Tamarind     #3F242A  → 346 27% 19%
+   Italian Plum #523344  → 327 23% 26%
+   Hearth Gold  #A67542  →  31 43% 46%
+   Sonora Shade #D19E7C  →  24 48% 65%
+   Frappe       #D4D8A2  →  65 41% 74%
+   ═══════════════════════════════════════════════ */
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
@@ -77,62 +88,71 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 91%;
-  
-  --card: 214 32% 91%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
+  /* Warm Frappe-tinted page background */
+  --background: 65 30% 97%;
+  --foreground: 340 31% 8%;
+  --border: 65 18% 86%;
 
-  --sidebar: 210 40% 98%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-border: 214 32% 91%;
-  --sidebar-primary: 224 64% 33%;
-  --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 214 32% 91%;
-  --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 221 83% 53%;
+  /* Pure white cards for contrast against warm bg */
+  --card: 0 0% 100%;
+  --card-foreground: 340 31% 8%;
+  --card-border: 65 18% 88%;
 
-  --popover: 210 40% 98%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
+  /* Deep Tamarind sidebar — rich & elegant */
+  --sidebar: 346 27% 14%;
+  --sidebar-foreground: 65 35% 88%;
+  --sidebar-border: 340 25% 10%;
+  --sidebar-primary: 31 43% 50%;
+  --sidebar-primary-foreground: 340 31% 5%;
+  --sidebar-accent: 346 25% 22%;
+  --sidebar-accent-foreground: 65 35% 88%;
+  --sidebar-ring: 31 43% 55%;
 
-  --primary: 224 64% 33%;
-  --primary-foreground: 210 40% 98%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 340 31% 8%;
+  --popover-border: 65 18% 88%;
 
-  --secondary: 214 32% 91%;
-  --secondary-foreground: 222 47% 11%;
+  /* Italian Plum — primary brand */
+  --primary: 327 23% 30%;
+  --primary-foreground: 65 35% 96%;
 
-  --muted: 214 32% 91%;
-  --muted-foreground: 222 47% 11%;
+  /* Soft Frappe tint — secondary surfaces */
+  --secondary: 65 25% 91%;
+  --secondary-foreground: 340 31% 12%;
 
-  --accent: 224 64% 33%;
-  --accent-foreground: 210 40% 98%;
+  /* Muted surfaces */
+  --muted: 65 20% 93%;
+  --muted-foreground: 327 12% 46%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  /* Hearth Gold — accent & highlights */
+  --accent: 31 43% 46%;
+  --accent-foreground: 65 40% 97%;
 
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
-  --chart-1: 224 64% 33%;
-  --chart-2: 221 83% 53%;
-  --chart-3: 142 71% 45%;
-  --chart-4: 214 32% 91%;
-  --chart-5: 222 47% 11%;
+  --destructive: 0 72% 48%;
+  --destructive-foreground: 65 35% 97%;
+
+  --input: 65 18% 89%;
+  --ring: 327 23% 40%;
+
+  /* Charts use full palette */
+  --chart-1: 327 23% 35%;
+  --chart-2: 31 43% 46%;
+  --chart-3: 24 48% 60%;
+  --chart-4: 65 35% 62%;
+  --chart-5: 346 27% 28%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: .5rem; /* 8px */
-  --shadow-2xs: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
-  --shadow-xs: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
-  --shadow-sm: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.05);
-  --shadow: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.05);
-  --shadow-md: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 2px 4px -1px hsl(222 47% 11% / 0.05);
-  --shadow-lg: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 4px 6px -1px hsl(222 47% 11% / 0.05);
-  --shadow-xl: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 8px 10px -1px hsl(222 47% 11% / 0.05);
-  --shadow-2xl: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
+  --radius: .5rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(340 31% 8% / 0.05);
+  --shadow-xs: 0px 2px 0px 0px hsl(340 31% 8% / 0.05);
+  --shadow-sm: 0px 2px 0px 0px hsl(340 31% 8% / 0.05), 0px 1px 2px -1px hsl(340 31% 8% / 0.06);
+  --shadow: 0px 2px 0px 0px hsl(340 31% 8% / 0.05), 0px 1px 2px -1px hsl(340 31% 8% / 0.06);
+  --shadow-md: 0px 2px 0px 0px hsl(340 31% 8% / 0.06), 0px 2px 4px -1px hsl(340 31% 8% / 0.08);
+  --shadow-lg: 0px 2px 0px 0px hsl(340 31% 8% / 0.06), 0px 4px 6px -1px hsl(340 31% 8% / 0.10);
+  --shadow-xl: 0px 2px 0px 0px hsl(340 31% 8% / 0.07), 0px 8px 10px -1px hsl(340 31% 8% / 0.12);
+  --shadow-2xl: 0px 2px 0px 0px hsl(340 31% 8% / 0.10);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -153,68 +173,66 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .12);
-  --badge-outline: rgba(255,255,255, .08);
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .07);
 
   --opaque-button-border-intensity: 9;
 
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .08);
 
-  /* Deep navy background */
-  --background: 216 55% 9%;
-  --foreground: 213 80% 93%;
-  --border: 216 44% 18%;
+  /* Ebony — deepest background */
+  --background: 340 31% 5%;
+  --foreground: 65 35% 86%;
+  --border: 336 20% 17%;
 
-  /* Cards are one shade lighter than background for depth */
-  --card: 216 50% 13%;
-  --card-foreground: 213 80% 93%;
-  --card-border: 216 44% 18%;
+  /* Tamarind — cards one shade lighter */
+  --card: 346 24% 13%;
+  --card-foreground: 65 35% 86%;
+  --card-border: 336 18% 19%;
 
-  /* Sidebar matches background */
-  --sidebar: 216 55% 9%;
-  --sidebar-foreground: 213 80% 93%;
-  --sidebar-border: 216 44% 18%;
-  --sidebar-primary: 215 60% 34%;
-  --sidebar-primary-foreground: 213 80% 93%;
-  --sidebar-accent: 216 46% 17%;
-  --sidebar-accent-foreground: 213 80% 93%;
-  --sidebar-ring: 215 60% 44%;
+  /* Sidebar matches background — unified look */
+  --sidebar: 340 31% 5%;
+  --sidebar-foreground: 65 35% 80%;
+  --sidebar-border: 336 22% 11%;
+  --sidebar-primary: 31 50% 56%;
+  --sidebar-primary-foreground: 340 31% 5%;
+  --sidebar-accent: 346 22% 18%;
+  --sidebar-accent-foreground: 65 35% 80%;
+  --sidebar-ring: 31 50% 56%;
 
-  /* Popovers and dropdowns are slightly lighter than cards */
-  --popover: 216 50% 14%;
-  --popover-foreground: 213 80% 93%;
-  --popover-border: 216 44% 20%;
+  --popover: 346 24% 14%;
+  --popover-foreground: 65 35% 86%;
+  --popover-border: 336 18% 21%;
 
-  /* Primary = bright navy blue */
-  --primary: 215 72% 52%;
-  --primary-foreground: 216 55% 9%;
+  /* Hearth Gold — primary on dark (warm, visible) */
+  --primary: 31 45% 58%;
+  --primary-foreground: 340 31% 5%;
 
-  /* Secondary = subtle navy for hover backgrounds */
-  --secondary: 216 46% 17%;
-  --secondary-foreground: 213 80% 93%;
+  /* Italian Plum area — secondary */
+  --secondary: 336 22% 22%;
+  --secondary-foreground: 65 35% 86%;
 
-  /* Muted = slightly lighter for subdued backgrounds */
-  --muted: 216 44% 16%;
-  --muted-foreground: 213 40% 60%;
+  /* Muted surfaces */
+  --muted: 336 18% 17%;
+  --muted-foreground: 24 28% 58%;
 
-  /* Accent = mid-navy for interactive highlights */
-  --accent: 215 60% 34%;
-  --accent-foreground: 213 80% 93%;
+  /* Hearth Gold accent */
+  --accent: 31 43% 50%;
+  --accent-foreground: 340 31% 5%;
 
-  /* Inputs have visible bg */
-  --input: 216 46% 17%;
-  --ring: 215 72% 52%;
+  --destructive: 0 65% 42%;
+  --destructive-foreground: 65 35% 92%;
 
-  /* Destructive slightly more vibrant */
-  --destructive: 0 72% 38%;
-  --destructive-foreground: 213 80% 93%;
+  --input: 336 20% 20%;
+  --ring: 31 50% 56%;
 
-  --chart-1: 215 72% 52%;
-  --chart-2: 215 60% 44%;
-  --chart-3: 142 60% 42%;
-  --chart-4: 216 44% 22%;
-  --chart-5: 213 80% 93%;
+  /* Charts use palette warm tones */
+  --chart-1: 31 50% 60%;
+  --chart-2: 24 48% 65%;
+  --chart-3: 327 30% 55%;
+  --chart-4: 65 35% 65%;
+  --chart-5: 346 32% 40%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
