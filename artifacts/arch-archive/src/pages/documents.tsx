@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { Search, Trash2, Eye, CheckSquare, FileText, LayoutGrid, List, Table2, ArrowUpDown } from 'lucide-react';
+import { Search, Trash2, Eye, CheckSquare, FileText, LayoutGrid, Table2, ArrowUpDown } from 'lucide-react';
 import DocumentPreviewModal from '../components/documents/DocumentPreviewModal';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -17,7 +17,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 
-type ViewMode = 'table' | 'grid' | 'list';
+type ViewMode = 'table' | 'list';
 
 /* ── Thumbnail ── */
 function DocThumb({ doc, size = 'sm' }: { doc: Document; size?: 'sm' | 'md' }) {
@@ -330,7 +330,7 @@ export default function Documents() {
               : `${filteredDocs.length} من ${documents.length} مستند`}
           </p>
           <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
-            {([['table', Table2], ['list', List], ['grid', LayoutGrid]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
+            {([['table', Table2], ['list', LayoutGrid]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -354,20 +354,6 @@ export default function Documents() {
                 <p>لا توجد مستندات تطابق معايير البحث</p>
               </div>
             ) : filteredDocs.map(renderListDoc)}
-          </div>
-        )}
-        {viewMode === 'grid' && (
-          <div className="p-4">
-            {filteredDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
-                <FileText className="w-10 h-10 opacity-30" />
-                <p>لا توجد مستندات تطابق معايير البحث</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {filteredDocs.map(renderGridDoc)}
-              </div>
-            )}
           </div>
         )}
       </Card>

@@ -9,7 +9,7 @@ import {
   ArrowRight, FileSignature, Receipt, Users, BarChart2,
   Image as ImageIcon, Calendar, Mail, HardHat, Ruler,
   Pencil, Trash2, MapPin, Building2, Plus, LayoutGrid,
-  List, Table2, Download, Eye, FileText, Clock, CheckSquare,
+  Table2, Download, Eye, FileText, Clock, CheckSquare,
 } from 'lucide-react';
 import { Document, DocumentType, PROJECT_TYPES } from '../types';
 import { getPreviewType, getThumbnailUrl, previewTypeColors, docTypeLabels } from '../lib/docUtils';
@@ -23,7 +23,7 @@ import {
 } from '../components/ui/alert-dialog';
 
 interface ProjectDetailsProps { id: string; }
-type ViewMode = 'grid' | 'list' | 'table';
+type ViewMode = 'list' | 'table';
 
 /* ── Shared thumbnail ── */
 function DocThumb({ doc, size = 'md' }: { doc: Document; size?: 'sm' | 'md' | 'lg' }) {
@@ -103,7 +103,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const [, setLocation] = useLocation();
 
   const [selectedCategory, setSelectedCategory] = useState<DocumentType | 'all'>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [addDocsOpen, setAddDocsOpen] = useState(false);
@@ -409,13 +409,6 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
       );
     }
 
-    if (viewMode === 'grid') {
-      return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredDocs.map(renderGridDoc)}
-        </div>
-      );
-    }
     if (viewMode === 'list') return <div className="space-y-2">{filteredDocs.map(renderListDoc)}</div>;
     return <div className="overflow-auto">{renderTableDocs()}</div>;
   };
@@ -558,7 +551,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           <div className="flex items-center gap-2">
             {!isSplitView && (
               <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
-                {([['grid', LayoutGrid], ['list', List], ['table', Table2]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
+                {([['list', LayoutGrid], ['table', Table2]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
