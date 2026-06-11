@@ -350,22 +350,38 @@ export default function Documents() {
         )}
 
         {/* Toolbar */}
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             {filteredDocs.length === documents.length
               ? `${filteredDocs.length} مستند`
               : `${filteredDocs.length} من ${documents.length} مستند`}
           </p>
-          <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
-            {([['grid', LayoutGrid], ['list', List]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode as ViewMode)}
-                className={`p-1.5 rounded-md transition-all ${viewMode === mode ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          <div className="flex items-center gap-2">
+            {viewMode === 'grid' && filteredDocs.length > 0 && (
+              <Button
+                size="sm"
+                variant={filteredDocs.every(d => selectedDocs.has(d.id)) ? 'default' : 'outline'}
+                className="gap-1.5 text-xs h-8"
+                onClick={() => {
+                  const allSelected = filteredDocs.every(d => selectedDocs.has(d.id));
+                  setSelectedDocs(allSelected ? new Set() : new Set(filteredDocs.map(d => d.id)));
+                }}
               >
-                <Icon className="w-4 h-4" />
-              </button>
-            ))}
+                <CheckSquare className="w-3.5 h-3.5" />
+                {filteredDocs.every(d => selectedDocs.has(d.id)) ? 'إلغاء الكل' : 'تحديد الكل'}
+              </Button>
+            )}
+            <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
+              {([['grid', LayoutGrid], ['list', List]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode as ViewMode)}
+                  className={`p-1.5 rounded-md transition-all ${viewMode === mode ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon className="w-4 h-4" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
