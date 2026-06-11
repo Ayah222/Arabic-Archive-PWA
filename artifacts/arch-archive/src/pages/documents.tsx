@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { Search, Trash2, Eye, CheckSquare, FileText, List, Table2, ArrowUpDown } from 'lucide-react';
+import { Search, Trash2, Eye, CheckSquare, FileText, LayoutGrid, List, ArrowUpDown } from 'lucide-react';
 import DocumentPreviewModal from '../components/documents/DocumentPreviewModal';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -17,7 +17,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 
-type ViewMode = 'table' | 'list';
+type ViewMode = 'grid' | 'list';
 
 /* ── Thumbnail ── */
 function DocThumb({ doc, size = 'sm' }: { doc: Document; size?: 'sm' | 'md' }) {
@@ -60,7 +60,7 @@ export default function Documents() {
   const [typeFilter, setTypeFilter] = useState<DocumentType | 'all'>('all');
   const [projectFilter, setProjectFilter] = useState<string>(initialProjectId);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
@@ -110,36 +110,51 @@ export default function Documents() {
     setSingleDeleteDoc(null);
   };
 
-  /* ── Grid card ── */
+  /* ── Gallery card (grid view – 70% preview / 30% info) ── */
   const renderGridDoc = (doc: Document) => {
     const isSelected = selectedDocs.has(doc.id);
     const project = projects.find(p => p.id === doc.projectId);
+    const pt = getPreviewType(doc.type);
+    const thumb = getThumbnailUrl(doc.id, doc.type);
+    const col = previewTypeColors[pt];
     return (
       <div
         key={doc.id}
-        className={`relative rounded-xl border overflow-hidden cursor-pointer transition-all group ${isSelected ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-border bg-card hover:border-primary hover:shadow-md'}`}
+        className={`relative rounded-2xl border overflow-hidden cursor-pointer transition-all duration-200 group
+          ${isSelected
+            ? 'border-primary ring-2 ring-primary/40 shadow-lg shadow-primary/10 bg-card'
+            : 'border-border bg-card hover:border-primary/70 hover:shadow-xl hover:-translate-y-1'}`}
         onClick={() => setPreviewDoc(doc)}
       >
-        {/* Checkbox */}
-        <div className="absolute top-2 right-2 z-10" onClick={e => { e.stopPropagation(); toggleSelect(doc.id); }}>
-          <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="w-4 h-4 rounded border-border cursor-pointer accent-primary" />
+        {/* Checkbox – top right */}
+        <div className="absolute top-2.5 right-2.5 z-20" onClick={e => { e.stopPropagation(); toggleSelect(doc.id); }}>
+          <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="w-4 h-4 rounded cursor-pointer accent-primary shadow" />
         </div>
-        {/* Delete on hover */}
-        <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => { e.stopPropagation(); setSingleDeleteDoc(doc); }}>
-          <button className="w-6 h-6 rounded-md bg-destructive/90 text-white flex items-center justify-center hover:bg-destructive">
+        {/* Delete – top left, on hover */}
+        <div className="absolute top-2.5 left-2.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-150" onClick={e => { e.stopPropagation(); setSingleDeleteDoc(doc); }}>
+          <button className="w-7 h-7 rounded-lg bg-destructive/90 backdrop-blur-sm text-white flex items-center justify-center hover:bg-destructive shadow-md transition-colors">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-        <DocThumb doc={doc} size="md" />
-        <div className="p-3">
-          <p className="font-mono text-xs text-primary font-bold mb-0.5">{doc.number}</p>
-          <p className="text-xs font-semibold truncate mb-1" title={doc.name}>{doc.name}</p>
-          {project && (
-            <p className="text-xs text-muted-foreground truncate mb-1.5">{project.name}</p>
+        {/* ── Preview (70%) ── */}
+        <div className="h-44 overflow-hidden relative">
+          {pt === 'image' && thumb ? (
+            <img src={thumb} alt={doc.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${col.bg} flex flex-col items-center justify-center gap-2 select-none`}>
+              <span className="text-5xl font-black text-white/80 font-mono tracking-tighter leading-none">{col.ext}</span>
+              <span className="text-sm text-white/55 font-medium">{col.label}</span>
+            </div>
           )}
-          <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-xs">{docTypeLabels[doc.type]}</Badge>
-            <span className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString('ar-SA')}</span>
+          <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/15 to-transparent pointer-events-none" />
+        </div>
+        {/* ── Info (30%) ── */}
+        <div className="p-3 space-y-1.5">
+          <p className="font-mono text-xs font-bold text-primary">{doc.number}</p>
+          {project && <p className="text-xs text-muted-foreground truncate">{project.name}</p>}
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant="outline" className="text-xs shrink-0">{docTypeLabels[doc.type]}</Badge>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(doc.createdAt).toLocaleDateString('ar-SA')}</span>
           </div>
         </div>
       </div>
@@ -330,10 +345,10 @@ export default function Documents() {
               : `${filteredDocs.length} من ${documents.length} مستند`}
           </p>
           <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
-            {([['table', Table2], ['list', List]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
+            {([['grid', LayoutGrid], ['list', List]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
               <button
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => setViewMode(mode as ViewMode)}
                 className={`p-1.5 rounded-md transition-all ${viewMode === mode ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <Icon className="w-4 h-4" />
@@ -343,18 +358,22 @@ export default function Documents() {
         </div>
 
         {/* Content */}
-        {viewMode === 'table' && (
-          <div className="overflow-auto">{renderTable()}</div>
-        )}
-        {viewMode === 'list' && (
-          <div className="p-4 space-y-2">
+        {viewMode === 'grid' && (
+          <div className="p-4">
             {filteredDocs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
                 <FileText className="w-10 h-10 opacity-30" />
                 <p>لا توجد مستندات تطابق معايير البحث</p>
               </div>
-            ) : filteredDocs.map(renderListDoc)}
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {filteredDocs.map(renderGridDoc)}
+              </div>
+            )}
           </div>
+        )}
+        {viewMode === 'list' && (
+          <div className="overflow-auto">{renderTable()}</div>
         )}
       </Card>
 

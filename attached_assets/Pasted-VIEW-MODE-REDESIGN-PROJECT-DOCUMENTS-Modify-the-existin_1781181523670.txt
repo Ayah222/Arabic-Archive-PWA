@@ -1,0 +1,405 @@
+VIEW MODE REDESIGN – PROJECT DOCUMENTS
+
+
+
+Modify the existing Project Documents section.
+
+
+
+IMPORTANT:
+
+
+
+* Remove all current document view modes.
+
+* Keep only TWO view modes.
+
+* Maintain RTL layout.
+
+* Keep current design system.
+
+* Keep Dark Mode and Light Mode compatibility.
+
+
+
+==================================================
+
+VIEW MODE 1 – GRID VIEW
+
+=======================
+
+
+
+Replace the current grid view with a professional document gallery.
+
+
+
+GRID VIEW ICON
+
+
+
+The first view mode must use an icon that clearly represents a visual gallery/grid layout.
+
+
+
+Requirements:
+
+
+
+* The icon should immediately communicate that documents will be displayed as cards arranged in a grid.
+
+* Use a gallery-style or grid-style icon composed of multiple equal blocks.
+
+* The icon should visually differentiate itself from the list view icon.
+
+* When users see the icon, they should instantly understand that it switches to a card-based thumbnail view.
+
+
+
+This view is intended to display document cards with large content previews, similar to image galleries, file managers, or media libraries.
+
+
+
+
+
+Behavior:
+
+
+
+When selected:
+
+
+
+Display documents as large cards in a responsive grid.
+
+
+
+Each card should contain:
+
+
+
+* Large preview image
+
+* Document Number
+
+* Document Type
+
+* Upload Date
+
+
+
+==================================================
+
+DOCUMENT PREVIEW IMAGE
+
+======================
+
+
+
+The preview image must come from the actual document content.
+
+
+
+Examples:
+
+
+
+Images:
+
+
+
+* Display actual image thumbnail.
+
+
+
+PDF:
+
+
+
+* Generate thumbnail from first page.
+
+
+
+Word Documents:
+
+
+
+* Generate preview thumbnail from first page content.
+
+
+
+Excel Files:
+
+
+
+* Generate spreadsheet preview thumbnail.
+
+
+
+Drawings:
+
+
+
+* Display drawing preview image.
+
+
+
+Do NOT use generic file icons as the main preview.
+
+
+
+The content preview must be the dominant visual element.
+
+
+
+==================================================
+
+GRID CARD DESIGN
+
+================
+
+
+
+Card Layout:
+
+
+
+Top:
+
+Large preview image (70% of card height)
+
+
+
+Bottom:
+
+
+
+* Document Number
+
+* Document Type
+
+* Upload Date
+
+
+
+Requirements:
+
+
+
+* Large cards
+
+* Modern spacing
+
+* Hover animation
+
+* Rounded corners
+
+* Enterprise appearance
+
+
+
+==================================================
+
+VIEW MODE 2 – LIST VIEW
+
+=======================
+
+
+
+Use a list icon as the second view mode.
+
+
+
+This view should resemble a professional document table.
+
+
+
+The design should be similar to the attached reference image.
+
+
+
+==================================================
+
+LIST VIEW LAYOUT
+
+================
+
+
+
+Columns:
+
+
+
+* Selection Checkbox
+
+* Preview
+
+* Document Number
+
+* Document Name
+
+* Document Type
+
+* Upload Date
+
+* Actions
+
+
+
+==================================================
+
+PREVIEW COLUMN
+
+==============
+
+
+
+Instead of generic icons:
+
+
+
+Display a thumbnail generated from the document content.
+
+
+
+Examples:
+
+
+
+PDF:
+
+
+
+* First page preview
+
+
+
+Word:
+
+
+
+* First page preview
+
+
+
+Excel:
+
+
+
+* Spreadsheet preview
+
+
+
+Image:
+
+
+
+* Actual image thumbnail
+
+
+
+Drawing:
+
+
+
+* Actual drawing preview
+
+
+
+==================================================
+
+ACTIONS COLUMN
+
+==============
+
+
+
+Include:
+
+
+
+* Preview Button (Eye Icon)
+
+* Delete Button (Trash Icon)
+
+
+
+==================================================
+
+REMOVE EXTRA VIEW MODES
+
+=======================
+
+
+
+Only keep:
+
+
+
+1. Grid View (4-square icon)
+
+2. List View (list icon)
+
+
+
+Remove any additional view modes.
+
+
+
+==================================================
+
+DOCUMENT CLICK BEHAVIOR
+
+=======================
+
+
+
+In both Grid View and List View:
+
+
+
+When clicking any document:
+
+
+
+Immediately open document preview modal.
+
+
+
+Do not navigate to another page.
+
+
+
+==================================================
+
+UI REQUIREMENTS
+
+===============
+
+
+
+Grid View:
+
+
+
+* Visual
+
+* Image-focused
+
+* Large thumbnails
+
+
+
+List View:
+
+
+
+* Compact
+
+* Similar to professional archive systems
+
+* Similar to the attached reference design
+
+
+
+The document content preview should always be visible and should replace generic file icons wherever possible.
