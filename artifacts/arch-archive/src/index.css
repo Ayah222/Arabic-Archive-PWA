@@ -68,14 +68,12 @@
 }
 
 /* ═══════════════════════════════════════════════
-   COLOUR PALETTE — Ebony / Tamarind / Italian Plum
-                    Hearth Gold / Sonora Shade / Frappe
-   Ebony        #130A0D  → 340 31%  6%
-   Tamarind     #3F242A  → 346 27% 19%
-   Italian Plum #523344  → 327 23% 26%
-   Hearth Gold  #A67542  →  31 43% 46%
-   Sonora Shade #D19E7C  →  24 48% 65%
-   Frappe       #D4D8A2  →  65 41% 74%
+   COLOUR PALETTE — 翠光のワルツ | Waltz of Emerald Light
+   Near-black  #1b2121  → 180 10% 12%
+   Twilight Jade #1c434a → 189 45% 20%
+   Mystic Jade   #057569 → 174 92% 24%
+   Frosted Mint  #6dab8c → 150 27% 55%
+   Cloud Mint    #bbd7c8 → 148 26% 79%
    ═══════════════════════════════════════════════ */
 
 /* LIGHT MODE */
@@ -88,71 +86,71 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Warm Frappe-tinted page background */
-  --background: 65 30% 97%;
-  --foreground: 340 31% 8%;
-  --border: 65 18% 86%;
+  /* Cloud Mint-tinted page — clean & airy */
+  --background: 148 22% 96%;
+  --foreground: 180 10% 10%;
+  --border: 148 18% 86%;
 
-  /* Pure white cards for contrast against warm bg */
+  /* Pure white cards for crisp contrast */
   --card: 0 0% 100%;
-  --card-foreground: 340 31% 8%;
-  --card-border: 65 18% 88%;
+  --card-foreground: 180 10% 10%;
+  --card-border: 148 18% 88%;
 
-  /* Deep Tamarind sidebar — rich & elegant */
-  --sidebar: 346 27% 14%;
-  --sidebar-foreground: 65 35% 88%;
-  --sidebar-border: 340 25% 10%;
-  --sidebar-primary: 31 43% 50%;
-  --sidebar-primary-foreground: 340 31% 5%;
-  --sidebar-accent: 346 25% 22%;
-  --sidebar-accent-foreground: 65 35% 88%;
-  --sidebar-ring: 31 43% 55%;
+  /* Twilight Jade sidebar — deep & rich */
+  --sidebar: 189 45% 18%;
+  --sidebar-foreground: 148 26% 88%;
+  --sidebar-border: 189 50% 12%;
+  --sidebar-primary: 150 35% 60%;
+  --sidebar-primary-foreground: 189 50% 10%;
+  --sidebar-accent: 189 42% 26%;
+  --sidebar-accent-foreground: 148 26% 88%;
+  --sidebar-ring: 174 60% 40%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 340 31% 8%;
-  --popover-border: 65 18% 88%;
+  --popover-foreground: 180 10% 10%;
+  --popover-border: 148 18% 88%;
 
-  /* Italian Plum — primary brand */
-  --primary: 327 23% 30%;
-  --primary-foreground: 65 35% 96%;
+  /* Mystic Jade — vivid teal primary */
+  --primary: 174 92% 24%;
+  --primary-foreground: 148 26% 96%;
 
-  /* Soft Frappe tint — secondary surfaces */
-  --secondary: 65 25% 91%;
-  --secondary-foreground: 340 31% 12%;
+  /* Soft Cloud Mint — secondary surfaces */
+  --secondary: 148 20% 91%;
+  --secondary-foreground: 180 10% 12%;
 
   /* Muted surfaces */
-  --muted: 65 20% 93%;
-  --muted-foreground: 327 12% 46%;
+  --muted: 148 15% 93%;
+  --muted-foreground: 174 20% 44%;
 
-  /* Hearth Gold — accent & highlights */
-  --accent: 31 43% 46%;
-  --accent-foreground: 65 40% 97%;
+  /* Frosted Mint — accent */
+  --accent: 150 27% 52%;
+  --accent-foreground: 180 10% 8%;
 
   --destructive: 0 72% 48%;
-  --destructive-foreground: 65 35% 97%;
+  --destructive-foreground: 148 26% 97%;
 
-  --input: 65 18% 89%;
-  --ring: 327 23% 40%;
+  --input: 148 18% 89%;
+  --ring: 174 60% 36%;
 
-  /* Charts use full palette */
-  --chart-1: 327 23% 35%;
-  --chart-2: 31 43% 46%;
-  --chart-3: 24 48% 60%;
-  --chart-4: 65 35% 62%;
-  --chart-5: 346 27% 28%;
+  /* Charts — full palette spectrum */
+  --chart-1: 174 92% 28%;
+  --chart-2: 150 27% 52%;
+  --chart-3: 189 45% 38%;
+  --chart-4: 148 26% 65%;
+  --chart-5: 180 10% 35%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: .5rem;
-  --shadow-2xs: 0px 2px 0px 0px hsl(340 31% 8% / 0.05);
-  --shadow-xs: 0px 2px 0px 0px hsl(340 31% 8% / 0.05);
-  --shadow-sm: 0px 2px 0px 0px hsl(340 31% 8% / 0.05), 0px 1px 2px -1px hsl(340 31% 8% / 0.06);
-  --shadow: 0px 2px 0px 0px hsl(340 31% 8% / 0.05), 0px 1px 2px -1px hsl(340 31% 8% / 0.06);
-  --shadow-md: 0px 2px 0px 0px hsl(340 31% 8% / 0.06), 0px 2px 4px -1px hsl(340 31% 8% / 0.08);
-  --shadow-lg: 0px 2px 0px 0px hsl(340 31% 8% / 0.06), 0px 4px 6px -1px hsl(340 31% 8% / 0.10);
-  --shadow-xl: 0px 2px 0px 0px hsl(340 31% 8% / 0.07), 0px 8px 10px -1px hsl(340 31% 8% / 0.12);
-  --shadow-2xl: 0px 2px 0px 0px hsl(340 31% 8% / 0.10);
+  --shadow-2xs: 0px 2px 0px 0px hsl(174 92% 24% / 0.05);
+  --shadow-xs: 0px 2px 0px 0px hsl(174 92% 24% / 0.05);
+  --shadow-sm: 0px 2px 0px 0px hsl(174 92% 24% / 0.05), 0px 1px 2px -1px hsl(174 92% 24% / 0.07);
+  --shadow: 0px 2px 0px 0px hsl(174 92% 24% / 0.05), 0px 1px 2px -1px hsl(174 92% 24% / 0.07);
+  --shadow-md: 0px 2px 0px 0px hsl(174 92% 24% / 0.07), 0px 2px 4px -1px hsl(174 92% 24% / 0.09);
+  --shadow-lg: 0px 2px 0px 0px hsl(174 92% 24% / 0.08), 0px 4px 6px -1px hsl(174 92% 24% / 0.11);
+  --shadow-xl: 0px 2px 0px 0px hsl(174 92% 24% / 0.09), 0px 8px 10px -1px hsl(174 92% 24% / 0.13);
+  --shadow-2xl: 0px 2px 0px 0px hsl(174 92% 24% / 0.12);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -181,67 +179,67 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .08);
 
-  /* Ebony — deepest background */
-  --background: 340 31% 5%;
-  --foreground: 65 35% 86%;
-  --border: 336 20% 17%;
+  /* Near-black teal — deepest background */
+  --background: 180 10% 10%;
+  --foreground: 148 22% 84%;
+  --border: 189 25% 18%;
 
-  /* Tamarind — cards one shade lighter */
-  --card: 346 24% 13%;
-  --card-foreground: 65 35% 86%;
-  --card-border: 336 18% 19%;
+  /* Twilight Jade — cards one level up */
+  --card: 189 40% 15%;
+  --card-foreground: 148 22% 84%;
+  --card-border: 189 30% 20%;
 
-  /* Sidebar matches background — unified look */
-  --sidebar: 340 31% 5%;
-  --sidebar-foreground: 65 35% 80%;
-  --sidebar-border: 336 22% 11%;
-  --sidebar-primary: 31 50% 56%;
-  --sidebar-primary-foreground: 340 31% 5%;
-  --sidebar-accent: 346 22% 18%;
-  --sidebar-accent-foreground: 65 35% 80%;
-  --sidebar-ring: 31 50% 56%;
+  /* Sidebar same as background — unified */
+  --sidebar: 180 10% 9%;
+  --sidebar-foreground: 148 22% 80%;
+  --sidebar-border: 189 30% 14%;
+  --sidebar-primary: 150 32% 58%;
+  --sidebar-primary-foreground: 180 10% 8%;
+  --sidebar-accent: 189 38% 20%;
+  --sidebar-accent-foreground: 148 22% 80%;
+  --sidebar-ring: 150 32% 58%;
 
-  --popover: 346 24% 14%;
-  --popover-foreground: 65 35% 86%;
-  --popover-border: 336 18% 21%;
+  --popover: 189 40% 16%;
+  --popover-foreground: 148 22% 84%;
+  --popover-border: 189 30% 22%;
 
-  /* Hearth Gold — primary on dark (warm, visible) */
-  --primary: 31 45% 58%;
-  --primary-foreground: 340 31% 5%;
+  /* Frosted Mint — primary on dark (warm, visible) */
+  --primary: 150 30% 58%;
+  --primary-foreground: 180 10% 8%;
 
-  /* Italian Plum area — secondary */
-  --secondary: 336 22% 22%;
-  --secondary-foreground: 65 35% 86%;
+  /* Twilight Jade area — secondary */
+  --secondary: 189 35% 22%;
+  --secondary-foreground: 148 22% 84%;
 
   /* Muted surfaces */
-  --muted: 336 18% 17%;
-  --muted-foreground: 24 28% 58%;
+  --muted: 189 28% 17%;
+  --muted-foreground: 148 18% 56%;
 
-  /* Hearth Gold accent */
-  --accent: 31 43% 50%;
-  --accent-foreground: 340 31% 5%;
+  /* Mystic Jade — vivid accent on dark */
+  --accent: 174 60% 38%;
+  --accent-foreground: 180 10% 6%;
 
   --destructive: 0 65% 42%;
-  --destructive-foreground: 65 35% 92%;
+  --destructive-foreground: 148 22% 92%;
 
-  --input: 336 20% 20%;
-  --ring: 31 50% 56%;
+  --input: 189 32% 20%;
+  --ring: 150 32% 52%;
 
-  /* Charts use palette warm tones */
-  --chart-1: 31 50% 60%;
-  --chart-2: 24 48% 65%;
-  --chart-3: 327 30% 55%;
-  --chart-4: 65 35% 65%;
-  --chart-5: 346 32% 40%;
+  /* Charts */
+  --chart-1: 150 32% 58%;
+  --chart-2: 174 65% 40%;
+  --chart-3: 189 40% 45%;
+  --chart-4: 148 22% 65%;
+  --chart-5: 180 15% 40%;
 
-  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
-  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
-  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 1px 2px -1px hsl(0 0% 0% / 0.5);
-  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 1px 2px -1px hsl(0 0% 0% / 0.5);
-  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 2px 4px -1px hsl(0 0% 0% / 0.5);
-  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 4px 6px -1px hsl(0 0% 0% / 0.5);
-  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 8px 10px -1px hsl(0 0% 0% / 0.5);
-  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
+  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.6);
+  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.6);
+  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.6), 0px 1px 2px -1px hsl(0 0% 0% / 0.6);
+  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.6), 0px 1px 2px -1px hsl(0 0% 0% / 0.6);
+  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.6), 0px 2px 4px -1px hsl(0 0% 0% / 0.6);
+  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.6), 0px 4px 6px -1px hsl(0 0% 0% / 0.6);
+  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.6), 0px 8px 10px -1px hsl(0 0% 0% / 0.6);
+  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.6);
 }
 
 @layer base {
