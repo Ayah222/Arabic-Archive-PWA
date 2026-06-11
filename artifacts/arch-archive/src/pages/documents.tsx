@@ -416,7 +416,7 @@ export default function Documents() {
               سيتم حذف <span className="font-semibold text-foreground">{selectedDocs.size} مستند</span> بشكل نهائي. هل أنت متأكد؟
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 flex-row-reverse sm:flex-row-reverse">
+          <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               حذف {selectedDocs.size} مستند
@@ -433,7 +433,7 @@ export default function Documents() {
               سيتم حذف "<span className="font-semibold text-foreground">{singleDeleteDoc?.name}</span>" بشكل نهائي.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 flex-row-reverse sm:flex-row-reverse">
+          <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
             <AlertDialogAction onClick={confirmSingleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               حذف المستند
