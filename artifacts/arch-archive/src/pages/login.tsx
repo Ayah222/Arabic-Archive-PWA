@@ -65,6 +65,38 @@ export default function Login() {
         backgroundSize: '40px 40px',
       }}/>
 
+      {/* ── LASER LINES ── */}
+      {/* Wide horizontal beam — upper */}
+      <div style={{
+        position:'absolute', height:1, width:'80%', top:'22%', right:0, pointerEvents:'none',
+        background:'linear-gradient(to left, transparent 0%, rgba(0,212,131,0.55) 35%, rgba(0,212,131,0.80) 55%, transparent 100%)',
+        boxShadow:'0 0 10px rgba(0,212,131,0.55), 0 0 24px rgba(0,212,131,0.22)',
+      }}/>
+      {/* Horizontal beam — lower left */}
+      <div style={{
+        position:'absolute', height:1, width:'55%', top:'72%', left:0, pointerEvents:'none',
+        background:'linear-gradient(to right, transparent 0%, rgba(0,212,131,0.50) 40%, rgba(0,212,131,0.70) 60%, transparent 100%)',
+        boxShadow:'0 0 8px rgba(0,212,131,0.45)',
+      }}/>
+      {/* Short beam — bottom right */}
+      <div style={{
+        position:'absolute', height:1, width:'30%', top:'88%', right:'8%', pointerEvents:'none',
+        background:'linear-gradient(to left, transparent 0%, rgba(0,212,131,0.45) 50%, transparent 100%)',
+        boxShadow:'0 0 6px rgba(0,212,131,0.35)',
+      }}/>
+      {/* Vertical accent left */}
+      <div style={{
+        position:'absolute', width:1, height:'45%', top:'10%', left:'18%', pointerEvents:'none',
+        background:'linear-gradient(to bottom, transparent 0%, rgba(0,212,131,0.55) 35%, rgba(0,212,131,0.55) 65%, transparent 100%)',
+        boxShadow:'0 0 8px rgba(0,212,131,0.40)',
+      }}/>
+      {/* Vertical accent right */}
+      <div style={{
+        position:'absolute', width:1, height:'35%', top:'40%', right:'15%', pointerEvents:'none',
+        background:'linear-gradient(to bottom, transparent 0%, rgba(0,212,131,0.45) 40%, rgba(0,212,131,0.45) 60%, transparent 100%)',
+        boxShadow:'0 0 6px rgba(0,212,131,0.30)',
+      }}/>
+
       {/* ── Theme toggle ── */}
       <div className="absolute top-5 left-5 z-20">
         <Button variant="ghost" size="icon" className="rounded-full border border-white/10"

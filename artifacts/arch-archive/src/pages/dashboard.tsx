@@ -1,12 +1,46 @@
 import React, { useMemo } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useAppContext } from '../context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Button } from '../components/ui/button';
-import { FolderKanban, CheckCircle2, Clock, FileText } from 'lucide-react';
+import { FolderKanban, CheckCircle2, Clock, FileText, ArrowUpRight } from 'lucide-react';
 import { PROJECT_TYPES } from '../types';
+
+/* ── Glass card shell ── */
+const GlassCard: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  accentColor?: string;
+  onClick?: () => void;
+  'data-testid'?: string;
+}> = ({ children, className = '', accentColor = '#00d483', onClick, 'data-testid': testId }) => (
+  <div
+    data-testid={testId}
+    onClick={onClick}
+    className={`relative overflow-hidden rounded-2xl transition-all duration-200 ${onClick ? 'cursor-pointer hover:scale-[1.01]' : ''} ${className}`}
+    style={{
+      background: 'rgba(10, 24, 17, 0.72)',
+      backdropFilter: 'blur(24px)',
+      WebkitBackdropFilter: 'blur(24px)',
+      border: '1px solid rgba(0,212,131,0.12)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04)',
+    }}
+  >
+    {/* Top neon laser edge */}
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+      background: `linear-gradient(to right, transparent 5%, ${accentColor}90 35%, ${accentColor}CC 50%, ${accentColor}90 65%, transparent 95%)`,
+      boxShadow: `0 0 8px ${accentColor}60`,
+    }}/>
+    {/* Corner accent glow */}
+    <div style={{
+      position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%',
+      background: accentColor, opacity: 0.06, filter: 'blur(30px)', pointerEvents: 'none',
+    }}/>
+    <div className="relative z-10">{children}</div>
+  </div>
+);
 
 export default function Dashboard() {
   const { projects, documents } = useAppContext();
@@ -33,169 +67,205 @@ export default function Dashboard() {
     contractor: 'مقاول', drawing: 'مخطط',
   };
 
+  const kpis = [
+    {
+      label: 'إجمالي المشاريع', value: stats.total, badge: '+5 هذا الشهر',
+      icon: FolderKanban, testId: 'kpi-total',
+      onClick: () => setLocation('/projects'),
+      accent: '#00d483',
+      iconGrad: 'linear-gradient(135deg, rgba(0,212,131,0.22) 0%, rgba(0,154,95,0.14) 100%)',
+    },
+    {
+      label: 'المشاريع المكتملة', value: stats.completed, badge: '+2 هذا الشهر',
+      icon: CheckCircle2, testId: 'kpi-completed',
+      onClick: () => setLocation('/projects?status=completed'),
+      accent: '#38bdf8',
+      iconGrad: 'linear-gradient(135deg, rgba(56,189,248,0.22) 0%, rgba(14,116,189,0.14) 100%)',
+    },
+    {
+      label: 'المشاريع النشطة', value: stats.active, badge: '+3 هذا الشهر',
+      icon: Clock, testId: 'kpi-active',
+      onClick: () => setLocation('/projects?status=active'),
+      accent: '#a3e635',
+      iconGrad: 'linear-gradient(135deg, rgba(163,230,53,0.22) 0%, rgba(101,163,13,0.14) 100%)',
+    },
+  ];
+
   return (
     <div className="space-y-6">
 
-      {/* KPI Cards */}
+      {/* ── KPI Cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          {
-            label: 'إجمالي المشاريع',
-            value: stats.total,
-            badge: '+5 هذا الشهر',
-            icon: FolderKanban,
-            testId: 'kpi-total',
-            onClick: () => setLocation('/projects'),
-            accent: 'hsl(162 95% 42%)',
-            iconBg: 'linear-gradient(135deg, hsl(162 95% 35%) 0%, hsl(162 95% 22%) 100%)',
-          },
-          {
-            label: 'المشاريع المكتملة',
-            value: stats.completed,
-            badge: '+2 هذا الشهر',
-            icon: CheckCircle2,
-            testId: 'kpi-completed',
-            onClick: () => setLocation('/projects?status=completed'),
-            accent: 'hsl(210 90% 60%)',
-            iconBg: 'linear-gradient(135deg, hsl(210 80% 35%) 0%, hsl(210 80% 22%) 100%)',
-          },
-          {
-            label: 'المشاريع النشطة',
-            value: stats.active,
-            badge: '+3 هذا الشهر',
-            icon: Clock,
-            testId: 'kpi-active',
-            onClick: () => setLocation('/projects?status=active'),
-            accent: 'hsl(145 70% 50%)',
-            iconBg: 'linear-gradient(135deg, hsl(145 60% 28%) 0%, hsl(145 60% 18%) 100%)',
-          },
-        ].map((kpi) => (
-          <Card
-            key={kpi.testId}
-            className="cursor-pointer transition-all hover:border-primary/40 hover:glow-sm group relative overflow-hidden"
-            onClick={kpi.onClick}
-            data-testid={kpi.testId}
-          >
-            {/* Subtle corner glow */}
-            <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ background: `radial-gradient(ellipse at top right, ${kpi.accent}18 0%, transparent 70%)` }}/>
-            <CardContent className="p-6 flex items-center gap-4 relative z-10">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 glow-icon"
-                style={{ background: kpi.iconBg, border: `1px solid ${kpi.accent}28`, color: kpi.accent }}>
-                <kpi.icon className="w-6 h-6" />
+        {kpis.map(kpi => (
+          <GlassCard key={kpi.testId} accentColor={kpi.accent} onClick={kpi.onClick} data-testid={kpi.testId}>
+            <div className="p-6 flex items-center gap-4">
+              {/* Icon */}
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                style={{
+                  background: kpi.iconGrad,
+                  border: `1px solid ${kpi.accent}30`,
+                  boxShadow: `0 0 20px ${kpi.accent}28`,
+                  color: kpi.accent,
+                }}>
+                <kpi.icon className="w-7 h-7"/>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">{kpi.label}</p>
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium mb-1" style={{ color: 'rgba(180,230,205,0.65)' }}>
+                  {kpi.label}
+                </p>
                 <div className="flex items-end gap-2">
-                  <h3 className="text-3xl font-bold" data-testid={`${kpi.testId}-count`}
-                    style={{ color: kpi.accent }}>
+                  <h3 className="text-4xl font-black" data-testid={`${kpi.testId}-count`}
+                    style={{ color: kpi.accent, textShadow: `0 0 20px ${kpi.accent}60` }}>
                     {kpi.value}
                   </h3>
-                  <span className="text-xs font-medium mb-1 text-primary/70">{kpi.badge}</span>
                 </div>
+                <span className="text-xs font-semibold mt-0.5 block" style={{ color: `${kpi.accent}90` }}>
+                  {kpi.badge}
+                </span>
               </div>
-            </CardContent>
-          </Card>
+              <ArrowUpRight className="w-4 h-4 shrink-0 opacity-30" style={{ color: kpi.accent }}/>
+            </div>
+          </GlassCard>
         ))}
       </div>
 
-      {/* Latest Projects */}
-      <Card>
-        <CardHeader className="pb-0">
-          <CardTitle className="text-lg">أحدث المشاريع</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 mt-4">
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b-2 border-border bg-muted/60 sticky top-0">
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border first:border-r-0 last:border-l-0 whitespace-nowrap">رقم المشروع</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">اسم المشروع</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">العميل</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">المدينة</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">نوع المشروع</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">تاريخ الإنشاء</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">آخر تحديث</TableHead>
-                  <TableHead className="text-right font-bold text-foreground py-3 px-4 border-x border-border whitespace-nowrap">الحالة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentProjects.map((p, i) => (
-                  <TableRow
-                    key={p.id}
-                    className={`cursor-pointer hover:bg-primary/5 border-b border-border transition-colors ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}
-                    onClick={() => setLocation(`/projects/${p.id}`)}
-                    data-testid={`dashboard-project-row-${p.id}`}
-                  >
-                    <TableCell className="font-mono text-sm font-semibold text-primary py-3 px-4 border-x border-border first:border-r-0 last:border-l-0">{p.number}</TableCell>
-                    <TableCell className="font-medium max-w-[200px] truncate py-3 px-4 border-x border-border">{p.name}</TableCell>
-                    <TableCell className="py-3 px-4 border-x border-border text-muted-foreground">{p.client}</TableCell>
-                    <TableCell className="py-3 px-4 border-x border-border text-muted-foreground">{p.city}</TableCell>
-                    <TableCell className="py-3 px-4 border-x border-border">
-                      <span className="text-xs bg-secondary px-2 py-1 rounded-full text-secondary-foreground whitespace-nowrap">
-                        {PROJECT_TYPES[p.projectType]}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 px-4 border-x border-border text-muted-foreground whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString('ar-SA')}</TableCell>
-                    <TableCell className="py-3 px-4 border-x border-border text-muted-foreground whitespace-nowrap">{new Date(p.updatedAt).toLocaleDateString('ar-SA')}</TableCell>
-                    <TableCell className="py-3 px-4 border-x border-border last:border-l-0">
-                      <Badge className={p.status === 'active' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}>
-                        {p.status === 'active' ? 'نشط' : 'مكتمل'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      {/* ── Latest Projects ── */}
+      <GlassCard accentColor="#00d483">
+        <div className="p-5 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: 'rgba(0,212,131,0.55)' }}>✦</span>
+            <h2 className="text-base font-bold" style={{ color: 'rgba(210,245,230,0.92)' }}>أحدث المشاريع</h2>
           </div>
-          <div className="p-4 border-t border-border flex justify-center">
-            <Button variant="outline" asChild data-testid="dashboard-view-all-projects">
-              <Link href="/projects">عرض جميع المشاريع</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Documents */}
-      <Card>
-        <CardHeader className="pb-0">
-          <CardTitle className="text-lg">أحدث المستندات</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 mt-4">
+          <Button variant="ghost" size="sm" asChild
+            className="text-xs rounded-lg h-7 px-3"
+            style={{ color: 'rgba(0,212,131,0.80)', border: '1px solid rgba(0,212,131,0.15)' }}
+            data-testid="dashboard-view-all-projects">
+            <Link href="/projects">عرض الكل</Link>
+          </Button>
+        </div>
+        <div className="overflow-auto">
           <Table>
             <TableHeader>
-              <TableRow className="border-b-2 border-border bg-muted/60">
-                <TableHead className="text-right font-bold text-foreground py-3 px-4">رقم المستند</TableHead>
-                <TableHead className="text-right font-bold text-foreground py-3 px-4">اسم المستند</TableHead>
-                <TableHead className="text-right font-bold text-foreground py-3 px-4">النوع</TableHead>
-                <TableHead className="text-right font-bold text-foreground py-3 px-4">المشروع</TableHead>
-                <TableHead className="text-right font-bold text-foreground py-3 px-4">تاريخ الإضافة</TableHead>
+              <TableRow style={{ borderBottom: '1px solid rgba(0,212,131,0.12)', background: 'rgba(0,212,131,0.04)' }}>
+                {['رقم المشروع','اسم المشروع','العميل','المدينة','النوع','تاريخ الإنشاء','آخر تحديث','الحالة'].map(h => (
+                  <TableHead key={h} className="text-right whitespace-nowrap py-3 px-4 text-xs font-bold uppercase tracking-wide"
+                    style={{ color: 'rgba(0,212,131,0.75)' }}>
+                    {h}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {recentProjects.map((p, i) => (
+                <TableRow key={p.id}
+                  className="cursor-pointer transition-colors"
+                  style={{
+                    borderBottom: '1px solid rgba(0,212,131,0.06)',
+                    background: i % 2 === 0 ? 'transparent' : 'rgba(0,212,131,0.02)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,212,131,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(0,212,131,0.02)')}
+                  onClick={() => setLocation(`/projects/${p.id}`)}
+                  data-testid={`dashboard-project-row-${p.id}`}
+                >
+                  <TableCell className="font-mono text-sm font-bold py-3 px-4" style={{ color: '#00d483' }}>{p.number}</TableCell>
+                  <TableCell className="font-semibold max-w-[200px] truncate py-3 px-4" style={{ color: 'rgba(220,245,235,0.90)' }}>{p.name}</TableCell>
+                  <TableCell className="py-3 px-4" style={{ color: 'rgba(180,230,205,0.72)' }}>{p.client}</TableCell>
+                  <TableCell className="py-3 px-4" style={{ color: 'rgba(180,230,205,0.72)' }}>{p.city}</TableCell>
+                  <TableCell className="py-3 px-4">
+                    <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+                      style={{ background: 'rgba(0,212,131,0.10)', color: 'rgba(0,212,131,0.85)', border: '1px solid rgba(0,212,131,0.15)' }}>
+                      {PROJECT_TYPES[p.projectType]}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-3 px-4 whitespace-nowrap" style={{ color: 'rgba(180,230,205,0.65)' }}>{new Date(p.createdAt).toLocaleDateString('ar-SA')}</TableCell>
+                  <TableCell className="py-3 px-4 whitespace-nowrap" style={{ color: 'rgba(180,230,205,0.65)' }}>{new Date(p.updatedAt).toLocaleDateString('ar-SA')}</TableCell>
+                  <TableCell className="py-3 px-4">
+                    <Badge className={`text-xs font-semibold border-0 ${p.status === 'active'
+                      ? 'bg-emerald-500/15 text-emerald-400'
+                      : 'bg-sky-500/15 text-sky-400'}`}>
+                      {p.status === 'active' ? 'نشط' : 'مكتمل'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </GlassCard>
+
+      {/* ── Recent Documents ── */}
+      <GlassCard accentColor="#38bdf8">
+        <div className="p-5 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: 'rgba(56,189,248,0.55)' }}>✦</span>
+            <h2 className="text-base font-bold" style={{ color: 'rgba(210,245,230,0.92)' }}>أحدث المستندات</h2>
+          </div>
+          <Button variant="ghost" size="sm" asChild
+            className="text-xs rounded-lg h-7 px-3"
+            style={{ color: 'rgba(56,189,248,0.80)', border: '1px solid rgba(56,189,248,0.15)' }}
+            data-testid="dashboard-view-all-docs-btn">
+            <Link href="/documents">عرض الكل</Link>
+          </Button>
+        </div>
+        <div className="overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow style={{ borderBottom: '1px solid rgba(56,189,248,0.12)', background: 'rgba(56,189,248,0.04)' }}>
+                {['رقم المستند','اسم المستند','النوع','المشروع','تاريخ الإضافة'].map(h => (
+                  <TableHead key={h} className="text-right whitespace-nowrap py-3 px-4 text-xs font-bold uppercase tracking-wide"
+                    style={{ color: 'rgba(56,189,248,0.75)' }}>
+                    {h}
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {recentDocs.map((d, i) => {
                 const proj = projects.find(p => p.id === d.projectId);
                 return (
-                  <TableRow key={d.id} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
-                    <TableCell className="font-mono text-sm font-semibold text-primary py-3 px-4">{d.number}</TableCell>
-                    <TableCell className="max-w-[200px] truncate py-3 px-4">{d.name}</TableCell>
+                  <TableRow key={d.id}
+                    style={{
+                      borderBottom: '1px solid rgba(56,189,248,0.06)',
+                      background: i % 2 === 0 ? 'transparent' : 'rgba(56,189,248,0.02)',
+                    }}>
+                    <TableCell className="font-mono text-sm font-bold py-3 px-4" style={{ color: '#38bdf8' }}>{d.number}</TableCell>
+                    <TableCell className="max-w-[200px] truncate py-3 px-4 font-semibold" style={{ color: 'rgba(220,245,235,0.90)' }}>{d.name}</TableCell>
                     <TableCell className="py-3 px-4">
-                      <Badge variant="outline" className="text-xs bg-muted">{docTypeLabels[d.type] || d.type}</Badge>
+                      <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+                        style={{ background: 'rgba(56,189,248,0.10)', color: 'rgba(56,189,248,0.85)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                        {docTypeLabels[d.type] || d.type}
+                      </span>
                     </TableCell>
-                    <TableCell className="text-xs max-w-[150px] truncate py-3 px-4 text-muted-foreground">{proj?.name}</TableCell>
-                    <TableCell className="py-3 px-4 text-muted-foreground whitespace-nowrap">{new Date(d.createdAt).toLocaleDateString('ar-SA')}</TableCell>
+                    <TableCell className="text-xs max-w-[150px] truncate py-3 px-4" style={{ color: 'rgba(180,230,205,0.72)' }}>{proj?.name}</TableCell>
+                    <TableCell className="py-3 px-4 whitespace-nowrap" style={{ color: 'rgba(180,230,205,0.65)' }}>{new Date(d.createdAt).toLocaleDateString('ar-SA')}</TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
-          <div className="p-4 border-t border-border flex justify-center">
-            <Button variant="outline" asChild data-testid="dashboard-view-all-docs-btn">
-              <Link href="/documents">عرض جميع المستندات</Link>
-            </Button>
+        </div>
+      </GlassCard>
+
+      {/* 4th stat card — documents */}
+      <GlassCard accentColor="#a78bfa">
+        <div className="p-5 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ background:'linear-gradient(135deg,rgba(167,139,250,0.22) 0%,rgba(109,40,217,0.14) 100%)', border:'1px solid rgba(167,139,250,0.25)', boxShadow:'0 0 20px rgba(167,139,250,0.22)', color:'#a78bfa' }}>
+            <FileText className="w-7 h-7"/>
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <p className="text-sm font-medium mb-1" style={{ color:'rgba(180,230,205,0.65)' }}>إجمالي المستندات</p>
+            <h3 className="text-4xl font-black" style={{ color:'#a78bfa', textShadow:'0 0 20px rgba(167,139,250,0.50)' }}>
+              {documents.length}
+            </h3>
+            <span className="text-xs font-semibold mt-0.5 block" style={{ color:'rgba(167,139,250,0.70)' }}>+12 هذا الشهر</span>
+          </div>
+          <ArrowUpRight className="w-4 h-4 mr-auto opacity-30" style={{ color:'#a78bfa' }}/>
+        </div>
+      </GlassCard>
+
     </div>
   );
 }
