@@ -126,9 +126,21 @@ export default function Documents() {
             : 'border-border bg-card hover:border-primary/70 hover:shadow-xl hover:-translate-y-1'}`}
         onClick={() => setPreviewDoc(doc)}
       >
-        {/* Checkbox – top right */}
-        <div className="absolute top-2.5 right-2.5 z-20" onClick={e => { e.stopPropagation(); toggleSelect(doc.id); }}>
-          <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(doc.id)} className="w-4 h-4 rounded cursor-pointer accent-primary shadow" />
+        {/* Selection zone – top right, large hit area, always visible */}
+        <div
+          className="absolute top-0 right-0 z-20 w-11 h-11 flex items-start justify-end p-2.5 cursor-pointer"
+          onClick={e => { e.stopPropagation(); toggleSelect(doc.id); }}
+        >
+          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-150 shadow-sm
+            ${isSelected
+              ? 'bg-primary border-primary'
+              : 'bg-white/80 border-white/70 backdrop-blur-sm hover:border-primary/80 hover:bg-white'}`}>
+            {isSelected && (
+              <svg viewBox="0 0 10 8" className="w-3 h-3" fill="none">
+                <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
         </div>
         {/* Delete – top left, on hover */}
         <div className="absolute top-2.5 left-2.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-150" onClick={e => { e.stopPropagation(); setSingleDeleteDoc(doc); }}>
