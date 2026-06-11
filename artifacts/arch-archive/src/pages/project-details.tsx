@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import {
   ArrowRight, FileSignature, Receipt, Users, BarChart2,
   Image as ImageIcon, Calendar, Mail, HardHat, Ruler,
-  Pencil, Trash2, MapPin, Building2, Plus, LayoutGrid,
-  Table2, Download, Eye, FileText, Clock, CheckSquare,
+  Pencil, Trash2, MapPin, Building2, Plus,
+  List, Table2, Download, Eye, FileText, Clock, CheckSquare,
 } from 'lucide-react';
 import { Document, DocumentType, PROJECT_TYPES } from '../types';
 import { getPreviewType, getThumbnailUrl, previewTypeColors, docTypeLabels } from '../lib/docUtils';
@@ -551,7 +551,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           <div className="flex items-center gap-2">
             {!isSplitView && (
               <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
-                {([['list', LayoutGrid], ['table', Table2]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
+                {([['list', List], ['table', Table2]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}

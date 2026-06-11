@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { Search, Trash2, Eye, CheckSquare, FileText, LayoutGrid, Table2, ArrowUpDown } from 'lucide-react';
+import { Search, Trash2, Eye, CheckSquare, FileText, List, Table2, ArrowUpDown } from 'lucide-react';
 import DocumentPreviewModal from '../components/documents/DocumentPreviewModal';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -330,7 +330,7 @@ export default function Documents() {
               : `${filteredDocs.length} من ${documents.length} مستند`}
           </p>
           <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
-            {([['table', Table2], ['list', LayoutGrid]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
+            {([['table', Table2], ['list', List]] as [ViewMode, React.ElementType][]).map(([mode, Icon]) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
