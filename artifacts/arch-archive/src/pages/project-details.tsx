@@ -466,13 +466,10 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2" data-testid="button-edit-project">
-            <Pencil className="w-4 h-4" />تعديل
-          </Button>
-          <Button onClick={() => setAddDocsOpen(true)} size="sm" className="gap-2" data-testid="button-add-documents">
-            <Plus className="w-4 h-4" />إضافة مستندات
+            <Pencil className="w-4 h-4" />تعديل المشروع
           </Button>
           <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)} className="gap-2" data-testid="button-delete-project">
-            <Trash2 className="w-4 h-4" />حذف
+            <Trash2 className="w-4 h-4" />حذف المشروع
           </Button>
         </div>
       </div>
