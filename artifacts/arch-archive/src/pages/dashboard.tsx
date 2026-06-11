@@ -14,33 +14,43 @@ const GlassCard: React.FC<{
   accentColor?: string;
   onClick?: () => void;
   'data-testid'?: string;
-}> = ({ children, className = '', accentColor = '#00d483', onClick, 'data-testid': testId }) => (
+}> = ({ children, className = '', accentColor = '#00d483', onClick, 'data-testid': testId }) => {
+  const { theme } = useAppContext();
+  const isDark = theme === 'dark';
+  return (
   <div
     data-testid={testId}
     onClick={onClick}
     className={`relative overflow-hidden rounded-2xl transition-all duration-200 ${onClick ? 'cursor-pointer hover:scale-[1.01]' : ''} ${className}`}
-    style={{
+    style={isDark ? {
       background: 'rgba(10, 24, 17, 0.72)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
       border: '1px solid rgba(0,212,131,0.12)',
       boxShadow: '0 8px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04)',
+    } : {
+      background: 'rgba(255,255,255,0.90)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      border: `1px solid ${accentColor}28`,
+      boxShadow: `0 4px 24px rgba(0,0,0,0.07), 0 1px 0 ${accentColor}18`,
     }}
   >
-    {/* Top neon laser edge */}
+    {/* Top accent edge — laser in dark, solid stripe in light */}
     <div style={{
-      position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-      background: `linear-gradient(to right, transparent 5%, ${accentColor}90 35%, ${accentColor}CC 50%, ${accentColor}90 65%, transparent 95%)`,
-      boxShadow: `0 0 8px ${accentColor}60`,
+      position: 'absolute', top: 0, left: 0, right: 0, height: isDark ? 1 : 2,
+      background: `linear-gradient(to right, transparent 5%, ${accentColor}${isDark ? '90' : '70'} 35%, ${accentColor}${isDark ? 'CC' : 'AA'} 50%, ${accentColor}${isDark ? '90' : '70'} 65%, transparent 95%)`,
+      boxShadow: isDark ? `0 0 8px ${accentColor}60` : 'none',
     }}/>
-    {/* Corner accent glow */}
-    <div style={{
+    {/* Corner accent glow — dark only */}
+    {isDark && <div style={{
       position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%',
       background: accentColor, opacity: 0.06, filter: 'blur(30px)', pointerEvents: 'none',
-    }}/>
+    }}/>}
     <div className="relative z-10">{children}</div>
   </div>
-);
+  );
+};
 
 export default function Dashboard() {
   const { projects, documents } = useAppContext();
