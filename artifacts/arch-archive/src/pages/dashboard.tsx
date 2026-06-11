@@ -38,62 +38,65 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card
-          className="cursor-pointer hover:border-primary transition-colors"
-          onClick={() => setLocation('/projects')}
-          data-testid="kpi-total"
-        >
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary shrink-0">
-              <FolderKanban className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">إجمالي المشاريع</p>
-              <div className="flex items-end gap-2">
-                <h3 className="text-3xl font-bold" data-testid="kpi-total-count">{stats.total}</h3>
-                <span className="text-xs text-green-600 font-medium mb-1">+5 هذا الشهر</span>
+        {[
+          {
+            label: 'إجمالي المشاريع',
+            value: stats.total,
+            badge: '+5 هذا الشهر',
+            icon: FolderKanban,
+            testId: 'kpi-total',
+            onClick: () => setLocation('/projects'),
+            accent: 'hsl(162 95% 42%)',
+            iconBg: 'linear-gradient(135deg, hsl(162 95% 35%) 0%, hsl(162 95% 22%) 100%)',
+          },
+          {
+            label: 'المشاريع المكتملة',
+            value: stats.completed,
+            badge: '+2 هذا الشهر',
+            icon: CheckCircle2,
+            testId: 'kpi-completed',
+            onClick: () => setLocation('/projects?status=completed'),
+            accent: 'hsl(210 90% 60%)',
+            iconBg: 'linear-gradient(135deg, hsl(210 80% 35%) 0%, hsl(210 80% 22%) 100%)',
+          },
+          {
+            label: 'المشاريع النشطة',
+            value: stats.active,
+            badge: '+3 هذا الشهر',
+            icon: Clock,
+            testId: 'kpi-active',
+            onClick: () => setLocation('/projects?status=active'),
+            accent: 'hsl(145 70% 50%)',
+            iconBg: 'linear-gradient(135deg, hsl(145 60% 28%) 0%, hsl(145 60% 18%) 100%)',
+          },
+        ].map((kpi) => (
+          <Card
+            key={kpi.testId}
+            className="cursor-pointer transition-all hover:border-primary/40 hover:glow-sm group relative overflow-hidden"
+            onClick={kpi.onClick}
+            data-testid={kpi.testId}
+          >
+            {/* Subtle corner glow */}
+            <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: `radial-gradient(ellipse at top right, ${kpi.accent}18 0%, transparent 70%)` }}/>
+            <CardContent className="p-6 flex items-center gap-4 relative z-10">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 glow-icon"
+                style={{ background: kpi.iconBg, border: `1px solid ${kpi.accent}28`, color: kpi.accent }}>
+                <kpi.icon className="w-6 h-6" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer hover:border-primary transition-colors"
-          onClick={() => setLocation('/projects?status=completed')}
-          data-testid="kpi-completed"
-        >
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">المشاريع المكتملة</p>
-              <div className="flex items-end gap-2">
-                <h3 className="text-3xl font-bold" data-testid="kpi-completed-count">{stats.completed}</h3>
-                <span className="text-xs text-blue-600 font-medium mb-1">+2 هذا الشهر</span>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">{kpi.label}</p>
+                <div className="flex items-end gap-2">
+                  <h3 className="text-3xl font-bold" data-testid={`${kpi.testId}-count`}
+                    style={{ color: kpi.accent }}>
+                    {kpi.value}
+                  </h3>
+                  <span className="text-xs font-medium mb-1 text-primary/70">{kpi.badge}</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer hover:border-primary transition-colors"
-          onClick={() => setLocation('/projects?status=active')}
-          data-testid="kpi-active"
-        >
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 shrink-0">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">المشاريع النشطة</p>
-              <div className="flex items-end gap-2">
-                <h3 className="text-3xl font-bold" data-testid="kpi-active-count">{stats.active}</h3>
-                <span className="text-xs text-green-600 font-medium mb-1">+3 هذا الشهر</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Latest Projects */}

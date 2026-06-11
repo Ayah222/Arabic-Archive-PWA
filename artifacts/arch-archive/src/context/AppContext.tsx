@@ -23,7 +23,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>(
-    (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+    (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
   );
   const [userType, setUserType] = useState<UserType | null>(
     (localStorage.getItem('userType') as UserType) || null
