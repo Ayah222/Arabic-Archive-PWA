@@ -1,0 +1,98 @@
+Act as an elite frontend engineer specializing in advanced UI/UX and high-end CSS Glassmorphism. 
+
+I want to completely redesign the visual theme of my dashboard to match a premium "Liquid Glass" (Glassmorphism) aesthetic for both "Dark Knight" and "Daylight" modes. 
+
+CRITICAL CONSTRAINTS (Read carefully before coding):
+1. DO NOT change, rename, or reorder any HTML tags, layout structures, sections, or data. My partner and I cannot have the core layout disrupted.
+2. Completely replace the existing flat green/teal theme with a highly creative, vivid neon and frosted fluid glass palette.
+3. Everything must be implemented using dynamic CSS Variables mapped strictly to a single toggle class (.daylight-mode) on the <body> tag.
+
+Please apply these precise visual tokens to rewrite or inject into the global CSS file:
+
+--- CSS ARCHITECTURE & THEME TOKENS ---
+
+:root {
+  /* --- 1. DEFAULT: LIQUID GLASS "DARK KNIGHT" MODE --- */
+  --bg-main-app: radial-gradient(140% 140% at 50% 10%, #0d0a1a 0%, #05040a 100%);
+  --bg-sidebar: rgba(10, 8, 20, 0.6);
+  
+  /* Glass Cards Styling */
+  --glass-card-bg: rgba(255, 255, 255, 0.02);
+  --glass-card-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-card-shadow: 
+    inset 0 1px 2px rgba(255, 255, 255, 0.15),
+    0 12px 40px rgba(0, 0, 0, 0.5);
+  --glass-blur: blur(20px) saturate(200%);
+
+  /* Neon Fluid Glows & Accents (Replaces the old green entirely) */
+  --accent-glow-cyan: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(112, 0, 255, 0.05) 100%);
+  --accent-glow-pink: linear-gradient(135deg, rgba(255, 0, 128, 0.2) 0%, rgba(112, 0, 255, 0.05) 100%);
+  --accent-glow-purple: linear-gradient(135deg, rgba(147, 51, 234, 0.25) 0%, rgba(6, 182, 212, 0.05) 100%);
+  
+  /* Active States & Badges */
+  --btn-active-gradient: linear-gradient(90deg, #00f0ff 0%, #7000ff 100%);
+  --badge-active-bg: rgba(0, 240, 255, 0.15);
+  --badge-active-border: 1px solid rgba(0, 240, 255, 0.4);
+  --badge-active-text: #00f0ff;
+  
+  --badge-completed-bg: rgba(236, 72, 153, 0.15);
+  --badge-completed-border: 1px solid rgba(236, 72, 153, 0.4);
+  --badge-completed-text: #ec4899;
+
+  /* Typography */
+  --text-primary: #ffffff;
+  --text-muted: #94a3b8;
+}
+
+body.daylight-mode {
+  /* --- 2. LIQUID GLASS "DAYLIGHT" MODE --- */
+  --bg-main-app: radial-gradient(140% 140% at 50% 10%, #f5f7fb 0%, #e4e8f1 100%);
+  --bg-sidebar: rgba(255, 255, 255, 0.4);
+  
+  /* Glass Cards Styling (Frosted Heavy Crystal) */
+  --glass-card-bg: rgba(255, 255, 255, 0.45);
+  --glass-card-border: 1px solid rgba(255, 255, 255, 0.6);
+  --glass-card-shadow: 
+    inset 0 1px 3px rgba(255, 255, 255, 0.8),
+    0 10px 30px rgba(31, 38, 135, 0.06);
+  --glass-blur: blur(25px) saturate(160%);
+
+  /* Pastel Ambient Glows & Accents */
+  --accent-glow-cyan: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(147, 51, 234, 0.03) 100%);
+  --accent-glow-pink: linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(99, 102, 241, 0.03) 100%);
+  --accent-glow-purple: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(6, 182, 212, 0.03) 100%);
+  
+  /* Active States & Badges */
+  --btn-active-gradient: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+  --badge-active-bg: rgba(6, 182, 212, 0.1);
+  --badge-active-border: 1px solid rgba(6, 182, 212, 0.3);
+  --badge-active-text: #0891b2;
+  
+  --badge-completed-bg: rgba(236, 72, 153, 0.1);
+  --badge-completed-border: 1px solid rgba(236, 72, 153, 0.3);
+  --badge-completed-text: #db2777;
+
+  /* Typography */
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+}
+
+--- REFRACTIVE GLASS IMPLEMENTATION STEPS ---
+
+1. Map the App Background: Set the main app container background to `var(--bg-main-app)` and the sidebar to `var(--bg-sidebar)`.
+2. Apply Liquid Glass to Dashboard Cards:
+   - For all 3 summary cards and the main table container, apply:
+     * `background: var(--glass-card-bg);`
+     * `border: var(--glass-card-border);`
+     * `box-shadow: var(--glass-card-shadow);`
+     * `backdrop-filter: var(--glass-blur);`
+     * `-webkit-backdrop-filter: var(--glass-blur);`
+3. Card Variations (Vibrant Fluid Glow):
+   - Card 1 (Active Projects): Give it an inner background gradient of `var(--accent-glow-cyan)` or a soft box-shadow overlay to simulate the cyan liquid aura from the guide.
+   - Card 2 (Completed Projects): Give it an inner background gradient of `var(--accent-glow-pink)`.
+   - Card 3 (Total Projects): Give it an inner background gradient of `var(--accent-glow-purple)`.
+4. Modernize the Sidebar & Active Tab:
+   - Remove the solid green from the active tab. Replace it with `background: var(--btn-active-gradient); color: #fff;` and a soft border radius to give it that "glowing pill" look.
+5. Update Table Badges & Text:
+   - Map text colors to `var(--text-primary)` and muted elements to `var(--text-muted)`.
+   - Replace old table status classes with the new badge variables (Active utilizes `--badge-active-*`, Completed utilizes `--badge-completed-*`).
