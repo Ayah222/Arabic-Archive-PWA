@@ -1,25 +1,26 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAppContext } from '../../context/AppContext';
-import { LayoutDashboard, FolderOpen, FileText, Menu, Moon, Sun, LogOut, User, X } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, Menu, Moon, Sun, LogOut, User, X, LayoutGrid } from 'lucide-react';
 import { Button } from '../ui/button';
 
-/* ── Aurora — Dark: cyan + purple + pink neon blobs ── */
+/* ── Aurora — Dark: stronger cyan + purple + pink ── */
 const DarkAurora = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-    <div style={{ position:'absolute', width:800, height:700, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(0,240,255,0.12) 0%, rgba(0,240,255,0.04) 45%, transparent 72%)', filter:'blur(100px)', top:-300, right:-150 }}/>
-    <div style={{ position:'absolute', width:700, height:550, background:'radial-gradient(ellipse, rgba(112,0,255,0.14) 0%, rgba(112,0,255,0.04) 50%, transparent 74%)', filter:'blur(120px)', top:-100, left:'15%' }}/>
-    <div style={{ position:'absolute', width:580, height:480, background:'radial-gradient(ellipse, rgba(255,0,128,0.10) 0%, rgba(112,0,255,0.03) 55%, transparent 76%)', filter:'blur(110px)', bottom:-200, left:-80 }}/>
-    <div style={{ position:'absolute', width:360, height:280, background:'radial-gradient(ellipse, rgba(0,240,255,0.06) 0%, transparent 72%)', filter:'blur(80px)', top:'45%', right:'8%' }}/>
+    <div style={{ position:'absolute', width:900, height:750, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(0,240,255,0.18) 0%, rgba(0,240,255,0.06) 40%, transparent 70%)', filter:'blur(90px)', top:-320, right:-120 }}/>
+    <div style={{ position:'absolute', width:750, height:600, background:'radial-gradient(ellipse, rgba(112,0,255,0.20) 0%, rgba(112,0,255,0.06) 45%, transparent 72%)', filter:'blur(110px)', top:-80, left:'12%' }}/>
+    <div style={{ position:'absolute', width:620, height:520, background:'radial-gradient(ellipse, rgba(255,0,128,0.14) 0%, rgba(112,0,255,0.04) 50%, transparent 74%)', filter:'blur(100px)', bottom:-200, left:-60 }}/>
+    <div style={{ position:'absolute', width:400, height:320, background:'radial-gradient(ellipse, rgba(0,240,255,0.09) 0%, transparent 70%)', filter:'blur(80px)', top:'48%', right:'5%' }}/>
   </div>
 );
 
-/* ── Aurora — Light: pastel cyan + indigo ── */
+/* ── Aurora — Light: vibrant pastel ── */
 const LightAurora = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-    <div style={{ position:'absolute', width:800, height:600, background:'radial-gradient(ellipse, rgba(99,102,241,0.08) 0%, transparent 72%)', filter:'blur(90px)', top:-200, right:-100 }}/>
-    <div style={{ position:'absolute', width:560, height:420, background:'radial-gradient(ellipse, rgba(6,182,212,0.07) 0%, transparent 72%)', filter:'blur(100px)', bottom:-140, left:-80 }}/>
-    <div style={{ position:'absolute', width:400, height:300, background:'radial-gradient(ellipse, rgba(168,85,247,0.06) 0%, transparent 72%)', filter:'blur(90px)', top:'40%', left:'35%' }}/>
+    <div style={{ position:'absolute', width:900, height:700, background:'radial-gradient(ellipse, rgba(99,102,241,0.14) 0%, rgba(99,102,241,0.04) 50%, transparent 72%)', filter:'blur(80px)', top:-200, right:-100 }}/>
+    <div style={{ position:'absolute', width:700, height:550, background:'radial-gradient(ellipse, rgba(168,85,247,0.12) 0%, rgba(168,85,247,0.03) 55%, transparent 74%)', filter:'blur(90px)', top:-100, left:'20%' }}/>
+    <div style={{ position:'absolute', width:600, height:450, background:'radial-gradient(ellipse, rgba(6,182,212,0.10) 0%, transparent 70%)', filter:'blur(100px)', bottom:-140, left:-60 }}/>
+    <div style={{ position:'absolute', width:500, height:380, background:'radial-gradient(ellipse, rgba(236,72,153,0.09) 0%, transparent 72%)', filter:'blur(90px)', bottom:-60, right:-40 }}/>
   </div>
 );
 
@@ -37,14 +38,17 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const handleLogout = () => { logout(); setLocation('/login'); };
   const isDark = theme === 'dark';
 
-  /* ── Active nav pill style ── */
-  const activeStyle = {
-    background: 'var(--btn-active-gradient)',
-    boxShadow: isDark
-      ? 'var(--glass-inner-glow), 0 0 20px rgba(0,240,255,0.28), 0 2px 14px rgba(0,0,0,0.50)'
-      : '0 2px 14px rgba(99,102,241,0.30)',
-    border: isDark ? '1px solid rgba(0,240,255,0.22)' : '1px solid rgba(99,102,241,0.26)',
-    color: '#fff',
+  /* ─── Active nav: neon framed pill (matches reference) ─── */
+  const activeStyle: React.CSSProperties = isDark ? {
+    background:    'rgba(0,240,255,0.06)',
+    border:        '1px solid rgba(0,240,255,0.70)',
+    boxShadow:     '0 0 0 1px rgba(0,240,255,0.12), 0 0 20px rgba(0,240,255,0.28), inset 0 1px 1px rgba(0,240,255,0.10)',
+    color:         '#00f0ff',
+  } : {
+    background:    'rgba(99,102,241,0.10)',
+    border:        '1px solid rgba(99,102,241,0.55)',
+    boxShadow:     '0 0 0 1px rgba(99,102,241,0.12), 0 4px 16px rgba(99,102,241,0.22), inset 0 1px 2px rgba(255,255,255,0.50)',
+    color:         '#4338ca',
   };
 
   return (
@@ -52,10 +56,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
       {isDark ? <DarkAurora /> : <LightAurora />}
 
-      {/* ── Mobile overlay backdrop ── */}
+      {/* ── Mobile overlay ── */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 md:hidden"
+        <div className="fixed inset-0 z-30 md:hidden"
           style={{ background: 'rgba(5,4,10,0.65)', backdropFilter: 'blur(4px)' }}
           onClick={() => setSidebarOpen(false)}
         />
@@ -63,130 +66,175 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
       {/* ── Sidebar ── */}
       <aside
-        className={`fixed top-0 right-0 z-40 h-screen flex flex-col border-l border-sidebar-border
+        className={`fixed top-0 right-0 z-40 h-screen flex flex-col
           transition-transform duration-300 ease-in-out will-change-transform
           w-[260px] md:w-64
           ${sidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
           md:sticky md:translate-x-0`}
         style={{
-          background: isDark ? 'var(--glass-sidebar-bg)' : 'rgba(255,255,255,0.70)',
-          backdropFilter: 'var(--glass-blur)',
-          WebkitBackdropFilter: 'var(--glass-blur)',
+          background: isDark ? 'rgba(8,6,18,0.82)' : 'rgba(248,250,255,0.85)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          borderLeft: isDark
+            ? '1px solid rgba(0,240,255,0.10)'
+            : '1px solid rgba(99,102,241,0.14)',
           boxShadow: isDark
-            ? 'var(--glass-inner-glow), -1px 0 50px rgba(0,0,0,0.55)'
-            : 'var(--glass-inner-glow), -1px 0 24px rgba(99,102,241,0.07)',
+            ? 'inset 0 1px 0 rgba(0,240,255,0.08), -2px 0 60px rgba(0,0,0,0.65)'
+            : 'inset 0 1px 0 rgba(255,255,255,0.90), -2px 0 32px rgba(99,102,241,0.08)',
         }}
       >
-        {/* Logo row */}
-        <div className="p-4 flex items-center gap-3 min-h-[64px] relative overflow-hidden border-b border-sidebar-border">
-          {/* Inner top highlight */}
+        {/* ── Logo / App title ── */}
+        <div className="p-4 flex items-center gap-3 min-h-[68px] relative overflow-hidden"
+          style={{
+            borderBottom: isDark ? '1px solid rgba(0,240,255,0.08)' : '1px solid rgba(99,102,241,0.10)',
+          }}>
+          {/* Top chromatic edge on logo row */}
           <div style={{
             position:'absolute', top:0, left:0, right:0, height:1,
             background: isDark
-              ? 'linear-gradient(to right, transparent 8%, rgba(0,240,255,0.25) 40%, rgba(112,0,255,0.20) 60%, transparent 92%)'
-              : 'rgba(255,255,255,0.90)',
+              ? 'linear-gradient(to right, transparent 5%, rgba(0,240,255,0.40) 35%, rgba(112,0,255,0.30) 65%, transparent 95%)'
+              : 'rgba(255,255,255,0.95)',
+            boxShadow: isDark ? '0 0 10px rgba(0,240,255,0.20)' : 'none',
           }}/>
-          {/* Aurora bloom behind logo */}
           {isDark && (
-            <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100, borderRadius:'50%', background:'rgba(0,240,255,0.06)', filter:'blur(30px)', pointerEvents:'none' }}/>
+            <div style={{ position:'absolute', top:-10, right:-10, width:90, height:90, borderRadius:'50%', background:'rgba(0,240,255,0.08)', filter:'blur(28px)', pointerEvents:'none' }}/>
           )}
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative"
+
+          {/* Logo icon with neon frame */}
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 relative"
             style={{
               background: isDark
                 ? 'linear-gradient(135deg, #00f0ff 0%, #7000ff 100%)'
                 : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
               boxShadow: isDark
-                ? 'var(--glass-inner-glow), 0 0 22px rgba(0,240,255,0.45)'
-                : '0 2px 12px rgba(99,102,241,0.35)',
+                ? 'inset 0 1px 1px rgba(255,255,255,0.25), 0 0 24px rgba(0,240,255,0.50), 0 0 50px rgba(0,240,255,0.18)'
+                : '0 2px 14px rgba(99,102,241,0.42), inset 0 1px 1px rgba(255,255,255,0.30)',
+              border: isDark ? '1px solid rgba(0,240,255,0.30)' : '1px solid rgba(99,102,241,0.30)',
             }}>
             <FolderOpen className="w-4 h-4 text-white"/>
           </div>
-          <h1 className="font-bold text-sm leading-tight text-sidebar-foreground whitespace-nowrap overflow-hidden">
-            نظام إدارة الأرشيف
-          </h1>
-          {/* Close btn — mobile only */}
-          <button
-            className="mr-auto md:hidden p-1 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground"
+
+          {/* App title */}
+          <div className="flex-1 min-w-0">
+            <h1 className="font-bold text-sm leading-tight whitespace-nowrap overflow-hidden"
+              style={{ color: isDark ? '#ffffff' : '#1e1b4b' }}>
+              نظام إدارة الأرشيف
+            </h1>
+            <p className="text-[10px] mt-0.5 font-medium"
+              style={{ color: isDark ? 'rgba(0,240,255,0.55)' : 'rgba(99,102,241,0.70)' }}>
+              المعماري
+            </p>
+          </div>
+
+          <button className="md:hidden p-1 rounded-lg" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : '#6b7280' }}
             onClick={() => setSidebarOpen(false)}>
             <X className="w-4 h-4"/>
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 py-4 flex flex-col gap-1 px-2 overflow-y-auto">
+        {/* ── Nav ── */}
+        <nav className="flex-1 py-4 flex flex-col gap-1.5 px-3 overflow-y-auto">
           {navItems.map(item => {
             const active = location.startsWith(item.path);
             return (
               <Link key={item.path} href={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden group
-                  ${active ? '' : 'text-sidebar-foreground/60 hover:text-sidebar-foreground'}`}
-                style={active ? activeStyle : {}}
-              >
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group"
+                style={active ? activeStyle : {
+                  color: isDark ? 'rgba(255,255,255,0.55)' : '#6b7280',
+                  border: '1px solid transparent',
+                }}>
+                {/* Hover bg */}
                 {!active && (
                   <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ background: isDark ? 'rgba(0,240,255,0.04)' : 'rgba(99,102,241,0.06)' }}/>
                 )}
-                <item.icon className={`w-5 h-5 shrink-0 relative z-10 ${active ? '' : 'opacity-45 group-hover:opacity-75 transition-opacity'}`}/>
-                <span className="whitespace-nowrap relative z-10 text-sm font-semibold">{item.label}</span>
-                {active && <span className="mr-auto text-[10px] opacity-60 relative z-10">✦</span>}
+                {/* Prefix "+" for active */}
+                {active && (
+                  <span className="text-xs font-bold relative z-10" style={{ color: isDark ? 'rgba(0,240,255,0.70)' : 'rgba(99,102,241,0.70)' }}>+</span>
+                )}
+                <item.icon className={`w-5 h-5 shrink-0 relative z-10 ${active ? '' : 'opacity-50 group-hover:opacity-80 transition-opacity'}`}/>
+                <span className="whitespace-nowrap relative z-10 text-sm font-bold flex-1">{item.label}</span>
+                {/* Grid icon on right for active item */}
+                {active && (
+                  <LayoutGrid className="w-3.5 h-3.5 shrink-0 relative z-10 opacity-55"/>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* User */}
-        <div className="p-4 mt-auto border-t border-sidebar-border">
+        {/* ── User area ── */}
+        <div className="p-4 mt-auto"
+          style={{ borderTop: isDark ? '1px solid rgba(0,240,255,0.08)' : '1px solid rgba(99,102,241,0.10)' }}>
           <div className="flex items-center gap-3 mb-3 px-1">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm"
               style={{
-                background: isDark ? 'rgba(0,240,255,0.07)' : 'rgba(99,102,241,0.08)',
-                border: isDark ? '1px solid rgba(0,240,255,0.16)' : '1px solid rgba(99,102,241,0.18)',
-                boxShadow: isDark ? 'var(--glass-inner-glow)' : 'none',
+                background: isDark
+                  ? 'linear-gradient(135deg, rgba(0,240,255,0.16) 0%, rgba(112,0,255,0.12) 100%)'
+                  : 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(168,85,247,0.10) 100%)',
+                border: isDark ? '1px solid rgba(0,240,255,0.25)' : '1px solid rgba(99,102,241,0.25)',
+                boxShadow: isDark ? '0 0 12px rgba(0,240,255,0.18)' : 'none',
+                color: isDark ? '#00f0ff' : '#4338ca',
               }}>
-              <User className="w-4 h-4 text-sidebar-foreground/60"/>
+              {userType === 'manager' ? 'م' : 'د'}
             </div>
-            <p className="text-sm font-semibold whitespace-nowrap text-sidebar-foreground">
-              {userType === 'manager' ? 'مدير النظام' : 'موظف إدخال'}
-            </p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold whitespace-nowrap truncate"
+                style={{ color: isDark ? 'rgba(255,255,255,0.90)' : '#1e1b4b' }}>
+                {userType === 'manager' ? 'مدير النظام' : 'موظف إدخال'}
+              </p>
+              <p className="text-[10px] font-medium"
+                style={{ color: isDark ? 'rgba(0,240,255,0.50)' : 'rgba(99,102,241,0.65)' }}>
+                متصل الآن
+              </p>
+            </div>
           </div>
-          <Button variant="ghost"
-            className="w-full justify-start text-destructive hover:bg-destructive/10 gap-3 rounded-xl text-sm"
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150"
+            style={{
+              color: isDark ? '#f87171' : '#dc2626',
+              background: isDark ? 'rgba(239,68,68,0.07)' : 'rgba(239,68,68,0.06)',
+              border: isDark ? '1px solid rgba(239,68,68,0.16)' : '1px solid rgba(239,68,68,0.14)',
+            }}
             onClick={handleLogout}>
             <LogOut className="w-4 h-4 shrink-0"/>
             <span>تسجيل الخروج</span>
-          </Button>
+          </button>
         </div>
       </aside>
 
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col min-w-0 relative" style={{ zIndex: 1 }}>
 
-        {/* Header */}
-        <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 sticky top-0 overflow-hidden border-b border-border"
+        {/* ── Header ── */}
+        <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 sticky top-0 overflow-hidden"
           style={{
-            background: isDark ? 'rgba(5,4,10,0.75)' : 'rgba(255,255,255,0.80)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
+            background: isDark ? 'rgba(8,6,18,0.78)' : 'rgba(248,250,255,0.88)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            borderBottom: isDark ? '1px solid rgba(0,240,255,0.08)' : '1px solid rgba(99,102,241,0.10)',
             boxShadow: isDark
-              ? 'var(--glass-inner-glow), 0 4px 24px rgba(0,0,0,0.45)'
-              : 'var(--glass-inner-glow), 0 4px 16px rgba(99,102,241,0.05)',
+              ? 'inset 0 1px 0 rgba(0,240,255,0.08), 0 4px 30px rgba(0,0,0,0.50)'
+              : 'inset 0 1px 0 rgba(255,255,255,0.95), 0 4px 20px rgba(99,102,241,0.06)',
             zIndex: 30,
           }}>
+          {/* Chromatic top edge */}
           <div style={{
             position:'absolute', top:0, left:0, right:0, height:1,
             background: isDark
-              ? 'linear-gradient(to right, transparent 5%, rgba(0,240,255,0.14) 35%, rgba(112,0,255,0.12) 65%, transparent 95%)'
+              ? 'linear-gradient(to right, transparent 3%, rgba(0,240,255,0.22) 30%, rgba(112,0,255,0.18) 55%, rgba(255,0,128,0.12) 75%, transparent 97%)'
               : 'rgba(255,255,255,0.95)',
+            boxShadow: isDark ? '0 0 8px rgba(0,240,255,0.15)' : 'none',
           }}/>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Hamburger — always visible */}
+          <div className="flex items-center gap-2 md:gap-3">
             <Button variant="ghost" size="icon" className="rounded-xl w-9 h-9 md:w-10 md:h-10"
               onClick={() => setSidebarOpen(!sidebarOpen)}>
               <Menu className="w-5 h-5"/>
             </Button>
-            <h2 className="font-bold text-sm md:text-base text-foreground truncate">
+            <h2 className="font-bold text-sm md:text-base truncate"
+              style={{ color: isDark ? '#ffffff' : '#1e1b4b' }}>
               {navItems.find(i => location.startsWith(i.path))?.label || 'النظام'}
             </h2>
           </div>
