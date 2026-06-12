@@ -1,0 +1,61 @@
+Act as an expert frontend engineer specializing in advanced CSS Glassmorphism and UI design tokens. 
+
+I need you to implement a global "Dark Knight" and "Daylight" theme toggle for my app based exactly on the provided "Liquid Glass UI Kit" design style. 
+
+CRITICAL CONSTRAINT: Do not modify my existing HTML structure, class names, or core app logic. Everything must be handled via CSS variables and a single class switch on the <body> tag.
+
+Please implement the following CSS structure using CSS custom properties (variables):
+
+1. DEFAULT THEME: "Dark Knight" mode (Deep obsidian background, vibrant neon-shifted glass refractions, high-contrast text, glowing interactive states).
+2. ALTERNATE THEME: "Daylight" mode (Crisp ambient light gray background, frosted matte-glass surfaces with soft chromatic aberration, sharp dark typography).
+
+Use the following design specification to build the variables:
+
+--- CSS VARIABLE ARCHITECTURE ---
+:root {
+  /* --- DARK KNIGHT MODE (Default) --- */
+  --bg-app: radial-gradient(120% 120% at 50% 10%, #0d1117 0%, #07090e 100%);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-inner-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  --glass-drop-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --backdrop-blur: blur(16px) saturate(180%);
+  
+  /* Text */
+  --text-main: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.6);
+  
+  /* Vibrant Accents & Liquid Glows */
+  --accent-primary: linear-gradient(135deg, #00f0ff 0%, #7000ff 100%);
+  --accent-secondary: linear-gradient(135deg, #00ffcc 0%, #0099ff 100%);
+  --glow-interactive: 0 0 15px rgba(0, 240, 255, 0.4);
+}
+
+body.daylight-mode {
+  /* --- DAYLIGHT MODE --- */
+  --bg-app: radial-gradient(120% 120% at 50% 10%, #f4f5f7 0%, #e2e5e9 100%);
+  --glass-bg: rgba(255, 255, 255, 0.4);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.5);
+  --glass-inner-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
+  --glass-drop-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+  --backdrop-blur: blur(20px) saturate(140%);
+  
+  /* Text */
+  --text-main: #0c0f14;
+  --text-muted: rgba(12, 15, 20, 0.6);
+  
+  /* Vibrant Accents & Liquid Glows */
+  --accent-primary: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --accent-secondary: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  --glow-interactive: 0 8px 20px rgba(79, 70, 229, 0.25);
+}
+
+--- IMPLEMENTATION STEPS ---
+1. Update my global stylesheet. Replace hardcoded color hexes, gradients, backgrounds, and box-shadows on my components with these newly defined variables.
+2. Ensure components acting as "glass containers" use:
+   - background: var(--glass-bg);
+   - border: var(--glass-border);
+   - box-shadow: var(--glass-inner-shadow), var(--glass-drop-shadow);
+   - backdrop-filter: var(--backdrop-blur);
+3. Update buttons, inputs, and selected tabs to utilize the dynamic `--accent-primary`, `--accent-secondary`, and `--text-main` tokens.
+4. Provide a tiny, non-intrusive JavaScript snippet that checks if a theme toggle switch exists in my UI, or listens for a custom keyboard shortcut (like 'Ctrl + M') to add/remove the 'daylight-mode' class from the <body> tag. Do not disrupt any existing JS application logic.
