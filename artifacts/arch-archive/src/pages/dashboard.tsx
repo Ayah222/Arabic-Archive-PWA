@@ -344,36 +344,6 @@ export default function Dashboard() {
         </div>
       </GlassCard>
 
-      {/* ── Documents KPI ── */}
-      <GlassCard accentColor={isDark ? '#818cf8' : '#4338ca'}
-        accentGrad={isDark
-          ? 'linear-gradient(135deg, rgba(129,140,248,0.22) 0%, rgba(0,240,255,0.04) 100%)'
-          : 'linear-gradient(135deg, rgba(99,102,241,0.16) 0%, rgba(6,182,212,0.04) 100%)'}>
-        <div className="p-5 flex items-center gap-4">
-          <div className="rounded-2xl flex items-center justify-center shrink-0"
-            style={{
-              width:52, height:52,
-              background: isDark ? 'rgba(129,140,248,0.14)':'rgba(99,102,241,0.10)',
-              border: isDark ? '1px solid rgba(129,140,248,0.40)':'1px solid rgba(99,102,241,0.32)',
-              boxShadow: isDark ? '0 0 18px rgba(129,140,248,0.22), inset 0 1px 1px rgba(255,255,255,0.08)':'none',
-              color: isDark ? '#818cf8':'#4338ca',
-            }}>
-            <FileText className="w-6 h-6"/>
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold mb-1" style={{ color: c.label }}>إجمالي المستندات</p>
-            <h3 className="text-4xl font-black leading-none"
-              style={{
-                color: isDark ? '#818cf8':'#4338ca',
-                textShadow: isDark ? '0 0 26px rgba(129,140,248,0.55), 0 0 6px rgba(129,140,248,0.40)':'none',
-              }}>
-              {documents.length}
-            </h3>
-            <span className="text-xs font-medium mt-1 block" style={{ color: c.sub }}>+12 هذا الشهر</span>
-          </div>
-          <ArrowUpRight className="w-4 h-4 opacity-50" style={{ color: isDark ? '#818cf8':'#4338ca' }}/>
-        </div>
-      </GlassCard>
 
     </div>
   );
