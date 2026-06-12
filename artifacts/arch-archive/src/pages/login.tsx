@@ -23,32 +23,22 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 rtl relative overflow-hidden"
-      style={{ background: isDark ? 'hsl(160, 38%, 4%)' : 'hsl(148, 22%, 96%)' }}>
+      style={{ background: isDark ? '#0B0F12' : '#F8FAFC' }}>
 
-      {/* ── DARK MODE atmosphere ── */}
+      {/* ── DARK MODE: Aurora mesh ── */}
       {isDark && (
         <>
-          {/* Glow blobs */}
-          <div style={{ position:'absolute', width:950, height:650, borderRadius:'50%', background:'#00d483', opacity:0.16, filter:'blur(180px)', top:-380, left:'50%', transform:'translateX(-50%)', pointerEvents:'none' }}/>
-          <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', background:'#00d483', opacity:0.10, filter:'blur(150px)', bottom:-200, right:-120, pointerEvents:'none' }}/>
-          <div style={{ position:'absolute', width:380, height:380, borderRadius:'50%', background:'#00d483', opacity:0.06, filter:'blur(110px)', top:'30%', left:-100, pointerEvents:'none' }}/>
-          {/* Laser lines */}
-          <div style={{ position:'absolute', height:1, width:'80%', top:'22%', right:0, pointerEvents:'none', background:'linear-gradient(to left, transparent 0%, rgba(0,212,131,0.55) 35%, rgba(0,212,131,0.85) 55%, transparent 100%)', boxShadow:'0 0 10px rgba(0,212,131,0.55), 0 0 26px rgba(0,212,131,0.22)' }}/>
-          <div style={{ position:'absolute', height:1, width:'55%', top:'74%', left:0, pointerEvents:'none', background:'linear-gradient(to right, transparent 0%, rgba(0,212,131,0.50) 40%, rgba(0,212,131,0.72) 60%, transparent 100%)', boxShadow:'0 0 8px rgba(0,212,131,0.44)' }}/>
-          <div style={{ position:'absolute', width:1, height:'46%', top:'8%', left:'17%', pointerEvents:'none', background:'linear-gradient(to bottom, transparent 0%, rgba(0,212,131,0.55) 35%, rgba(0,212,131,0.55) 65%, transparent 100%)', boxShadow:'0 0 8px rgba(0,212,131,0.40)' }}/>
-          {/* Grid */}
-          <div style={{ position:'absolute', inset:0, pointerEvents:'none', backgroundImage:'linear-gradient(rgba(0,212,131,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,131,0.055) 1px, transparent 1px)', backgroundSize:'40px 40px' }}/>
+          <div style={{ position:'absolute', width:900, height:700, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(25,211,162,0.20) 0%, rgba(25,211,162,0.07) 40%, transparent 70%)', filter:'blur(90px)', top:-320, left:'40%', transform:'translateX(-50%)', pointerEvents:'none' }}/>
+          <div style={{ position:'absolute', width:600, height:500, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(83,247,192,0.10) 0%, rgba(25,211,162,0.04) 55%, transparent 75%)', filter:'blur(100px)', bottom:-200, right:-80, pointerEvents:'none' }}/>
+          <div style={{ position:'absolute', width:400, height:350, background:'radial-gradient(ellipse, rgba(15,118,110,0.12) 0%, transparent 70%)', filter:'blur(80px)', top:'35%', left:-80, pointerEvents:'none' }}/>
         </>
       )}
 
-      {/* ── LIGHT MODE atmosphere ── */}
+      {/* ── LIGHT MODE: subtle mint wash ── */}
       {!isDark && (
         <>
-          {/* Soft green gradient top */}
-          <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg, hsl(148,30%,94%) 0%, hsl(162,40%,90%) 50%, hsl(148,22%,96%) 100%)', pointerEvents:'none' }}/>
-          {/* Soft decorative circles */}
-          <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', background:'hsl(162,70%,50%)', opacity:0.06, filter:'blur(100px)', top:-200, right:-100, pointerEvents:'none' }}/>
-          <div style={{ position:'absolute', width:400, height:400, borderRadius:'50%', background:'hsl(162,70%,50%)', opacity:0.05, filter:'blur(80px)', bottom:-100, left:-80, pointerEvents:'none' }}/>
+          <div style={{ position:'absolute', width:800, height:600, background:'radial-gradient(ellipse, rgba(20,184,166,0.10) 0%, transparent 70%)', filter:'blur(90px)', top:-200, right:-100, pointerEvents:'none' }}/>
+          <div style={{ position:'absolute', width:600, height:450, background:'radial-gradient(ellipse, rgba(15,118,110,0.07) 0%, transparent 70%)', filter:'blur(100px)', bottom:-150, left:-80, pointerEvents:'none' }}/>
         </>
       )}
 
@@ -59,51 +49,42 @@ export default function Login() {
         </Button>
       </div>
 
-      {/* ── CARD ── */}
+      {/* ── Login Card ── */}
       <div className="relative z-10 w-full max-w-[420px]">
-
-        {isDark && (
-          <>
-            <span className="absolute -top-5 right-8 select-none pointer-events-none text-xl" style={{ color:'rgba(0,212,131,0.70)' }}>✦</span>
-            <span className="absolute -bottom-6 left-10 select-none pointer-events-none text-sm" style={{ color:'rgba(0,212,131,0.42)' }}>✦</span>
-          </>
-        )}
-
         <div className="rounded-2xl p-8 relative"
           style={isDark ? {
-            background: 'rgba(4, 16, 10, 0.65)',
-            backdropFilter: 'blur(36px) saturate(1.4)',
-            WebkitBackdropFilter: 'blur(36px) saturate(1.4)',
-            border: '1px solid rgba(0,212,131,0.18)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.60), 0 0 0 1px rgba(0,212,131,0.06)',
+            background: 'rgba(18, 24, 29, 0.80)',
+            backdropFilter: 'blur(40px) saturate(1.3)',
+            WebkitBackdropFilter: 'blur(40px) saturate(1.3)',
+            border: '1px solid rgba(25,211,162,0.14)',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)',
           } : {
-            background: 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(5,117,105,0.15)',
-            boxShadow: '0 8px 40px rgba(5,117,105,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+            background: 'rgba(255,255,255,0.94)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(20,184,166,0.18)',
+            boxShadow: '0 8px 40px rgba(15,118,110,0.10), 0 2px 8px rgba(0,0,0,0.05)',
           }}>
 
-          {/* Dark-mode top laser edge */}
-          {isDark && (
-            <div style={{ position:'absolute', top:0, left:'10%', right:'10%', height:1, background:'linear-gradient(to right, transparent, rgba(0,212,131,0.90), transparent)', boxShadow:'0 0 12px rgba(0,212,131,0.55)' }}/>
-          )}
-          {/* Light-mode top accent line */}
-          {!isDark && (
-            <div style={{ position:'absolute', top:0, left:'10%', right:'10%', height:2, borderRadius:2, background:'linear-gradient(to right, transparent, hsl(162,70%,50%), transparent)' }}/>
-          )}
+          {/* Top accent line */}
+          <div style={{
+            position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, borderRadius: 1,
+            background: isDark
+              ? 'linear-gradient(to right, transparent, rgba(25,211,162,0.90), transparent)'
+              : 'linear-gradient(to right, transparent, rgba(20,184,166,0.70), transparent)',
+            boxShadow: isDark ? '0 0 12px rgba(25,211,162,0.50)' : 'none',
+          }}/>
 
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
               style={{
-                background: 'linear-gradient(135deg, #00d483 0%, #007a4c 100%)',
+                background: 'linear-gradient(135deg, #19D3A2 0%, #0d9488 100%)',
                 boxShadow: isDark
-                  ? '0 0 28px rgba(0,212,131,0.55), 0 8px 24px rgba(0,0,0,0.50)'
-                  : '0 4px 20px rgba(0,154,96,0.40)',
-                color: '#061a10',
+                  ? '0 0 30px rgba(25,211,162,0.50), 0 8px 24px rgba(0,0,0,0.55)'
+                  : '0 4px 20px rgba(13,148,136,0.35)',
               }}>
-              <svg viewBox="0 0 32 32" className="w-8 h-8" fill="none">
+              <svg viewBox="0 0 32 32" className="w-8 h-8 text-white" fill="none">
                 <path d="M16 4 C20 9 22 15 19 21 C17 26 11 28 7 25" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <path d="M16 4 C12 9 10 15 13 21 C15 26 21 28 25 25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
                 <path d="M16 4 L16 28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
@@ -117,15 +98,15 @@ export default function Login() {
             {/* Role toggle */}
             <div className="flex p-1 rounded-xl gap-1"
               style={isDark
-                ? { background:'rgba(0,212,131,0.06)', border:'1px solid rgba(0,212,131,0.11)' }
-                : { background:'hsl(148,20%,91%)', border:'1px solid hsl(162,30%,82%)' }}>
+                ? { background:'rgba(25,211,162,0.05)', border:'1px solid rgba(25,211,162,0.10)' }
+                : { background:'rgba(20,184,166,0.07)', border:'1px solid rgba(20,184,166,0.18)' }}>
               {(['manager','entry'] as const).map(role => (
                 <button key={role} type="button"
-                  className="flex-1 py-2.5 text-sm font-medium rounded-lg transition-all"
+                  className="flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200"
                   style={type === role
                     ? isDark
-                      ? { background:'linear-gradient(135deg,rgba(0,212,131,0.22),rgba(0,154,95,0.16))', boxShadow:'0 0 14px rgba(0,212,131,0.22)', border:'1px solid rgba(0,212,131,0.28)', color:'#00d483' }
-                      : { background:'white', boxShadow:'0 2px 8px rgba(0,0,0,0.10)', border:'1px solid hsl(162,30%,75%)', color:'hsl(174,92%,24%)' }
+                      ? { background:'rgba(25,211,162,0.14)', boxShadow:'0 0 12px rgba(25,211,162,0.18)', border:'1px solid rgba(25,211,162,0.24)', color:'#19D3A2' }
+                      : { background:'white', boxShadow:'0 2px 10px rgba(0,0,0,0.08)', border:'1px solid rgba(20,184,166,0.30)', color:'#0F766E' }
                     : { color:'var(--color-muted-foreground)', border:'1px solid transparent' }}
                   onClick={() => setType(role)}>
                   {role === 'manager' ? 'مدير النظام' : 'موظف إدخال بيانات'}
@@ -146,14 +127,14 @@ export default function Login() {
             </div>
 
             <button type="submit"
-              className="w-full h-11 rounded-xl font-bold text-base transition-all active:scale-[0.98]"
+              className="w-full h-11 rounded-xl font-bold text-base transition-all duration-200 active:scale-[0.98]"
               style={{
-                background: 'linear-gradient(135deg, #00d483 0%, #009e60 100%)',
-                color: '#061a10',
+                background: 'linear-gradient(135deg, #19D3A2 0%, #0d9488 100%)',
+                color: isDark ? '#051a14' : '#ffffff',
                 boxShadow: isDark
-                  ? '0 0 30px rgba(0,212,131,0.50), 0 4px 20px rgba(0,0,0,0.45)'
-                  : '0 4px 16px rgba(0,154,96,0.40)',
-                border: '1px solid rgba(0,212,131,0.35)',
+                  ? '0 0 28px rgba(25,211,162,0.45), 0 4px 20px rgba(0,0,0,0.45)'
+                  : '0 4px 16px rgba(13,148,136,0.38)',
+                border: '1px solid rgba(25,211,162,0.30)',
               }}>
               تسجيل الدخول
             </button>

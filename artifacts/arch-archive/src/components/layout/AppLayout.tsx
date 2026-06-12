@@ -4,20 +4,51 @@ import { useAppContext } from '../../context/AppContext';
 import { LayoutDashboard, FolderOpen, FileText, Menu, Moon, Sun, LogOut, User } from 'lucide-react';
 import { Button } from '../ui/button';
 
-/* Dark-mode only atmosphere */
-const DarkGlow = () => (
+/* ── Aurora Mesh — dark mode ── */
+const DarkAurora = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-    {/* Glow blobs */}
-    <div style={{ position:'absolute', width:800, height:800, borderRadius:'50%', background:'#00d483', opacity:0.12, filter:'blur(160px)', top:-300, right:-200 }}/>
-    <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', background:'#00d483', opacity:0.07, filter:'blur(140px)', bottom:-150, left:-150 }}/>
-    <div style={{ position:'absolute', width:500, height:250, borderRadius:'50%', background:'#00d483', opacity:0.04, filter:'blur(120px)', top:'50%', left:'40%', transform:'translate(-50%,-50%)' }}/>
-    {/* Laser lines */}
-    <div style={{ position:'absolute', height:1, width:'70%', top:'20%', right:0, background:'linear-gradient(to left, transparent 0%, rgba(0,212,131,0.55) 35%, rgba(0,212,131,0.85) 55%, transparent 100%)', boxShadow:'0 0 10px rgba(0,212,131,0.55), 0 0 28px rgba(0,212,131,0.20)' }}/>
-    <div style={{ position:'absolute', height:1, width:'45%', top:'58%', left:0, background:'linear-gradient(to right, transparent 0%, rgba(0,212,131,0.50) 40%, rgba(0,212,131,0.72) 60%, transparent 100%)', boxShadow:'0 0 8px rgba(0,212,131,0.45)' }}/>
-    <div style={{ position:'absolute', height:1, width:'30%', top:'82%', right:'12%', background:'linear-gradient(to left, transparent 0%, rgba(0,212,131,0.38) 50%, transparent 100%)', boxShadow:'0 0 6px rgba(0,212,131,0.28)' }}/>
-    <div style={{ position:'absolute', width:1, height:'40%', top:'15%', right:'26%', background:'linear-gradient(to bottom, transparent 0%, rgba(0,212,131,0.50) 35%, rgba(0,212,131,0.50) 65%, transparent 100%)', boxShadow:'0 0 7px rgba(0,212,131,0.35)' }}/>
-    {/* Grid */}
-    <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(0,212,131,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,131,0.04) 1px, transparent 1px)', backgroundSize:'40px 40px' }}/>
+    {/* Primary large aurora — top right */}
+    <div style={{
+      position: 'absolute', width: 900, height: 700, borderRadius: '50%',
+      background: 'radial-gradient(ellipse, rgba(25,211,162,0.18) 0%, rgba(25,211,162,0.07) 40%, transparent 70%)',
+      filter: 'blur(80px)', top: -280, right: -180,
+    }}/>
+    {/* Secondary aurora — top centre */}
+    <div style={{
+      position: 'absolute', width: 700, height: 500,
+      background: 'radial-gradient(ellipse, rgba(83,247,192,0.10) 0%, rgba(25,211,162,0.05) 50%, transparent 75%)',
+      filter: 'blur(100px)', top: -100, left: '20%',
+    }}/>
+    {/* Deep green pool — bottom left */}
+    <div style={{
+      position: 'absolute', width: 650, height: 500, borderRadius: '50%',
+      background: 'radial-gradient(ellipse, rgba(15,118,110,0.14) 0%, rgba(6,95,70,0.06) 55%, transparent 75%)',
+      filter: 'blur(90px)', bottom: -200, left: -100,
+    }}/>
+    {/* Faint accent — mid right */}
+    <div style={{
+      position: 'absolute', width: 400, height: 300,
+      background: 'radial-gradient(ellipse, rgba(25,211,162,0.07) 0%, transparent 70%)',
+      filter: 'blur(70px)', top: '45%', right: '5%',
+    }}/>
+  </div>
+);
+
+/* ── Aurora Mesh — light mode ── */
+const LightAurora = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+    {/* Top-right mint wash */}
+    <div style={{
+      position: 'absolute', width: 800, height: 600,
+      background: 'radial-gradient(ellipse, rgba(20,184,166,0.09) 0%, rgba(20,184,166,0.03) 50%, transparent 72%)',
+      filter: 'blur(80px)', top: -200, right: -100,
+    }}/>
+    {/* Bottom-left teal tint */}
+    <div style={{
+      position: 'absolute', width: 600, height: 450,
+      background: 'radial-gradient(ellipse, rgba(15,118,110,0.07) 0%, transparent 70%)',
+      filter: 'blur(90px)', bottom: -150, left: -80,
+    }}/>
   </div>
 );
 
@@ -33,14 +64,40 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   ];
 
   const handleLogout = () => { logout(); setLocation('/login'); };
-
   const isDark = theme === 'dark';
+
+  /* Palette tokens derived from new design system */
+  const P = isDark ? {
+    primary: '#19D3A2',
+    primaryDim: 'rgba(25,211,162,0.70)',
+    sidebarBg: 'rgba(8,12,15,0.92)',
+    headerBg: 'rgba(11,15,18,0.82)',
+    activeGrad: 'linear-gradient(135deg, #19D3A2 0%, #0d9488 100%)',
+    activeGlow: '0 0 18px rgba(25,211,162,0.35), 0 2px 12px rgba(0,0,0,0.50)',
+    activeBorder: 'rgba(25,211,162,0.40)',
+    hoverBg: 'rgba(25,211,162,0.07)',
+    headerLine: 'linear-gradient(to right, transparent 5%, rgba(25,211,162,0.55) 35%, rgba(25,211,162,0.80) 55%, rgba(25,211,162,0.55) 75%, transparent 95%)',
+    logoGlow: '0 0 22px rgba(25,211,162,0.50)',
+    activeText: '#051a12',
+  } : {
+    primary: '#0F766E',
+    primaryDim: 'rgba(15,118,110,0.80)',
+    sidebarBg: undefined,
+    headerBg: 'rgba(255,255,255,0.88)',
+    activeGrad: 'linear-gradient(135deg, #19D3A2 0%, #0d9488 100%)',
+    activeGlow: '0 2px 14px rgba(15,118,110,0.30)',
+    activeBorder: 'rgba(15,118,110,0.35)',
+    hoverBg: 'rgba(15,118,110,0.08)',
+    headerLine: 'none',
+    logoGlow: '0 2px 10px rgba(15,118,110,0.40)',
+    activeText: '#ffffff',
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row rtl relative">
 
-      {/* Glow atmosphere — dark mode only */}
-      {isDark && <DarkGlow />}
+      {/* Aurora background */}
+      {isDark ? <DarkAurora /> : <LightAurora />}
 
       {/* ── Sidebar ── */}
       <aside
@@ -48,25 +105,23 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           ${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 translate-x-full md:w-20 md:translate-x-0'}
           overflow-hidden flex flex-col bg-sidebar border-l border-sidebar-border`}
         style={isDark ? {
-          background: 'rgba(3, 12, 8, 0.88)',
-          backdropFilter: 'blur(28px)',
-          WebkitBackdropFilter: 'blur(28px)',
+          background: P.sidebarBg,
+          backdropFilter: 'blur(32px)',
+          WebkitBackdropFilter: 'blur(32px)',
         } : undefined}
       >
-        {/* Logo */}
+        {/* Logo area */}
         <div className="p-4 flex items-center gap-3 min-h-[64px] relative overflow-hidden border-b border-sidebar-border">
           {isDark && (
-            <>
-              <div className="absolute top-0 right-0 w-28 h-28 rounded-full pointer-events-none" style={{ background:'#00d483', opacity:0.07, filter:'blur(28px)' }}/>
-              <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:'linear-gradient(to right, transparent 10%, rgba(0,212,131,0.75) 50%, transparent 90%)', boxShadow:'0 0 7px rgba(0,212,131,0.45)' }}/>
-            </>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none"
+              style={{ background: 'rgba(25,211,162,0.08)', filter: 'blur(32px)' }}/>
           )}
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative"
             style={{
-              background: 'linear-gradient(135deg, #00d483 0%, #007a4c 100%)',
-              boxShadow: isDark ? '0 0 20px rgba(0,212,131,0.55)' : '0 2px 8px rgba(0,154,96,0.35)',
+              background: 'linear-gradient(135deg, #19D3A2 0%, #0d9488 100%)',
+              boxShadow: P.logoGlow,
             }}>
-            <FolderOpen className="w-4 h-4" style={{ color:'#061a10' }}/>
+            <FolderOpen className="w-4 h-4 text-white"/>
           </div>
           <h1 className={`font-bold text-base text-sidebar-foreground whitespace-nowrap transition-opacity ${!sidebarOpen ? 'md:opacity-0' : 'opacity-100'}`}>
             نظام إدارة الأرشيف
@@ -79,42 +134,37 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             const active = location.startsWith(item.path);
             return (
               <Link key={item.path} href={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative overflow-hidden group
-                  ${active ? 'text-[#061a10]' : 'text-sidebar-foreground/75 hover:text-sidebar-foreground'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden group
+                  ${active ? '' : 'text-sidebar-foreground/70 hover:text-sidebar-foreground'}`}
                 style={active ? {
-                  background: 'linear-gradient(135deg, #00d483 0%, #009e60 100%)',
-                  boxShadow: isDark ? '0 0 22px rgba(0,212,131,0.40), 0 2px 10px rgba(0,0,0,0.40)' : '0 2px 12px rgba(0,154,96,0.35)',
-                  border: '1px solid rgba(0,212,131,0.45)',
+                  background: P.activeGrad,
+                  boxShadow: P.activeGlow,
+                  border: `1px solid ${P.activeBorder}`,
+                  color: P.activeText,
                 } : {}}
               >
                 {!active && (
-                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity bg-sidebar-accent"/>
+                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: P.hoverBg }}/>
                 )}
-                <item.icon className={`w-5 h-5 shrink-0 relative z-10 ${active ? '' : 'opacity-60 group-hover:opacity-90'}`}/>
+                <item.icon className={`w-5 h-5 shrink-0 relative z-10 ${active ? '' : 'opacity-55 group-hover:opacity-85 transition-opacity'}`}/>
                 <span className={`whitespace-nowrap relative z-10 text-sm font-semibold transition-opacity ${!sidebarOpen ? 'md:opacity-0' : 'opacity-100'}`}>
                   {item.label}
                 </span>
-                {active && <span className="mr-auto text-[10px] opacity-55 relative z-10">✦</span>}
+                {active && <span className="mr-auto text-[10px] opacity-50 relative z-10">✦</span>}
               </Link>
             );
           })}
         </nav>
 
-        {/* Divider */}
-        <div className="px-4 py-1 pointer-events-none overflow-hidden opacity-15">
-          <svg viewBox="0 0 200 36" className="w-full" fill="none">
-            <path d="M10,18 C35,4 65,0 100,6 C135,12 165,4 190,18" stroke="#bbd7c8" strokeWidth="1.2" strokeLinecap="round"/>
-            <ellipse cx="100" cy="6" rx="7" ry="4" fill="#6dab8c" opacity="0.8"/>
-            <ellipse cx="35" cy="14" rx="5" ry="3" transform="rotate(-20 35 14)" fill="#6dab8c" opacity="0.6"/>
-            <ellipse cx="165" cy="14" rx="5" ry="3" transform="rotate(20 165 14)" fill="#6dab8c" opacity="0.6"/>
-            <path d="M100,6 L100,30" stroke="#bbd7c8" strokeWidth="0.8" opacity="0.5" strokeLinecap="round"/>
-          </svg>
-        </div>
-
-        {/* User */}
-        <div className="p-4 mt-auto border-t border-sidebar-border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-sidebar-accent border border-sidebar-border">
+        {/* User section — no decorative SVG */}
+        <div className="p-4 pt-3 mt-auto border-t border-sidebar-border">
+          <div className="flex items-center gap-3 mb-3 px-1">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{
+                background: isDark ? 'rgba(25,211,162,0.12)' : 'rgba(15,118,110,0.12)',
+                border: `1px solid ${isDark ? 'rgba(25,211,162,0.20)' : 'rgba(15,118,110,0.20)'}`,
+              }}>
               <User className="w-4 h-4 text-sidebar-foreground/70"/>
             </div>
             <div className={`overflow-hidden transition-opacity ${!sidebarOpen ? 'md:opacity-0' : 'opacity-100'}`}>
@@ -123,9 +173,13 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </p>
             </div>
           </div>
-          <Button variant="ghost" className="w-full justify-start text-destructive hover:bg-destructive/10 gap-3 rounded-xl" onClick={handleLogout}>
+          <Button variant="ghost"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 gap-3 rounded-xl"
+            onClick={handleLogout}>
             <LogOut className="w-4 h-4 shrink-0"/>
-            <span className={`whitespace-nowrap transition-opacity ${!sidebarOpen ? 'md:opacity-0' : 'opacity-100'}`}>تسجيل الخروج</span>
+            <span className={`whitespace-nowrap transition-opacity ${!sidebarOpen ? 'md:opacity-0' : 'opacity-100'}`}>
+              تسجيل الخروج
+            </span>
           </Button>
         </div>
       </aside>
@@ -133,26 +187,27 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       {/* ── Main Content ── */}
       <div className="flex-1 flex flex-col min-w-0 relative" style={{ zIndex: 1 }}>
         {/* Header */}
-        <header className="h-16 flex items-center justify-between px-4 sticky top-0 relative overflow-hidden border-b border-border"
+        <header className="h-16 flex items-center justify-between px-4 sticky top-0 overflow-hidden border-b border-border"
           style={{
-            background: isDark ? 'rgba(3,12,8,0.80)' : 'rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            background: P.headerBg,
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
             zIndex: 30,
           }}>
           {isDark && (
-            <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:'linear-gradient(to right, transparent 5%, rgba(0,212,131,0.70) 35%, rgba(0,212,131,0.90) 55%, rgba(0,212,131,0.70) 75%, transparent 95%)', boxShadow:'0 0 8px rgba(0,212,131,0.45)' }}/>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+              background: P.headerLine,
+              boxShadow: '0 0 6px rgba(25,211,162,0.35)',
+            }}/>
           )}
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setSidebarOpen(!sidebarOpen)}>
               <Menu className="w-5 h-5"/>
             </Button>
-            <div className="flex items-center gap-2">
-              {isDark && <span className="text-xs" style={{ color:'rgba(0,212,131,0.65)' }}>✦</span>}
-              <h2 className="font-bold text-base text-foreground">
-                {navItems.find(i => location.startsWith(i.path))?.label || 'النظام'}
-              </h2>
-            </div>
+            <h2 className="font-bold text-base text-foreground">
+              {navItems.find(i => location.startsWith(i.path))?.label || 'النظام'}
+            </h2>
           </div>
           <Button variant="ghost" size="icon" className="rounded-xl" onClick={toggleTheme}>
             {isDark ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}

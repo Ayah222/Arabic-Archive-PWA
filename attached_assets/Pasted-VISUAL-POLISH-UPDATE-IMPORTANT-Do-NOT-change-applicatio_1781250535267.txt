@@ -1,0 +1,185 @@
+VISUAL POLISH UPDATE
+
+IMPORTANT:
+
+Do NOT change application structure.
+Do NOT change navigation.
+Do NOT change pages.
+Do NOT change tables.
+Do NOT change cards layout.
+Do NOT change functionality.
+
+Only improve the visual appearance and atmosphere.
+
+==================================================
+
+REFERENCE IMAGE
+
+Use the attached image ONLY as inspiration for:
+
+- glow quality
+- aurora effect
+- gradient transitions
+- premium atmosphere
+
+Do NOT copy layouts.
+Do NOT copy components.
+Do NOT copy UI elements.
+
+==================================================
+
+REMOVE UNWANTED ELEMENT
+
+Remove the curved decorative line and dots above the user profile section in the bottom-right sidebar.
+
+It looks unfinished and has no purpose.
+
+Replace it with clean spacing.
+
+==================================================
+
+BACKGROUND ATMOSPHERE
+
+The current dashboard feels visually flat.
+
+Create a premium modern SaaS atmosphere.
+
+Do NOT add illustrations.
+Do NOT add engineering drawings.
+Do NOT add buildings.
+Do NOT add decorative graphics.
+
+Add a subtle Aurora Mesh Gradient effect inspired by the attached image.
+
+The effect should appear only:
+
+- in the top section of the dashboard
+- around hero statistics cards
+- slightly behind content
+
+Do NOT apply heavy effects behind tables.
+
+Keep readability as the highest priority.
+
+==================================================
+
+DARK MODE
+
+Background:
+#0B0F12
+
+Surface:
+#12181D
+
+Primary:
+#19D3A2
+
+Accent:
+#53F7C0
+
+Add:
+
+- soft emerald glow
+- subtle radial gradients
+- elegant depth
+- modern premium SaaS atmosphere
+
+Avoid:
+
+- cyberpunk look
+- neon overload
+- visible grid lines
+- technical patterns
+
+==================================================
+
+LIGHT MODE
+
+Background:
+#F8FAFC
+
+Surface:
+#FFFFFF
+
+Primary:
+#0F766E
+
+Accent:
+#14B8A6
+
+Add:
+
+- soft mint glow
+- very subtle teal gradients
+- clean premium feeling
+
+The light theme should feel like the same product as the dark theme.
+
+==================================================
+
+CARDS
+
+Keep all existing cards.
+
+Improve only appearance:
+
+- softer shadows
+- premium borders
+- subtle depth
+- modern hover states
+
+Cards should feel more elegant and expensive.
+
+==================================================
+
+SIDEBAR
+
+Keep structure unchanged.
+
+Improve:
+
+- active item glow
+- hover states
+- spacing consistency
+
+Make the sidebar feel modern and premium.
+
+==================================================
+
+TABLES
+
+Keep current tables.
+
+Do NOT redesign them.
+
+Only improve:
+
+- readability
+- row hover effect
+- spacing
+- border quality
+
+==================================================
+
+FINAL DESIGN GOAL
+
+The product should feel like a premium engineering archive platform.
+
+Visual inspiration:
+
+- Linear
+- Stripe Dashboard
+- Arc Browser
+- Modern SaaS products
+
+The design must feel:
+
+- premium
+- trustworthy
+- modern
+- clean
+- enjoyable to use daily
+
+Avoid unnecessary decorative elements.
+
+Focus on elegance, atmosphere and clarity.
