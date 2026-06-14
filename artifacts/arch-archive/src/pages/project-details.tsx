@@ -97,9 +97,63 @@ function InlinePreview({ doc }: { doc: Document | null }) {
   );
 }
 
+/* ── Neon category card ── */
+function CategoryCard({ cat, count, isSelected, isDark, accent, onClick, testId }: {
+  cat: { type: string; label: string; icon: React.ElementType };
+  count: number; isSelected: boolean; isDark: boolean; accent: string;
+  onClick: () => void; testId: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const lit = hovered || isSelected;
+  return (
+    <div
+      data-testid={testId}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="cursor-pointer rounded-2xl transition-all duration-200 relative overflow-hidden"
+      style={{
+        background: isDark ? 'rgba(255,255,255,0.024)' : 'rgba(255,255,255,0.65)',
+        backdropFilter: 'blur(18px) saturate(190%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(190%)',
+        border: lit
+          ? `1px solid ${accent}65`
+          : isDark ? `1px solid ${accent}18` : `1px solid ${accent}22`,
+        boxShadow: lit
+          ? isDark ? `inset 0 1px 2px rgba(255,255,255,0.10), 0 0 18px ${accent}22, 0 8px 28px rgba(0,0,0,0.50)` : `inset 0 1px 3px rgba(255,255,255,0.90), 0 0 14px ${accent}14, 0 6px 20px rgba(31,38,135,0.09)`
+          : isDark ? 'inset 0 1px 2px rgba(255,255,255,0.04), 0 4px 14px rgba(0,0,0,0.40)' : 'inset 0 1px 3px rgba(255,255,255,0.80), 0 2px 8px rgba(31,38,135,0.05)',
+        transform: hovered && !isSelected ? 'translateY(-2px)' : 'translateY(0)',
+      }}>
+      {/* top liquid edge */}
+      <div style={{
+        position:'absolute', top:0, left:0, right:0, height:1, borderRadius:'16px 16px 0 0',
+        background: isDark
+          ? `linear-gradient(to right, transparent 10%, ${accent}${lit?'70':'28'} 40%, rgba(255,255,255,${lit?'0.18':'0.06'}) 50%, ${accent}${lit?'70':'28'} 60%, transparent 90%)`
+          : `linear-gradient(to right, transparent 10%, rgba(255,255,255,0.95) 25%, ${accent}${lit?'50':'22'} 50%, rgba(255,255,255,0.95) 75%, transparent 90%)`,
+        transition: 'all 0.2s ease', pointerEvents:'none',
+      }}/>
+      <div className="p-3 flex flex-col items-center justify-center text-center gap-2 h-28 relative">
+        <div className="p-2.5 rounded-full transition-all duration-200"
+          style={isSelected
+            ? { background: isDark ? `${accent}22` : `${accent}15`, boxShadow: `0 0 14px ${accent}35` }
+            : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(30,27,75,0.07)' }}>
+          <cat.icon className="w-5 h-5" style={{ color: isSelected || hovered ? accent : isDark ? 'rgba(255,255,255,0.60)' : '#475569', transition: 'color 0.2s' }}/>
+        </div>
+        <div>
+          <h3 className="font-bold text-xs leading-tight" style={{ color: isDark ? 'rgba(255,255,255,0.88)' : '#1e1b4b' }}>{cat.label}</h3>
+          <p className="text-xs mt-0.5 font-medium" style={{ color: isSelected ? accent : isDark ? 'rgba(255,255,255,0.45)' : '#64748b' }}>
+            {count} مستند
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════ */
 export default function ProjectDetails({ id }: ProjectDetailsProps) {
-  const { projects, documents, deleteProject, deleteDocument, deleteDocuments } = useAppContext();
+  const { projects, documents, deleteProject, deleteDocument, deleteDocuments, theme } = useAppContext();
+  const isDark = theme === 'dark';
   const [, setLocation] = useLocation();
 
   const [selectedCategory, setSelectedCategory] = useState<DocumentType | 'all'>('all');
@@ -519,34 +573,32 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
       {/* ── Category Cards ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">أقسام المستندات</h2>
+          <h2 className="text-xl font-bold" style={{ color: isDark ? 'rgba(255,255,255,0.92)' : '#1e1b4b' }}>أقسام المستندات</h2>
           {selectedCategory !== 'all' && (
-            <Button variant="ghost" size="sm" onClick={() => { setSelectedCategory('all'); setSplitPreviewDoc(null); setSelectedDocs(new Set()); }}>
+            <button
+              className="text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-70"
+              style={{ color: isDark ? '#00f0ff' : '#4338ca' }}
+              onClick={() => { setSelectedCategory('all'); setSplitPreviewDoc(null); setSelectedDocs(new Set()); }}>
               عرض كل المستندات
-            </Button>
+            </button>
           )}
         </div>
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-3">
           {categories.map(cat => {
             const count = docCounts[cat.type] || 0;
             const isSelected = selectedCategory === cat.type;
+            const accent = isDark ? '#00f0ff' : '#6366f1';
             return (
-              <Card
+              <CategoryCard
                 key={cat.type}
-                className={`cursor-pointer transition-all hover:border-primary hover:shadow-md ${isSelected ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : ''}`}
+                cat={cat}
+                count={count}
+                isSelected={isSelected}
+                isDark={isDark}
+                accent={accent}
                 onClick={() => handleCategoryClick(cat.type)}
-                data-testid={`card-category-${cat.type}`}
-              >
-                <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 h-28">
-                  <div className={`p-2.5 rounded-full ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
-                    <cat.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-xs leading-tight">{cat.label}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">{count} مستند</p>
-                  </div>
-                </CardContent>
-              </Card>
+                testId={`card-category-${cat.type}`}
+              />
             );
           })}
         </div>

@@ -442,15 +442,7 @@ export default function Documents() {
             }
           </div>
         ) : (
-          <div className="p-3 space-y-2">
-            {filteredDocs.length === 0
-              ? <div className="flex flex-col items-center justify-center py-12 gap-2" style={{ color: c.muted }}>
-                  <FileText className="w-10 h-10 opacity-30"/>
-                  <p>لا توجد مستندات تطابق معايير البحث</p>
-                </div>
-              : filteredDocs.map(renderListDoc)
-            }
-          </div>
+          <div className="overflow-auto">{renderTable()}</div>
         )}
       </NeonCard>
 
