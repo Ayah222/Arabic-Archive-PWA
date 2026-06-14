@@ -337,7 +337,6 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           <TableHead className="text-right py-3 px-3 w-10">
             <Checkbox checked={isAllSelected} onChange={toggleSelectAll} />
           </TableHead>
-          <TableHead className="text-right font-bold text-foreground py-3 px-3 w-14">معاينة</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">رقم المستند</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">اسم المستند</TableHead>
           <TableHead className="text-right font-bold text-foreground py-3 px-4">نوع المستند</TableHead>
@@ -348,7 +347,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
       <TableBody>
         {filteredDocs.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">لا توجد مستندات</TableCell>
+            <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">لا توجد مستندات</TableCell>
           </TableRow>
         ) : filteredDocs.map((doc, i) => {
           const isSelected = selectedDocs.has(doc.id);
@@ -359,14 +358,6 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
             >
               <TableCell className="py-2 px-3" onClick={e => e.stopPropagation()}>
                 <Checkbox checked={isSelected} onChange={() => toggleSelect(doc.id)} />
-              </TableCell>
-              <TableCell className="py-2 px-3">
-                <div
-                  className="cursor-pointer"
-                  onClick={() => isSplitView ? setSplitPreviewDoc(doc) : setPreviewDoc(doc)}
-                >
-                  <DocThumb doc={doc} size="sm" />
-                </div>
               </TableCell>
               <TableCell className="font-mono text-sm font-bold text-primary py-3 px-4 cursor-pointer" onClick={() => setPreviewDoc(doc)}>{doc.number}</TableCell>
               <TableCell className="font-medium max-w-[220px] truncate py-3 px-4 cursor-pointer" onClick={() => setPreviewDoc(doc)}>{doc.name}</TableCell>
