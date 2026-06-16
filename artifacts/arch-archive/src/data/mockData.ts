@@ -43,31 +43,28 @@ export const mockProjects: Project[] = [
 // ─── 3 Architectural Documents ────────────────────────────────────────────────
 export const mockDocuments: Document[] = [
   {
-    id: "doc_drw_1",
-    number: "DRW-001",
-    name: "مخططات الموقع العام - مشروع برج الأعمال المركزي",
-    type: "drawing",
+    id: "doc_rep_1",
+    number: "REP-001",
+    name: "تقرير الموقع العام - مشروع برج الأعمال المركزي",
+    type: "report",
     projectId: "proj_1",
     createdAt: "2023-06-20T00:00:00.000Z",
-    imageUrl: "https://images.unsplash.com/photo-1464082354059-27db6ce50048?w=400&h=300&fit=crop",
   },
   {
-    id: "doc_drw_2",
-    number: "DRW-002",
-    name: "مخططات المعمارية - تطوير كورنيش الملك فهد",
-    type: "drawing",
+    id: "doc_con_2",
+    number: "CON-001",
+    name: "عقد تنفيذ الأعمال - تطوير كورنيش الملك فهد",
+    type: "contract",
     projectId: "proj_2",
     createdAt: "2023-08-05T00:00:00.000Z",
-    imageUrl: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=400&h=300&fit=crop",
   },
   {
-    id: "doc_drw_3",
-    number: "DRW-003",
-    name: "مخططات الإنشائية - مشروع مستشفى الأمل التخصصي",
-    type: "drawing",
+    id: "doc_mtg_3",
+    number: "MTG-001",
+    name: "محضر الاجتماع التأسيسي - مشروع مستشفى الأمل التخصصي",
+    type: "meeting",
     projectId: "proj_3",
     createdAt: "2023-09-18T00:00:00.000Z",
-    imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=300&fit=crop",
   },
 ];
 
