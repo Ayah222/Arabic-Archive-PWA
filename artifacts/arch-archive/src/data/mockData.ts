@@ -1,129 +1,272 @@
-import { Project, Document, DocumentType, ProjectType, CITIES } from '../types';
+import { Project, Document, Contractor } from "../types";
 
-const projectNames = [
-  "مشروع برج الأعمال المركزي",
-  "تطوير كورنيش الملك فهد",
-  "مشروع مستشفى الأمل التخصصي",
-  "إعادة تطوير حي الرياض التاريخي",
-  "مشروع مجمع السكن الحكومي",
-  "تصميم المطار الإقليمي الجديد",
-  "مشروع الجامعة التقنية",
-  "توسعة ميناء الملك عبدالعزيز",
-  "تخطيط المدينة الذكية المتكاملة",
-  "مشروع محطة معالجة المياه",
-  "مشروع الحديقة الوطنية الكبرى",
-  "تصميم متحف الفنون المعاصرة",
-  "مشروع البنية التحتية للطاقة الشمسية",
-  "تطوير المنطقة التجارية المركزية",
-  "مشروع الملعب الوطني متعدد الأغراض",
-  "مشروع جسر العبور المعلق",
-  "تصميم مركز المؤتمرات الدولي",
-  "تطوير شبكة النقل العام",
-  "مشروع مجمع المحاكم الشرعية",
-  "إعادة تأهيل القلعة الأثرية",
-  "مشروع مدينة الملك عبدالله الطبية",
-  "تصميم المسرح الوطني للثقافة",
-  "مشروع الأبراج السكنية المزدوجة",
-  "تطوير الساحة الإدارية المركزية",
-  "مشروع محطة قطار الحرمين",
-  "تصميم واجهة بحرية سياحية",
-  "مشروع المجمع التجاري الفاخر",
-  "توسعة الطريق الدائري الجنوبي",
-  "مشروع المركز المالي العالمي",
-  "تخطيط المنطقة الصناعية الجديدة",
+// ─── 3 Projects ──────────────────────────────────────────────────────────────
+export const mockProjects: Project[] = [
+  {
+    id: "proj_1",
+    number: "PRJ-001",
+    name: "مشروع برج الأعمال المركزي",
+    client: "وزارة الإسكان",
+    city: "جدة",
+    projectType: "commercial",
+    status: "completed",
+    createdAt: "2023-06-08T00:00:00.000Z",
+    updatedAt: "2023-08-28T00:00:00.000Z",
+    coverImage: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&h=400&fit=crop",
+  },
+  {
+    id: "proj_2",
+    number: "PRJ-002",
+    name: "تطوير كورنيش الملك فهد",
+    client: "أمانة العاصمة",
+    city: "الرياض",
+    projectType: "urban_planning",
+    status: "active",
+    createdAt: "2023-07-23T00:00:00.000Z",
+    updatedAt: "2023-10-15T00:00:00.000Z",
+    coverImage: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800&h=400&fit=crop",
+  },
+  {
+    id: "proj_3",
+    number: "PRJ-003",
+    name: "مشروع مستشفى الأمل التخصصي",
+    client: "وزارة الصحة",
+    city: "مكة المكرمة",
+    projectType: "healthcare",
+    status: "active",
+    createdAt: "2023-09-07T00:00:00.000Z",
+    updatedAt: "2023-12-01T00:00:00.000Z",
+    coverImage: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&h=400&fit=crop",
+  },
 ];
 
-const clients = [
-  "وزارة الإسكان",
-  "أمانة العاصمة",
-  "الهيئة العامة للمواصلات",
-  "وزارة الصحة",
-  "الهيئة الملكية",
-  "شركة التطوير العمراني",
-  "الشركة الوطنية للاستثمار",
-  "وزارة التعليم",
-  "أمانة منطقة مكة المكرمة",
-  "هيئة تطوير المنطقة الشرقية",
+// ─── 3 Architectural Documents ────────────────────────────────────────────────
+export const mockDocuments: Document[] = [
+  {
+    id: "doc_drw_1",
+    number: "DRW-001",
+    name: "مخططات الموقع العام - مشروع برج الأعمال المركزي",
+    type: "drawing",
+    projectId: "proj_1",
+    createdAt: "2023-06-20T00:00:00.000Z",
+    imageUrl: "https://images.unsplash.com/photo-1464082354059-27db6ce50048?w=400&h=300&fit=crop",
+  },
+  {
+    id: "doc_drw_2",
+    number: "DRW-002",
+    name: "مخططات المعمارية - تطوير كورنيش الملك فهد",
+    type: "drawing",
+    projectId: "proj_2",
+    createdAt: "2023-08-05T00:00:00.000Z",
+    imageUrl: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=400&h=300&fit=crop",
+  },
+  {
+    id: "doc_drw_3",
+    number: "DRW-003",
+    name: "مخططات الإنشائية - مشروع مستشفى الأمل التخصصي",
+    type: "drawing",
+    projectId: "proj_3",
+    createdAt: "2023-09-18T00:00:00.000Z",
+    imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=300&fit=crop",
+  },
 ];
 
-const projectTypes: ProjectType[] = [
-  'commercial', 'residential', 'healthcare', 'urban_planning', 'residential',
-  'infrastructure', 'educational', 'infrastructure', 'urban_planning', 'infrastructure',
-  'landscape', 'mixed_use', 'infrastructure', 'commercial', 'mixed_use',
-  'infrastructure', 'administrative', 'infrastructure', 'administrative', 'mixed_use',
-  'healthcare', 'mixed_use', 'residential', 'administrative', 'infrastructure',
-  'hospitality', 'commercial', 'infrastructure', 'commercial', 'industrial',
+// ─── Mock Contractors ────────────────────────────────────────────────────────
+export const mockContractors: Contractor[] = [
+  {
+    id: "cont_1",
+    number: "CONT-1",
+    name: "شركة الأفق للمقاولات",
+    specialty: "architectural",
+    commercialRegistration: "1010123456",
+    phone: "0501234567",
+    email: "info@alofok.sa",
+    bankAccount: "SA0380000000608010167519",
+    notes: "شركة متخصصة في المشاريع المعمارية الكبرى والتصميم الداخلي",
+    status: "active",
+    projectIds: ["proj_1", "proj_3"],
+    createdAt: "2023-01-20T00:00:00.000Z",
+    updatedAt: "2023-08-15T00:00:00.000Z",
+  },
+  {
+    id: "cont_2",
+    number: "CONT-2",
+    name: "مؤسسة البناء الحديث",
+    specialty: "structural",
+    commercialRegistration: "1010234567",
+    phone: "0507654321",
+    email: "contact@modernbuild.sa",
+    bankAccount: "SA4420000001234567891234",
+    notes: "متخصصون في الأعمال الإنشائية والخرسانية للمباني الشاهقة",
+    status: "active",
+    projectIds: ["proj_2"],
+    createdAt: "2023-02-10T00:00:00.000Z",
+    updatedAt: "2023-09-01T00:00:00.000Z",
+  },
+  {
+    id: "cont_3",
+    number: "CONT-3",
+    name: "شركة النخبة للإنشاءات المدنية",
+    specialty: "civil",
+    commercialRegistration: "1010345678",
+    phone: "0551112233",
+    email: "info@elite-const.sa",
+    bankAccount: "SA7157000000670000891111",
+    notes: "",
+    status: "active",
+    projectIds: [],
+    createdAt: "2023-02-25T00:00:00.000Z",
+    updatedAt: "2023-07-20T00:00:00.000Z",
+  },
+  {
+    id: "cont_4",
+    number: "CONT-4",
+    name: "شركة السلامة للمقاولات الكهربائية",
+    specialty: "electrical",
+    commercialRegistration: "1010456789",
+    phone: "0562223344",
+    email: "safety@elec-safety.sa",
+    bankAccount: "SA0380000000608010167520",
+    notes: "رائدة في الأعمال الكهربائية للمشاريع الكبرى",
+    status: "active",
+    projectIds: ["proj_1"],
+    createdAt: "2023-03-05T00:00:00.000Z",
+    updatedAt: "2023-10-10T00:00:00.000Z",
+  },
+  {
+    id: "cont_5",
+    number: "CONT-5",
+    name: "مؤسسة الرشيد للأعمال الميكانيكية",
+    specialty: "mechanical",
+    commercialRegistration: "1010567890",
+    phone: "0573334455",
+    email: "rasheed@mech-work.sa",
+    bankAccount: "SA4420000001234578476578",
+    notes: "",
+    status: "inactive",
+    projectIds: ["proj_3"],
+    createdAt: "2023-03-18T00:00:00.000Z",
+    updatedAt: "2023-06-30T00:00:00.000Z",
+  },
+  {
+    id: "cont_6",
+    number: "CONT-6",
+    name: "شركة التقنية للتكييف والتهوية",
+    specialty: "hvac",
+    commercialRegistration: "1010678901",
+    phone: "0584445566",
+    email: "hvac@tech-hvac.sa",
+    bankAccount: "SA4420000001234567891235",
+    notes: "متخصصون في أنظمة التكييف المركزي للمباني الكبرى",
+    status: "active",
+    projectIds: ["proj_2"],
+    createdAt: "2023-04-01T00:00:00.000Z",
+    updatedAt: "2023-11-05T00:00:00.000Z",
+  },
+  {
+    id: "cont_7",
+    number: "CONT-7",
+    name: "مؤسسة الإنشاءات المدنية المتقدمة",
+    specialty: "infrastructure",
+    commercialRegistration: "1010789012",
+    phone: "0595556677",
+    email: "info@advanced-civil.sa",
+    bankAccount: "SA7157000000670567483987",
+    notes: "",
+    status: "active",
+    projectIds: [],
+    createdAt: "2023-04-20T00:00:00.000Z",
+    updatedAt: "2023-09-25T00:00:00.000Z",
+  },
+  {
+    id: "cont_8",
+    number: "CONT-8",
+    name: "شركة الطرق والبنية التحتية",
+    specialty: "roads",
+    commercialRegistration: "1010890123",
+    phone: "0506667788",
+    email: "roads@infra-roads.sa",
+    bankAccount: "SA7157000000670000891112",
+    notes: "خبرة عشرون عاماً في مشاريع الطرق والبنية التحتية",
+    status: "suspended",
+    projectIds: [],
+    createdAt: "2023-05-08T00:00:00.000Z",
+    updatedAt: "2023-08-01T00:00:00.000Z",
+  },
+  {
+    id: "cont_9",
+    number: "CONT-9",
+    name: "مؤسسة التشطيبات الفاخرة",
+    specialty: "finishing",
+    commercialRegistration: "1010901234",
+    phone: "0517778899",
+    email: "luxury@finish-luxury.sa",
+    bankAccount: "SA0380000000608010167521",
+    notes: "متخصصون في التشطيبات الراقية للفنادق والمولات التجارية",
+    status: "active",
+    projectIds: [],
+    createdAt: "2023-05-22T00:00:00.000Z",
+    updatedAt: "2023-10-18T00:00:00.000Z",
+  },
+  {
+    id: "cont_10",
+    number: "CONT-10",
+    name: "شركة الاتصالات والأنظمة الذكية",
+    specialty: "communications",
+    commercialRegistration: "1010012345",
+    phone: "0528889900",
+    email: "smart@smart-comm.sa",
+    bankAccount: "SA4420000001234568754676",
+    notes: "",
+    status: "active",
+    projectIds: [],
+    createdAt: "2023-06-10T00:00:00.000Z",
+    updatedAt: "2023-11-20T00:00:00.000Z",
+  },
+  {
+    id: "cont_11",
+    number: "CONT-11",
+    name: "مجموعة الريادة للمقاولات الإنشائية",
+    specialty: "structural",
+    commercialRegistration: "1010123457",
+    phone: "0539990011",
+    email: "group@riyadah-group.sa",
+    bankAccount: "SA4420000001234567891236",
+    notes: "من أكبر شركات المقاولات في المنطقة الغربية",
+    status: "active",
+    projectIds: [],
+    createdAt: "2023-06-28T00:00:00.000Z",
+    updatedAt: "2023-12-01T00:00:00.000Z",
+  },
+  {
+    id: "cont_12",
+    number: "CONT-12",
+    name: "شركة الإتقان للمقاولات العامة",
+    specialty: "civil",
+    commercialRegistration: "1010234568",
+    phone: "0540001122",
+    email: "itqan@itqan-const.sa",
+    bankAccount: "SA7157000000670000891113",
+    notes: "",
+    status: "active",
+    projectIds: [],
+    createdAt: "2023-07-15T00:00:00.000Z",
+    updatedAt: "2023-11-30T00:00:00.000Z",
+  },
 ];
 
-const typePrefixes: Record<DocumentType, string> = {
-  contract: 'CON',
-  quotation: 'QUO',
-  employee_data: 'EMP',
-  report: 'REP',
-  image: 'PIC',
-  meeting: 'MTG',
-  letter: 'LTR',
-  contractor: 'CTR',
-  drawing: 'DRW',
-};
-
-const docCounts: Record<DocumentType, number> = {
-  contract: 0, quotation: 0, employee_data: 0, report: 0, image: 0,
-  meeting: 0, letter: 0, contractor: 0, drawing: 0,
-};
-
-const docNamesByType: Record<DocumentType, string[]> = {
-  contract: ['عقد تنفيذ الأعمال', 'عقد الاستشارة الهندسية', 'عقد التوريد', 'عقد الصيانة'],
-  quotation: ['عرض سعر مقاولة', 'عرض سعر توريد مواد', 'عرض سعر تصميم', 'عرض سعر إشراف'],
-  employee_data: ['بيانات المهندس المشرف', 'بيانات فريق التصميم', 'بيانات المراقب الميداني'],
-  report: ['تقرير التقدم الشهري', 'تقرير الجودة', 'تقرير الموقع', 'تقرير الانتهاء'],
-  image: ['صور الموقع الابتدائية', 'صور مرحلة الإنشاء', 'صور التسليم النهائي'],
-  meeting: ['محضر الاجتماع التأسيسي', 'اجتماع متابعة التنفيذ', 'اجتماع التسليم'],
-  letter: ['خطاب إشعار البدء', 'خطاب تمديد المدة', 'خطاب المطالبة المالية'],
-  contractor: ['بيانات المقاول الرئيسي', 'بيانات مقاول الكهرباء', 'بيانات مقاول السباكة'],
-  drawing: ['مخططات الموقع العام', 'مخططات المعمارية', 'مخططات الإنشائية', 'مخططات الكهربائية'],
-};
-
-export const mockProjects: Project[] = projectNames.map((name, index) => {
-  const isCompleted = index % 3 === 0;
-  const baseDate = new Date(2023, 0, 1).getTime();
-  const createdAt = new Date(baseDate + index * 15 * 24 * 60 * 60 * 1000).toISOString();
-  const updatedAt = new Date(baseDate + index * 15 * 24 * 60 * 60 * 1000 + Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000).toISOString();
-  return {
-    id: `proj_${index + 1}`,
-    number: `PRJ-${String(index + 1).padStart(3, '0')}`,
-    name,
-    client: clients[index % clients.length],
-    city: CITIES[index % CITIES.length],
-    projectType: projectTypes[index],
-    status: isCompleted ? 'completed' : 'active',
-    createdAt,
-    updatedAt,
-    coverImage: `https://picsum.photos/seed/arch_${index + 1}/800/400`,
-  };
-});
-
-export const mockDocuments: Document[] = [];
-
-mockProjects.forEach((project) => {
-  const numDocs = Math.floor(Math.random() * 8) + 4;
-  const types: DocumentType[] = Object.keys(typePrefixes) as DocumentType[];
-
-  for (let i = 0; i < numDocs; i++) {
-    const type = types[Math.floor(Math.random() * types.length)];
-    docCounts[type]++;
-    const nameOptions = docNamesByType[type];
-    const docName = nameOptions[Math.floor(Math.random() * nameOptions.length)];
-
-    mockDocuments.push({
-      id: `doc_${project.id}_${i}`,
-      number: `${typePrefixes[type]}-${docCounts[type]}`,
-      name: `${docName} - ${project.name.split(' ').slice(0, 3).join(' ')}`,
-      type,
-      projectId: project.id,
-      createdAt: new Date(
-        new Date(project.createdAt).getTime() + Math.floor(Math.random() * 60) * 24 * 60 * 60 * 1000
-      ).toISOString(),
+// ─── Link contracts/quotations to contractors ─────────────────────────────────
+(() => {
+  mockContractors.forEach((contractor) => {
+    contractor.projectIds.forEach((projectId) => {
+      const pContracts = mockDocuments.filter(
+        (d) => d.projectId === projectId && d.type === "contract" && !d.contractorId,
+      );
+      if (pContracts[0]) pContracts[0].contractorId = contractor.id;
+      const pQuotations = mockDocuments.filter(
+        (d) => d.projectId === projectId && d.type === "quotation" && !d.contractorId,
+      );
+      if (pQuotations[0]) pQuotations[0].contractorId = contractor.id;
     });
-  }
-});
+  });
+})();

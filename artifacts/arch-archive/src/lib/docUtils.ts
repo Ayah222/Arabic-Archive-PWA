@@ -22,9 +22,9 @@ export function getPreviewType(docType: DocumentType): PreviewType {
   }
 }
 
-export function getThumbnailUrl(docId: string, docType: DocumentType): string {
+export function getThumbnailUrl(docId: string, docType: DocumentType, imageUrl?: string): string {
   const pt = getPreviewType(docType);
-  if (pt === 'image') return `https://picsum.photos/seed/${docId}/400/300`;
+  if (pt === 'image') return imageUrl ?? `https://picsum.photos/seed/${docId}/400/300`;
   return '';
 }
 

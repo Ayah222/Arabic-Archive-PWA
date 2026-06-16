@@ -15,7 +15,7 @@ export default function DocumentPreviewModal({ doc, onClose }: DocumentPreviewMo
   if (!doc) return null;
 
   const previewType = getPreviewType(doc.type);
-  const thumbUrl = getThumbnailUrl(doc.id, doc.type);
+  const thumbUrl = getThumbnailUrl(doc.id, doc.type, doc.imageUrl);
   const colors = previewTypeColors[previewType];
   const typeLabel = docTypeLabels[doc.type];
 

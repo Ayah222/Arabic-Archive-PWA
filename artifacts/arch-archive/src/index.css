@@ -330,3 +330,38 @@
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after { inset: -1px; }
 }
+/*_____________تعديل انا ضفتو_______*/
+
+
+/* ── Perfect Dark Select Styling ── */
+.dark select {
+  background-color: #0f0c1f !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(0, 240, 255, 0.15) !important;
+  color-scheme: dark;
+}
+
+.dark select option {
+  background-color: #0f0c1f !important;
+  color: #e2e8f0 !important;
+  padding: 8px 12px;
+  font-family: 'Cairo', sans-serif;
+}
+
+.dark select option:checked,
+.dark select option:selected {
+  background: linear-gradient(#1a1040, #1a1040) !important;
+  color: #00f0ff !important;
+  font-weight: 700;
+}
+
+.dark select option:hover {
+  background: linear-gradient(#1e1547, #1e1547) !important;
+  color: #00f0ff !important;
+}
+
+.dark select:focus {
+  outline: none !important;
+  border-color: rgba(0, 240, 255, 0.40) !important;
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.10) !important;
+}

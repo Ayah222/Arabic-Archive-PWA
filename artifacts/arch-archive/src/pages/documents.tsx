@@ -18,7 +18,7 @@ type ViewMode = 'grid' | 'list';
 /* ── Thumbnail ── */
 function DocThumb({ doc, size = 'sm' }: { doc: Document; size?: 'sm' | 'md' }) {
   const pt = getPreviewType(doc.type);
-  const thumb = getThumbnailUrl(doc.id, doc.type);
+  const thumb = getThumbnailUrl(doc.id, doc.type, doc.imageUrl);
   const col = previewTypeColors[pt];
   const dim = size === 'sm' ? 'w-10 h-10' : 'w-full h-36';
   const iconSize = size === 'sm' ? 'text-xs' : 'text-base';
@@ -145,7 +145,7 @@ export default function Documents() {
     const isSelected = selectedDocs.has(doc.id);
     const project = projects.find(p => p.id === doc.projectId);
     const pt = getPreviewType(doc.type);
-    const thumb = getThumbnailUrl(doc.id, doc.type);
+    const thumb = getThumbnailUrl(doc.id, doc.type, doc.imageUrl);
     const col = previewTypeColors[pt];
     const pill = docPill(doc.type);
     return (

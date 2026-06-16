@@ -11,16 +11,14 @@ import Dashboard from "./pages/dashboard";
 import Projects from "./pages/projects";
 import ProjectDetails from "./pages/project-details";
 import Documents from "./pages/documents";
+import Contractors from "./pages/contractors";
+import ContractorDetails from "./pages/contractor-details";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ component: Component, ...rest }: any) => {
   const { userType } = useAppContext();
-  
-  if (!userType) {
-    return <Redirect to="/login" />;
-  }
-
+  if (!userType) return <Redirect to="/login" />;
   return (
     <AppLayout>
       <Component {...rest} />
@@ -36,13 +34,23 @@ function Router() {
         <ProtectedRoute component={Dashboard} />
       </Route>
       <Route path="/projects/:id">
-        {params => <ProtectedRoute component={ProjectDetails} id={params.id} />}
+        {(params) => (
+          <ProtectedRoute component={ProjectDetails} id={params.id} />
+        )}
       </Route>
       <Route path="/projects">
         <ProtectedRoute component={Projects} />
       </Route>
       <Route path="/documents">
         <ProtectedRoute component={Documents} />
+      </Route>
+      <Route path="/contractors/:id">
+        {(params) => (
+          <ProtectedRoute component={ContractorDetails} id={params.id} />
+        )}
+      </Route>
+      <Route path="/contractors">
+        <ProtectedRoute component={Contractors} />
       </Route>
       <Route path="/">
         <Redirect to="/dashboard" />
