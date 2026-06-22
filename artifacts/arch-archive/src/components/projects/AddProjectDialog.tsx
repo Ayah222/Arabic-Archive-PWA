@@ -27,6 +27,17 @@ export default function AddProjectDialog({ open, onOpenChange }: AddProjectDialo
   const [status, setStatus] = useState<ProjectStatus>('active');
   const [startDate, setStartDate] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [contractNumber, setContractNumber] = useState('');
+  const [contractValue, setContractValue] = useState('');
+  const [awardDate, setAwardDate] = useState('');
+  const [projectDuration, setProjectDuration] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [projectManager, setProjectManager] = useState('');
+  const [consultant, setConsultant] = useState('');
+  const [mainContractor, setMainContractor] = useState('');
+  const [completionPercentage, setCompletionPercentage] = useState('');
+  const [siteAddress, setSiteAddress] = useState('');
+  const [mapsLink, setMapsLink] = useState('');
 
   const [docs, setDocs] = useState<DocRow[]>([]);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -62,6 +73,17 @@ export default function AddProjectDialog({ open, onOpenChange }: AddProjectDialo
     setStatus('active');
     setStartDate('');
     setCoverUrl('');
+    setContractNumber('');
+    setContractValue('');
+    setAwardDate('');
+    setProjectDuration('');
+    setEndDate('');
+    setProjectManager('');
+    setConsultant('');
+    setMainContractor('');
+    setCompletionPercentage('');
+    setSiteAddress('');
+    setMapsLink('');
     setDocs([]);
     fileInputRefs.current = [];
   };
@@ -87,6 +109,17 @@ export default function AddProjectDialog({ open, onOpenChange }: AddProjectDialo
       createdAt: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       coverImage: finalCover,
+      ...(contractNumber && { contractNumber }),
+      ...(contractValue && { contractValue: Number(contractValue) }),
+      ...(awardDate && { awardDate: new Date(awardDate).toISOString() }),
+      ...(projectDuration && { projectDuration: Number(projectDuration) }),
+      ...(endDate && { endDate: new Date(endDate).toISOString() }),
+      ...(projectManager && { projectManager }),
+      ...(consultant && { consultant }),
+      ...(mainContractor && { mainContractor }),
+      ...(completionPercentage && { completionPercentage: Number(completionPercentage) }),
+      ...(siteAddress && { siteAddress }),
+      ...(mapsLink && { mapsLink }),
     });
 
     docs.forEach(doc => {
@@ -199,6 +232,57 @@ export default function AddProjectDialog({ open, onOpenChange }: AddProjectDialo
                 dir="ltr"
                 data-testid="input-add-cover"
               />
+            </div>
+          </div>
+
+          {/* Extended fields section */}
+          <div className="border-t border-border pt-4">
+            <p className="text-sm font-semibold mb-3 text-muted-foreground">بيانات العقد والتفاصيل (اختياري)</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-contract-number">رقم العقد</Label>
+                <Input id="add-contract-number" value={contractNumber} onChange={e => setContractNumber(e.target.value)} placeholder="MOH-2024-XXXX" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-contract-value">قيمة العقد (ريال)</Label>
+                <Input id="add-contract-value" type="number" min={0} value={contractValue} onChange={e => setContractValue(e.target.value)} placeholder="0" dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-award-date">تاريخ الترسية</Label>
+                <Input id="add-award-date" type="date" value={awardDate} onChange={e => setAwardDate(e.target.value)} dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-duration">مدة المشروع (شهر)</Label>
+                <Input id="add-duration" type="number" min={1} value={projectDuration} onChange={e => setProjectDuration(e.target.value)} placeholder="24" dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-end-date">تاريخ الانتهاء المتوقع</Label>
+                <Input id="add-end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-completion">نسبة الإنجاز (%)</Label>
+                <Input id="add-completion" type="number" min={0} max={100} value={completionPercentage} onChange={e => setCompletionPercentage(e.target.value)} placeholder="0" dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-manager">مدير المشروع</Label>
+                <Input id="add-manager" value={projectManager} onChange={e => setProjectManager(e.target.value)} placeholder="م. الاسم" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-consultant">الاستشاري</Label>
+                <Input id="add-consultant" value={consultant} onChange={e => setConsultant(e.target.value)} placeholder="اسم مكتب الاستشارات" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-main-contractor">المقاول الرئيسي</Label>
+                <Input id="add-main-contractor" value={mainContractor} onChange={e => setMainContractor(e.target.value)} placeholder="اسم الشركة" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-maps">رابط الموقع (Google Maps)</Label>
+                <Input id="add-maps" value={mapsLink} onChange={e => setMapsLink(e.target.value)} placeholder="https://maps.google.com/..." dir="ltr" />
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="add-address">عنوان الموقع</Label>
+                <Input id="add-address" value={siteAddress} onChange={e => setSiteAddress(e.target.value)} placeholder="الحي، المدينة، المنطقة" />
+              </div>
             </div>
           </div>
 

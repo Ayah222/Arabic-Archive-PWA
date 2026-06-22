@@ -86,6 +86,13 @@ export const CONTRACTOR_SPECIALTIES: Record<ContractorSpecialty, string> = {
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
+export interface ContractorRatings {
+  quality: number;
+  commitment: number;
+  safety: number;
+  speed: number;
+}
+
 export interface Project {
   id: string;
   number: string;
@@ -97,6 +104,18 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   coverImage: string;
+  // Extended fields
+  contractNumber?: string;
+  contractValue?: number;
+  awardDate?: string;
+  projectDuration?: number;
+  endDate?: string;
+  projectManager?: string;
+  consultant?: string;
+  mainContractor?: string;
+  completionPercentage?: number;
+  mapsLink?: string;
+  siteAddress?: string;
 }
 
 export interface Document {
@@ -108,6 +127,15 @@ export interface Document {
   createdAt: string;
   contractorId?: string;
   imageUrl?: string;
+  // Letter / correspondence fields
+  letterClassification?: "outgoing" | "incoming" | "meeting_minutes";
+  letterEntity?: string;
+  letterSubject?: string;
+  // Meeting fields
+  meetingDate?: string;
+  attendees?: string[];
+  decisions?: string[];
+  tasks?: string[];
 }
 
 export interface Contractor {
@@ -116,12 +144,14 @@ export interface Contractor {
   name: string;
   specialty: ContractorSpecialty;
   commercialRegistration: string;
+  commercialRegistrationExpiry?: string;
   phone: string;
   email: string;
   bankAccount: string;
   notes: string;
   status: ContractorStatus;
   projectIds: string[];
+  ratings?: ContractorRatings;
   createdAt: string;
   updatedAt: string;
 }

@@ -728,6 +728,65 @@ export default function ContractorDetails({ id }: Props) {
               contractor.notes,
             )}
         </div>
+
+        {/* ── Ratings ── */}
+        {contractor.ratings && (
+          <div
+            className="mt-5 pt-5"
+            style={{
+              borderTop: isDark
+                ? "1px solid rgba(255,255,255,0.06)"
+                : "1px solid rgba(99,102,241,0.08)",
+            }}
+          >
+            <p
+              className="text-sm font-bold mb-3"
+              style={{ color: isDark ? "rgba(255,255,255,0.72)" : "#374151" }}
+            >
+              تقييم الأداء
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { label: "جودة العمل", value: contractor.ratings.quality, color: "#00f0ff" },
+                { label: "الالتزام بالمواعيد", value: contractor.ratings.commitment, color: "#c084fc" },
+                { label: "معايير السلامة", value: contractor.ratings.safety, color: "#4ade80" },
+                { label: "سرعة التنفيذ", value: contractor.ratings.speed, color: "#fb923c" },
+              ].map((r) => (
+                <div key={r.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#64748b" }}
+                    >
+                      {r.label}
+                    </span>
+                    <span
+                      className="text-xs font-bold"
+                      style={{ color: r.color }}
+                    >
+                      {r.value}%
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 rounded-full overflow-hidden"
+                    style={{
+                      background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
+                    }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${r.value}%`,
+                        background: `linear-gradient(to left, ${r.color}cc, ${r.color})`,
+                        boxShadow: isDark ? `0 0 8px ${r.color}55` : "none",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── KPI Cards ── */}

@@ -16,6 +16,7 @@ import { useContractors } from "../hooks/useContractors";
 import { mockProjects } from "../data/mockData";
 import {
   Contractor,
+  ContractorRatings,
   ContractorStatus,
   ContractorSpecialty,
   CONTRACTOR_SPECIALTIES,
@@ -270,6 +271,45 @@ const ContractorDialog: React.FC<DialogProps> = ({
                   setForm((f) => ({ ...f, notes: e.target.value }))
                 }
               />
+            </div>
+
+            {/* ── Ratings ── */}
+            <div className="col-span-2">
+              <div style={{
+                borderTop: isDark ? "1px solid rgba(0,240,255,0.10)" : "1px solid rgba(99,102,241,0.12)",
+                paddingTop: 12, marginTop: 4,
+              }}>
+                <p style={{ ...lbl, marginBottom: 10, fontSize: 12 }}>تقييم الأداء (اختياري — 0 إلى 100)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "quality",    label: "جودة العمل" },
+                    { key: "commitment", label: "الالتزام بالمواعيد" },
+                    { key: "safety",     label: "معايير السلامة" },
+                    { key: "speed",      label: "سرعة التنفيذ" },
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <label style={{ ...lbl, marginBottom: 3 }}>{label}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        style={inp}
+                        placeholder="—"
+                        value={form.ratings ? (form.ratings[key as keyof ContractorRatings] ?? "") : ""}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? undefined : Math.min(100, Math.max(0, Number(e.target.value)));
+                          setForm((f) => ({
+                            ...f,
+                            ratings: val === undefined
+                              ? f.ratings
+                              : { quality: 0, commitment: 0, safety: 0, speed: 0, ...f.ratings, [key]: val },
+                          }));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -666,6 +706,7 @@ export default function Contractors() {
                   "الحالة",
                   "رقم الجوال",
                   "المشاريع",
+                  "التقييم",
                   "الإجراءات",
                 ].map(th)}
               </tr>
@@ -673,7 +714,7 @@ export default function Contractors() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16">
+                  <td colSpan={8} className="text-center py-16">
                     <HardHat
                       className="w-12 h-12 mx-auto mb-3 opacity-20"
                       style={{ color: isDark ? "#00f0ff" : "#6366f1" }}
@@ -760,6 +801,24 @@ export default function Contractors() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
+                      {c.ratings ? (() => {
+                        const avg = Math.round((c.ratings.quality + c.ratings.commitment + c.ratings.safety + c.ratings.speed) / 4);
+                        const color = avg >= 85 ? "#4ade80" : avg >= 70 ? "#fb923c" : "#f87171";
+                        return (
+                          <div className="flex items-center gap-2 min-w-[80px]">
+                            <div className="flex-1 h-1.5 rounded-full overflow-hidden"
+                              style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)" }}>
+                              <div className="h-full rounded-full"
+                                style={{ width: `${avg}%`, background: color }} />
+                            </div>
+                            <span className="text-xs font-bold tabular-nums" style={{ color }}>{avg}%</span>
+                          </div>
+                        );
+                      })() : (
+                        <span className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.28)" : "#94a3b8" }}>—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => navigate(`/contractors/${c.id}`)}
@@ -781,10 +840,13 @@ export default function Contractors() {
                               name: c.name,
                               specialty: c.specialty,
                               commercialRegistration: c.commercialRegistration,
+                              commercialRegistrationExpiry: c.commercialRegistrationExpiry,
                               phone: c.phone,
                               email: c.email,
+                              bankAccount: c.bankAccount,
                               notes: c.notes,
                               status: c.status,
+                              ratings: c.ratings,
                             });
                           }}
                           title="تعديل"

@@ -35,6 +35,11 @@ import {
   FileText,
   Clock,
   CheckSquare,
+  DollarSign,
+  ExternalLink,
+  User,
+  Briefcase,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Document, DocumentType, PROJECT_TYPES } from "../types";
 import {
@@ -941,6 +946,146 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           </div>
         </div>
       </div>
+
+      {/* ── Extended Project Info Card ── */}
+      {(project.contractNumber || project.contractValue || project.projectManager || project.consultant || project.mainContractor || project.completionPercentage !== undefined || project.siteAddress || project.mapsLink) && (
+        <div
+          className="rounded-2xl p-5"
+          style={{
+            background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.82)",
+            backdropFilter: "blur(16px)",
+            border: isDark ? "1px solid rgba(0,240,255,0.08)" : "1px solid rgba(99,102,241,0.12)",
+          }}
+        >
+          <h2
+            className="text-sm font-bold mb-4"
+            style={{ color: isDark ? "rgba(255,255,255,0.82)" : "#374151" }}
+          >
+            تفاصيل العقد والمشروع
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {project.contractNumber && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <FileText className="w-3 h-3" /> رقم العقد
+                </p>
+                <p className="text-sm font-bold font-mono" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{project.contractNumber}</p>
+              </div>
+            )}
+            {project.contractValue !== undefined && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <DollarSign className="w-3 h-3" /> قيمة العقد
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>
+                  {project.contractValue.toLocaleString("ar-SA")} ريال
+                </p>
+              </div>
+            )}
+            {project.projectManager && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <User className="w-3 h-3" /> مدير المشروع
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{project.projectManager}</p>
+              </div>
+            )}
+            {project.consultant && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <Briefcase className="w-3 h-3" /> الاستشاري
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{project.consultant}</p>
+              </div>
+            )}
+            {project.mainContractor && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <HardHat className="w-3 h-3" /> المقاول الرئيسي
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{project.mainContractor}</p>
+              </div>
+            )}
+            {project.awardDate && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <Calendar className="w-3 h-3" /> تاريخ الترسية
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>
+                  {new Date(project.awardDate).toLocaleDateString("ar-SA")}
+                </p>
+              </div>
+            )}
+            {project.endDate && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <Clock className="w-3 h-3" /> تاريخ الإنتهاء
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>
+                  {new Date(project.endDate).toLocaleDateString("ar-SA")}
+                </p>
+              </div>
+            )}
+            {project.projectDuration !== undefined && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <Ruler className="w-3 h-3" /> مدة المشروع
+                </p>
+                <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{project.projectDuration} شهراً</p>
+              </div>
+            )}
+            {project.completionPercentage !== undefined && (
+              <div className="col-span-2 md:col-span-1">
+                <p className="text-xs mb-1 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <BarChart2 className="w-3 h-3" /> نسبة الإنجاز
+                </p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 rounded-full overflow-hidden"
+                    style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)" }}>
+                    <div className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${project.completionPercentage}%`,
+                        background: project.completionPercentage === 100
+                          ? "#4ade80"
+                          : project.completionPercentage >= 50
+                          ? isDark ? "linear-gradient(to left,#00f0ff,#c084fc)" : "linear-gradient(to left,#6366f1,#a855f7)"
+                          : "#fb923c",
+                      }} />
+                  </div>
+                  <span className="text-sm font-bold tabular-nums"
+                    style={{ color: project.completionPercentage === 100 ? "#4ade80" : isDark ? "#00f0ff" : "#6366f1" }}>
+                    {project.completionPercentage}%
+                  </span>
+                </div>
+              </div>
+            )}
+            {project.siteAddress && (
+              <div className="col-span-2 md:col-span-2">
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <MapPin className="w-3 h-3" /> عنوان الموقع
+                </p>
+                <p className="text-sm font-medium" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{project.siteAddress}</p>
+              </div>
+            )}
+            {project.mapsLink && (
+              <div>
+                <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "#6366f1" }}>
+                  <LinkIcon className="w-3 h-3" /> موقع Google Maps
+                </p>
+                <a
+                  href={project.mapsLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-bold flex items-center gap-1 hover:underline"
+                  style={{ color: isDark ? "#00f0ff" : "#4338ca" }}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> فتح الخريطة
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Category Cards ── */}
       <div>
