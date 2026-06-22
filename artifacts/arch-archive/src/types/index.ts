@@ -129,10 +129,12 @@ export interface Document {
   imageUrl?: string;
   // Letter / correspondence fields
   letterClassification?: "outgoing" | "incoming" | "meeting_minutes";
+  letterNumber?: string;
   letterEntity?: string;
   letterSubject?: string;
   // Meeting fields
   meetingDate?: string;
+  meetingLocation?: string;
   attendees?: string[];
   decisions?: string[];
   tasks?: string[];

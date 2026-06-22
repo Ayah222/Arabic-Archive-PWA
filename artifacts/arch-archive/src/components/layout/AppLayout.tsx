@@ -12,6 +12,9 @@ import {
   X,
   LayoutGrid,
   HardHat,
+  Mail,
+  CalendarCheck,
+  Users,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -138,10 +141,13 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { path: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
-    { path: "/projects", label: "المشاريع", icon: FolderOpen },
-    { path: "/documents", label: "المستندات", icon: FileText },
-    { path: "/contractors", label: "المقاولون", icon: HardHat },
+    { path: "/dashboard",       label: "لوحة التحكم",           icon: LayoutDashboard },
+    { path: "/projects",        label: "المشاريع",              icon: FolderOpen       },
+    { path: "/documents",       label: "المستندات",             icon: FileText         },
+    { path: "/contractors",     label: "المقاولون",             icon: HardHat          },
+    { path: "/correspondence",  label: "الخطابات والمراسلات",   icon: Mail             },
+    { path: "/meetings",        label: "الاجتماعات",            icon: CalendarCheck    },
+    { path: "/users",           label: "المستخدمون",            icon: Users            },
   ];
 
   const handleLogout = () => {

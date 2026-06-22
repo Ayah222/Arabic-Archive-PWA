@@ -13,6 +13,9 @@ import ProjectDetails from "./pages/project-details";
 import Documents from "./pages/documents";
 import Contractors from "./pages/contractors";
 import ContractorDetails from "./pages/contractor-details";
+import Correspondence from "./pages/correspondence";
+import Meetings from "./pages/meetings";
+import UsersPage from "./pages/users";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +54,15 @@ function Router() {
       </Route>
       <Route path="/contractors">
         <ProtectedRoute component={Contractors} />
+      </Route>
+      <Route path="/correspondence">
+        <ProtectedRoute component={Correspondence} />
+      </Route>
+      <Route path="/meetings">
+        <ProtectedRoute component={Meetings} />
+      </Route>
+      <Route path="/users">
+        <ProtectedRoute component={UsersPage} />
       </Route>
       <Route path="/">
         <Redirect to="/dashboard" />

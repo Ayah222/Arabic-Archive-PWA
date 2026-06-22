@@ -457,6 +457,125 @@ export const mockContractors: Contractor[] = [
   },
 ];
 
+// ─── Letters & Meetings (standalone, not tied to a project) ──────────────────
+export const mockLetters: Document[] = [
+  {
+    id: "let_1", number: "DOC-LET-001", name: "خطاب طلب اعتماد المخططات",
+    type: "letter", projectId: "proj_1", createdAt: "2026-06-01T00:00:00.000Z",
+    letterClassification: "outgoing", letterNumber: "خ/2026/001",
+    letterEntity: "أمانة محافظة جدة", letterSubject: "طلب اعتماد المخططات المعمارية لمشروع برج الأعمال",
+  },
+  {
+    id: "let_2", number: "DOC-LET-002", name: "رد بالاعتماد المبدئي",
+    type: "letter", projectId: "proj_1", createdAt: "2026-06-05T00:00:00.000Z",
+    letterClassification: "incoming", letterNumber: "أم/2026/0412",
+    letterEntity: "أمانة محافظة جدة", letterSubject: "الاعتماد المبدئي للمخططات مع ملاحظات",
+  },
+  {
+    id: "let_3", number: "DOC-LET-003", name: "خطاب مطالبة بتسوية المستخلص",
+    type: "letter", projectId: "proj_2", createdAt: "2026-06-08T00:00:00.000Z",
+    letterClassification: "outgoing", letterNumber: "خ/2026/002",
+    letterEntity: "شركة الأفق للمقاولات", letterSubject: "المطالبة بسداد المستخلص الثالث",
+  },
+  {
+    id: "let_4", number: "DOC-LET-004", name: "خطاب وارد من الاستشاري",
+    type: "letter", projectId: "proj_2", createdAt: "2026-06-10T00:00:00.000Z",
+    letterClassification: "incoming", letterNumber: "ق/2026/089",
+    letterEntity: "مكتب الهندسة المتحدة", letterSubject: "ملاحظات على تقرير التقدم الأسبوعي",
+  },
+  {
+    id: "let_5", number: "DOC-LET-005", name: "خطاب تكليف مهندس الموقع",
+    type: "letter", projectId: "proj_3", createdAt: "2026-05-20T00:00:00.000Z",
+    letterClassification: "outgoing", letterNumber: "خ/2026/003",
+    letterEntity: "إدارة الموارد البشرية", letterSubject: "تكليف المهندس سعود المالكي مهندساً للموقع",
+  },
+  {
+    id: "let_6", number: "DOC-LET-006", name: "خطاب اعتذار عن المشاركة",
+    type: "letter", projectId: "proj_3", createdAt: "2026-05-25T00:00:00.000Z",
+    letterClassification: "incoming", letterNumber: "ش/2026/0051",
+    letterEntity: "شركة النخبة للمقاولات", letterSubject: "الاعتذار عن تقديم عرض سعر للمشروع",
+  },
+  {
+    id: "let_7", number: "DOC-LET-007", name: "محضر اجتماع التصميم الأولي",
+    type: "letter", projectId: "proj_1", createdAt: "2026-05-15T00:00:00.000Z",
+    letterClassification: "meeting_minutes", letterNumber: "م/2026/001",
+    letterEntity: "فريق التصميم المعماري", letterSubject: "محضر اجتماع مراجعة التصميم الأولي",
+  },
+  {
+    id: "let_8", number: "DOC-LET-008", name: "محضر اجتماع متابعة التنفيذ",
+    type: "letter", projectId: "proj_2", createdAt: "2026-06-12T00:00:00.000Z",
+    letterClassification: "meeting_minutes", letterNumber: "م/2026/002",
+    letterEntity: "فريق المشروع", letterSubject: "محضر اجتماع المتابعة الأسبوعية للتنفيذ",
+  },
+];
+
+export const mockMeetings: Document[] = [
+  {
+    id: "meet_1", number: "DOC-MTG-001", name: "اجتماع إطلاق مشروع برج الأعمال",
+    type: "meeting", projectId: "proj_1", createdAt: "2026-05-10T00:00:00.000Z",
+    meetingDate: "2026-05-10T09:00:00.000Z",
+    meetingLocation: "قاعة الاجتماعات الرئيسية — جدة",
+    attendees: ["م. خالد العمري", "م. فهد السعيد", "أ. سلطان الغامدي", "م. نورة الأحمدي", "م. سعد المالكي"],
+    decisions: [
+      "الموافقة على جدول التنفيذ المقترح للمرحلة الأولى",
+      "تعيين م. فهد السعيد مشرفاً ميدانياً على الموقع",
+      "البدء في إجراءات استخراج التراخيص الإنشائية",
+    ],
+    tasks: [
+      "إعداد جدول الزيارات الميدانية الأسبوعية",
+      "رفع مخططات الصرف الصحي للاعتماد",
+      "التنسيق مع مكتب الاستشاري لمراجعة المخططات",
+    ],
+  },
+  {
+    id: "meet_2", number: "DOC-MTG-002", name: "اجتماع مراجعة التقدم الشهري",
+    type: "meeting", projectId: "proj_2", createdAt: "2026-06-05T00:00:00.000Z",
+    meetingDate: "2026-06-05T10:30:00.000Z",
+    meetingLocation: "موقع المشروع — مجمع التسوق",
+    attendees: ["م. محمد العسيري", "أ. ريم الشهري", "م. عمر الزهراني", "م. بدر القحطاني"],
+    decisions: [
+      "الموافقة على نسبة الإنجاز البالغة 62%",
+      "تمديد مدة تنفيذ الواجهات أسبوعاً إضافياً",
+    ],
+    tasks: [
+      "تقديم تقرير تفصيلي عن حالة التشطيبات",
+      "الحصول على موافقة المالك على تعديلات الواجهات",
+      "إعداد المستخلص الرابع وتقديمه للمراجعة",
+    ],
+  },
+  {
+    id: "meet_3", number: "DOC-MTG-003", name: "اجتماع متابعة سلامة الموقع",
+    type: "meeting", projectId: "proj_3", createdAt: "2026-06-15T00:00:00.000Z",
+    meetingDate: "2026-06-15T08:00:00.000Z",
+    meetingLocation: "موقع المشروع — الرياض",
+    attendees: ["م. سارة الدوسري", "م. عبدالله الحربي", "م. فيصل المطيري", "أخصائي سلامة الموقع"],
+    decisions: [
+      "تفعيل إجراءات السلامة الجديدة بدءاً من الأسبوع القادم",
+      "تشكيل لجنة السلامة الميدانية برئاسة م. فيصل",
+    ],
+    tasks: [
+      "توزيع معدات الوقاية الشخصية على جميع العمال",
+      "إعداد خطة طوارئ محدّثة للموقع",
+      "جدولة تدريب يومي للعمال على إجراءات السلامة",
+    ],
+  },
+  {
+    id: "meet_4", number: "DOC-MTG-004", name: "اجتماع تقييم المقاولين",
+    type: "meeting", projectId: "proj_1", createdAt: "2026-06-18T00:00:00.000Z",
+    meetingDate: "2026-06-18T11:00:00.000Z",
+    meetingLocation: "مكتب المشروع — جدة",
+    attendees: ["م. خالد العمري", "م. نورة الأحمدي", "أ. سلطان الغامدي", "م. سعد المالكي"],
+    decisions: [
+      "منح شركة الأفق تقييم ممتاز في الجودة",
+      "توجيه إنذار لمقاول الكهرباء بسبب التأخر",
+    ],
+    tasks: [
+      "رفع تقارير التقييم النهائية خلال أسبوع",
+      "إخطار مقاول الكهرباء رسمياً بالتأخر",
+    ],
+  },
+];
+
 // ─── Link contracts/quotations to contractors ─────────────────────────────────
 (() => {
   mockContractors.forEach((contractor) => {
