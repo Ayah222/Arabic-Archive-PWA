@@ -1,0 +1,92 @@
+PROMPT NUMBER 9 — BUG FIX
+
+NOTIFICATIONS DROPDOWN NOT RENDERING CORRECTLY
+
+Continue working on the existing Architectural Archive Management System.
+
+IMPORTANT:
+
+* Do NOT rebuild the application.
+* Do NOT touch unrelated features.
+* Keep React + TypeScript + Tailwind CSS.
+* Keep Arabic RTL support.
+* Keep Dark Mode / Light Mode.
+* Keep the existing Bell icon, badge, and notification data/logic exactly as they are.
+* This is a BUG FIX task only — fix the rendering issue, do not redesign the feature.
+
+==================================================
+BUG DESCRIPTION
+===============
+
+The Bell icon in the navbar works correctly:
+
+* It displays.
+* The unread count badge displays correctly (e.g. showing "8").
+
+However, when the user clicks the Bell icon, the Notifications dropdown does NOT open/render correctly.
+
+Observed behavior:
+
+* Only a tiny, partial sliver of the dropdown appears directly under the bell icon (a thin rounded strip, almost like the dropdown is collapsed or cut off).
+* The full list of notifications, the header ("التنبيهات"), and the footer link ("إظهار جميع التنبيهات") are NOT visible.
+* It looks like the dropdown panel has no proper height/width, or is being clipped/hidden by a parent container, or is rendering behind other elements.
+
+==================================================
+LIKELY ROOT CAUSES TO INVESTIGATE
+=================================
+
+Check and fix ALL of the following, in this order:
+
+1. OVERFLOW CLIPPING
+   * Check if the Navbar or any parent wrapper of the Bell icon has `overflow: hidden` (or Tailwind `overflow-hidden`) applied.
+   * If so, the dropdown must NOT be a direct DOM child of that clipped container, OR the clipping container must allow overflow for this dropdown (e.g. via `overflow-visible`, or by rendering the dropdown through a portal).
+
+2. Z-INDEX / STACKING CONTEXT
+   * Check if the dropdown has a z-index lower than other navbar/page elements (e.g. sidebar, header, banner image).
+   * Ensure the dropdown's z-index is high enough to render above ALL other UI elements (e.g. use a very high z-index value, consistent with how other existing dropdowns/modals in the app are layered).
+
+3. MISSING / COLLAPSED DIMENSIONS
+   * Check if the dropdown container is missing an explicit width/min-width and max-height (e.g. it currently has no width set, causing it to collapse to the width of its content or to 0).
+   * Set a proper fixed width (e.g. similar width to other existing dropdown menus in the app) and a max-height with internal scroll (e.g. `max-h-96 overflow-y-auto`) for the notification list area.
+
+4. POSITIONING STRATEGY
+   * Check how the dropdown is positioned (CSS `position: absolute` vs `fixed` vs rendered inline in normal flow).
+   * If it currently relies on `absolute` positioning inside a relatively-positioned parent that has `overflow-hidden` or insufficient size, switch the dropdown to render via a React Portal (e.g. `createPortal` to `document.body`) OR ensure the nearest positioned ancestor does not clip it.
+   * Ensure correct RTL positioning so the dropdown aligns under the bell icon correctly (anchored to the correct side in RTL, not flipped or offset incorrectly).
+
+5. CONDITIONAL RENDERING / CSS STATE BUG
+   * Check if the open/closed state is correctly toggling a CSS class or conditional render, and that there isn't a leftover style (e.g. `max-height: 0`, `scale-0`, `opacity-0` not being properly reset to `opacity-100`/`scale-100`/`max-height: auto` when open).
+   * If animation classes are used for open/close transitions, verify the "open" state class is actually applied and not overridden by a conflicting class.
+
+==================================================
+EXPECTED CORRECT BEHAVIOR AFTER FIX
+===================================
+
+When the user clicks the Bell icon:
+
+* The full dropdown panel opens, fully visible, not clipped or collapsed.
+* It displays:
+  - Header: "التنبيهات"
+  - The latest 10 notifications (scrollable if needed)
+  - Footer link: "إظهار جميع التنبيهات"
+* The dropdown renders ABOVE all other page content (no element overlaps or hides it).
+* The dropdown is correctly anchored under/near the Bell icon in RTL layout.
+* Clicking outside the dropdown or pressing Escape closes it normally.
+* Dark Mode and Light Mode styling remain correct (background, borders, text colors as already implemented).
+* No other functionality (badge count, read/unread logic, full notifications page) should change — only the rendering/visibility bug should be fixed.
+
+==================================================
+VERIFICATION STEPS
+==================
+
+After applying the fix, verify:
+
+* Open the dropdown on a page where the project list/cards appear below the navbar (like the Dashboard) and confirm the dropdown appears fully on top of those cards, not behind them.
+* Resize the browser / test on a smaller viewport to confirm the dropdown does not get clipped or pushed off-screen.
+* Confirm the dropdown still works identically in both Dark Mode and Light Mode.
+
+Do not add backend.
+
+Do not add database.
+
+Keep everything based on the current local mock data / state architecture.

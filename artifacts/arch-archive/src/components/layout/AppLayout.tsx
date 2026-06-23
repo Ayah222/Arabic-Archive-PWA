@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { useAppContext } from "../../context/AppContext";
 import { useNotifications, NOTIF_COLORS } from "../../context/NotificationsContext";
@@ -147,7 +148,17 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
-  const bellRef = useRef<HTMLDivElement>(null);
+  const [bellRect, setBellRect] = useState<DOMRect | null>(null);
+  const bellRef        = useRef<HTMLDivElement>(null);
+  const bellButtonRef  = useRef<HTMLButtonElement>(null);
+  const dropdownRef    = useRef<HTMLDivElement>(null);
+
+  const handleBellClick = () => {
+    if (!bellOpen && bellButtonRef.current) {
+      setBellRect(bellButtonRef.current.getBoundingClientRect());
+    }
+    setBellOpen(prev => !prev);
+  };
 
   useEffect(() => {
     if (!bellOpen) return;
@@ -156,8 +167,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
         if (e.key === "Escape") setBellOpen(false);
         return;
       }
-      if (bellRef.current && !bellRef.current.contains(e.target as Node))
-        setBellOpen(false);
+      const t = e.target as Node;
+      const insideBell     = bellRef.current?.contains(t);
+      const insideDropdown = dropdownRef.current?.contains(t);
+      if (!insideBell && !insideDropdown) setBellOpen(false);
     };
     document.addEventListener("mousedown", handler);
     document.addEventListener("keydown", handler);
@@ -499,13 +512,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
           {/* ── Bell + Theme buttons ── */}
           <div className="flex items-center gap-1">
 
-            {/* ── Bell Icon + Dropdown ── */}
+            {/* ── Bell Icon ── */}
             <div className="relative" ref={bellRef}>
               <Button
+                ref={bellButtonRef}
                 variant="ghost"
                 size="icon"
                 className="relative rounded-xl w-9 h-9 md:w-10 md:h-10"
-                onClick={() => setBellOpen(prev => !prev)}
+                onClick={handleBellClick}
                 aria-label="التنبيهات"
               >
                 <Bell className="w-4 h-4 md:w-5 md:h-5" />
@@ -522,154 +536,143 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
                   </span>
                 )}
               </Button>
+            </div>
 
-              {/* ── Dropdown Panel ── */}
-              {bellOpen && (
+            {/* ── Notifications Dropdown (Portal — bypasses overflow-hidden on header) ── */}
+            {bellOpen && bellRect && createPortal(
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: 'fixed',
+                  top: bellRect.bottom + 8,
+                  left: bellRect.left,
+                  width: 340,
+                  zIndex: 9999,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  background: isDark ? 'rgba(10,8,22,0.97)' : 'rgba(248,250,255,0.98)',
+                  backdropFilter: 'blur(28px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+                  border: isDark ? '1px solid rgba(0,240,255,0.12)' : '1px solid rgba(99,102,241,0.16)',
+                  boxShadow: isDark
+                    ? '0 24px 60px rgba(0,0,0,0.80), 0 0 0 1px rgba(0,240,255,0.06)'
+                    : '0 20px 50px rgba(31,38,135,0.14), 0 0 0 1px rgba(99,102,241,0.08)',
+                  direction: 'rtl',
+                }}
+              >
+                {/* Header */}
                 <div
-                  className="absolute top-full mt-2 rounded-2xl overflow-hidden"
-                  style={{
-                    right: 0,
-                    width: 340,
-                    zIndex: 50,
-                    background: isDark ? 'rgba(10,8,22,0.97)' : 'rgba(248,250,255,0.98)',
-                    backdropFilter: 'blur(28px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-                    border: isDark ? '1px solid rgba(0,240,255,0.12)' : '1px solid rgba(99,102,241,0.16)',
-                    boxShadow: isDark
-                      ? '0 24px 60px rgba(0,0,0,0.80), 0 0 0 1px rgba(0,240,255,0.06)'
-                      : '0 20px 50px rgba(31,38,135,0.14), 0 0 0 1px rgba(99,102,241,0.08)',
-                  }}
+                  className="flex items-center justify-between px-4 py-3"
+                  style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(99,102,241,0.09)' }}
                 >
-                  {/* Dropdown header */}
-                  <div
-                    className="flex items-center justify-between px-4 py-3"
-                    style={{
-                      borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(99,102,241,0.09)',
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4" style={{ color: isDark ? '#ff4da6' : '#be185d' }} />
-                      <span className="text-sm font-bold" style={{ color: isDark ? '#fff' : '#1e1b4b' }}>
-                        التنبيهات
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4" style={{ color: isDark ? '#ff4da6' : '#be185d' }} />
+                    <span className="text-sm font-bold" style={{ color: isDark ? '#fff' : '#1e1b4b' }}>
+                      التنبيهات
+                    </span>
+                    {unreadCount > 0 && (
+                      <span
+                        className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: isDark ? 'rgba(255,0,128,0.14)' : 'rgba(236,72,153,0.10)',
+                          color: isDark ? '#ff4da6' : '#be185d',
+                          border: isDark ? '1px solid rgba(255,0,128,0.25)' : '1px solid rgba(236,72,153,0.22)',
+                        }}
+                      >
+                        {unreadCount}
                       </span>
-                      {unreadCount > 0 && (
-                        <span
-                          className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="flex items-center gap-1 text-xs font-bold transition-opacity hover:opacity-70"
+                      style={{ color: isDark ? '#00f0ff' : '#6366f1' }}
+                    >
+                      <CheckCheck className="w-3.5 h-3.5" />
+                      تحديد الكل
+                    </button>
+                  )}
+                </div>
+
+                {/* Notification list */}
+                <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: isDark ? '#00f0ff' : '#6366f1' }} />
+                      <p className="text-xs" style={{ color: isDark ? 'rgba(255,255,255,0.35)' : '#9ca3af' }}>
+                        لا توجد تنبيهات
+                      </p>
+                    </div>
+                  ) : (
+                    notifications.slice(0, 10).map(n => {
+                      const nc = NOTIF_COLORS[n.level][isDark ? 'dark' : 'light'];
+                      const Icon = n.level === 'danger' ? ShieldAlert : n.level === 'warning' ? AlertTriangle : Info;
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            markRead(n.id);
+                            if (n.link) { setBellOpen(false); setLocation(n.link); }
+                          }}
+                          className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150 hover:opacity-80"
                           style={{
-                            background: isDark ? 'rgba(255,0,128,0.14)' : 'rgba(236,72,153,0.10)',
-                            color: isDark ? '#ff4da6' : '#be185d',
-                            border: isDark ? '1px solid rgba(255,0,128,0.25)' : '1px solid rgba(236,72,153,0.22)',
+                            background: n.isRead ? 'transparent' : nc.bg,
+                            borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(99,102,241,0.06)',
                           }}
                         >
-                          {unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllRead}
-                        className="flex items-center gap-1 text-xs font-bold transition-opacity hover:opacity-70"
-                        style={{ color: isDark ? '#00f0ff' : '#6366f1' }}
-                      >
-                        <CheckCheck className="w-3.5 h-3.5" />
-                        تحديد الكل
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Notification items */}
-                  <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-                    {notifications.length === 0 ? (
-                      <div className="py-12 text-center">
-                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: isDark ? '#00f0ff' : '#6366f1' }} />
-                        <p className="text-xs" style={{ color: isDark ? 'rgba(255,255,255,0.35)' : '#9ca3af' }}>
-                          لا توجد تنبيهات
-                        </p>
-                      </div>
-                    ) : (
-                      notifications.slice(0, 10).map(n => {
-                        const c = NOTIF_COLORS[n.level][isDark ? 'dark' : 'light'];
-                        const Icon = n.level === 'danger' ? ShieldAlert : n.level === 'warning' ? AlertTriangle : Info;
-                        return (
                           <div
-                            key={n.id}
-                            onClick={() => {
-                              markRead(n.id);
-                              if (n.link) { setBellOpen(false); setLocation(n.link); }
-                            }}
-                            className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150 hover:opacity-80"
-                            style={{
-                              background: n.isRead
-                                ? 'transparent'
-                                : (isDark ? `${c.bg}` : `${c.bg}`),
-                              borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(99,102,241,0.06)',
-                            }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                            style={{ background: nc.bg, border: `1px solid ${nc.border}`, opacity: n.isRead ? 0.5 : 1 }}
                           >
-                            {/* Icon */}
-                            <div
-                              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                              style={{
-                                background: c.bg,
-                                border: `1px solid ${c.border}`,
-                                opacity: n.isRead ? 0.5 : 1,
-                              }}
-                            >
-                              <Icon className="w-3.5 h-3.5" style={{ color: c.text }} />
-                            </div>
-                            {/* Content */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <p
-                                  className="text-xs font-bold truncate"
-                                  style={{
-                                    color: n.isRead
-                                      ? (isDark ? 'rgba(255,255,255,0.38)' : '#9ca3af')
-                                      : (isDark ? 'rgba(255,255,255,0.90)' : '#1e1b4b'),
-                                  }}
-                                >
-                                  {n.title}
-                                </p>
-                                {!n.isRead && (
-                                  <span
-                                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                                    style={{ background: c.text, boxShadow: isDark ? `0 0 5px ${c.text}` : 'none' }}
-                                  />
-                                )}
-                              </div>
-                              <p
-                                className="text-[11px] mt-0.5 truncate"
-                                style={{ color: isDark ? 'rgba(255,255,255,0.40)' : '#6b7280' }}
-                              >
-                                {n.body}
-                              </p>
-                            </div>
+                            <Icon className="w-3.5 h-3.5" style={{ color: nc.text }} />
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div
-                    className="px-4 py-2.5"
-                    style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(99,102,241,0.09)' }}
-                  >
-                    <Link
-                      href="/notifications"
-                      onClick={() => setBellOpen(false)}
-                      className="flex items-center justify-center gap-1.5 text-xs font-bold py-1.5 rounded-xl w-full transition-all hover:opacity-80"
-                      style={{
-                        color: isDark ? '#00f0ff' : '#6366f1',
-                        background: isDark ? 'rgba(0,240,255,0.06)' : 'rgba(99,102,241,0.06)',
-                        border: isDark ? '1px solid rgba(0,240,255,0.15)' : '1px solid rgba(99,102,241,0.15)',
-                      }}
-                    >
-                      إظهار جميع التنبيهات
-                    </Link>
-                  </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p
+                                className="text-xs font-bold truncate"
+                                style={{ color: n.isRead ? (isDark ? 'rgba(255,255,255,0.38)' : '#9ca3af') : (isDark ? 'rgba(255,255,255,0.90)' : '#1e1b4b') }}
+                              >
+                                {n.title}
+                              </p>
+                              {!n.isRead && (
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ background: nc.text, boxShadow: isDark ? `0 0 5px ${nc.text}` : 'none' }} />
+                              )}
+                            </div>
+                            <p className="text-[11px] mt-0.5 truncate"
+                              style={{ color: isDark ? 'rgba(255,255,255,0.40)' : '#6b7280' }}>
+                              {n.body}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-              )}
-            </div>
+
+                {/* Footer */}
+                <div
+                  className="px-4 py-2.5"
+                  style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(99,102,241,0.09)' }}
+                >
+                  <Link
+                    href="/notifications"
+                    onClick={() => setBellOpen(false)}
+                    className="flex items-center justify-center gap-1.5 text-xs font-bold py-1.5 rounded-xl w-full transition-all hover:opacity-80"
+                    style={{
+                      color: isDark ? '#00f0ff' : '#6366f1',
+                      background: isDark ? 'rgba(0,240,255,0.06)' : 'rgba(99,102,241,0.06)',
+                      border: isDark ? '1px solid rgba(0,240,255,0.15)' : '1px solid rgba(99,102,241,0.15)',
+                      display: 'flex',
+                    }}
+                  >
+                    إظهار جميع التنبيهات
+                  </Link>
+                </div>
+              </div>,
+              document.body
+            )}
 
             {/* ── Theme Toggle ── */}
             <Button
