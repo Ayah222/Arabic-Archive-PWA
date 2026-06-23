@@ -1,0 +1,215 @@
+PROMPT NUMBER 8
+
+NOTIFICATIONS SYSTEM REDESIGN — BELL ICON IN NAVBAR
+
+Continue working on the existing Architectural Archive Management System.
+
+IMPORTANT:
+
+* Do NOT rebuild the application.
+* Modify the existing implementation only.
+* Keep React + TypeScript + Tailwind CSS.
+* Keep Arabic RTL support.
+* Keep Dark Mode / Light Mode.
+* Keep existing project structure.
+* Keep existing design system (colors, cards, spacing).
+* Keep all current project functionality.
+
+==================================================
+GENERAL OBJECTIVE
+=================
+
+Remove the current "System Alerts" (تنبيهات النظام) block from the Dashboard page.
+
+Replace it with a Notifications Bell Icon placed in the Top Navigation Bar, right next to the Dark Mode / Light Mode toggle button.
+
+The notifications experience must become a global feature, accessible from every page, not only from the Dashboard.
+
+==================================================
+REMOVE FROM DASHBOARD
+=====================
+
+Completely remove:
+
+* The "تنبيهات النظام" (System Alerts) section/card that currently appears in the Dashboard page.
+
+Do NOT keep a duplicate version of it on the Dashboard.
+
+The underlying notifications data/logic should be reused, not deleted — only the dashboard UI block is removed.
+
+==================================================
+NAVBAR BELL ICON
+================
+
+Add a Bell icon button inside the Top Navigation Bar.
+
+Position:
+
+* Immediately next to the Dark Mode / Light Mode toggle button.
+* Keep correct RTL order and spacing with existing navbar icons/buttons.
+
+Icon:
+
+* Use a professional enterprise "Bell" icon (e.g. Lucide React Bell icon).
+* Must visually match the existing navbar icon style (size, color, hover state) used by the theme toggle button.
+
+Hover Effect:
+
+* Same hover/active style as other navbar icon buttons.
+
+==================================================
+UNREAD COUNT BADGE
+==================
+
+Display a small badge (counter) on top of the bell icon.
+
+Requirements:
+
+* The badge shows the number of unread notifications.
+* "Unread" includes BOTH new and old notifications that the user has not opened yet — it is not limited to newly arrived ones.
+* The badge must update in real time as notifications are read or as new ones arrive.
+* If unread count is 0, hide the badge completely (show only the bell icon).
+* If unread count is large (e.g. more than 9), display "9+".
+
+Badge Style:
+
+* Small circular/rounded badge.
+* Positioned at the top corner of the bell icon (adjust position correctly for RTL).
+* Color must follow the COLOR CONSISTENCY rules below (do not introduce a random/unrelated red or pink that clashes with the existing status badge palette).
+* Must remain readable and properly sized on mobile/responsive view.
+
+==================================================
+COLOR CONSISTENCY WITH EXISTING STATUS BADGES
+==============================================
+
+The Notifications feature (bell badge count, severity indicators, dropdown items, full notifications page) must visually match the EXACT color language already used by the existing status badges across the app — the same ones used for:
+
+* Project status badges (e.g. "نشط" / Active, "مكتمل" / Completed) in the "أحدث المشاريع" (Latest Projects) table.
+* Project type badges (e.g. "صحي", "تجاري", "تخطيط عمراني").
+
+Requirements:
+
+* Reuse the SAME badge component/style already used for these status pills: soft, low-saturation pill-shaped backgrounds with a matching, slightly brighter text/icon color on top — NOT solid, high-saturation, alarming colors.
+* Do NOT introduce a new "loud" red or pink tone for the unread count badge or for severity indicators if it does not match the existing badge tone family already used in the app (in Dark Mode the soft glassy pill tones, in Light Mode the muted pastel pill tones).
+* Map notification severity to the closest EXISTING status color family already defined in the design system instead of inventing new colors:
+  - Informational notifications → reuse the same tone family as a neutral/active status badge (e.g. the tone used for "نشط").
+  - Warning / "ending soon" notifications → reuse the same tone family as a caution-style badge already present in the app (e.g. the tone used for project types like "تخطيط عمراني" or any existing amber/teal warning tone in the design system).
+  - Expired / critical notifications → reuse the same tone family as the existing most urgent status badge already present in the app (e.g. the tone used for "تجاري" or any existing rose/red badge already part of the palette), kept at the SAME saturation level as that existing badge — not a brighter or harsher red.
+* The unread count badge on the bell icon may use a slightly more saturated version of the existing "urgent" badge tone so it stays legible at a small size, but it must stay within the same color family/hue as the existing badges — not a new unrelated red.
+* In Dark Mode: match the existing dark-mode badge treatment (deep tinted background + bright tinted text, consistent with the glassy navy-based card system).
+* In Light Mode: match the existing light-mode badge treatment (very light tinted background + saturated tinted text, consistent with the soft pastel card system).
+* Before implementation, inspect the existing badge component(s) used for project status/type and reuse their exact Tailwind classes/CSS variables for the notification severity indicators and the unread badge — do not hardcode new hex values.
+
+==================================================
+NOTIFICATIONS DROPDOWN
+======================
+
+When the user clicks the bell icon:
+
+Open a dropdown panel (not a full page navigation).
+
+Dropdown Content:
+
+* Header with title: "التنبيهات" (Notifications).
+* List of the latest 10 notifications, sorted Newest First.
+* Each notification item must display:
+  - Icon or severity indicator (warning, info, expired, etc.) using the color-matched badge styles defined in the COLOR CONSISTENCY section below — not new/unrelated colors.
+  - Notification title/message
+  - Related entity name (e.g. contract/registration name)
+  - Time/date or "ends in X days" / "expired since X days" text (reuse existing alert text logic)
+* Unread notifications must be visually distinguished from read ones:
+  - Example: unread items have a subtle highlighted background or a small dot indicator; read items appear neutral/dimmed.
+
+Footer:
+
+* A clickable link/button at the bottom of the dropdown labeled:
+  "إظهار جميع التنبيهات" (Show All Notifications)
+* Clicking it navigates to a full Notifications page (or opens a full list view) showing ALL notifications, not just the latest 10.
+
+Dropdown Behavior:
+
+* Opens on click, closes when clicking outside or pressing Escape.
+* Must support RTL layout and scroll properly if content overflows.
+* Must adapt to Dark Mode and Light Mode (background, borders, text colors, hover states).
+* Smooth open/close animation consistent with other dropdowns/menus already in the app.
+
+==================================================
+READ / UNREAD BEHAVIOR
+======================
+
+When the user clicks/opens a specific notification (from the dropdown or from the full notifications page):
+
+* Mark that specific notification as "read".
+* Decrease the unread badge count by 1 immediately (no page reload needed).
+* The notification remains visible in the list, but now appears as "read" (dimmed/no highlight).
+
+When the user clicks "إظهار جميع التنبيهات" and opens the full notifications page:
+
+* Opening the full list does NOT automatically mark all notifications as read.
+* Only individually opened/clicked notifications get marked as read.
+
+Optional but preferred:
+
+* Add a small action in the dropdown header or full page: "تحديد الكل كمقروء" (Mark all as read), which sets unread count to 0.
+
+==================================================
+FULL NOTIFICATIONS PAGE
+=======================
+
+Create (or reuse if a similar page/route already exists) a full Notifications view that displays:
+
+* All notifications (not limited to 10).
+* Same visual distinction between read and unread.
+* Same severity indicators/icons as the dropdown and the original dashboard block.
+* Support search/filter if existing notification data structure allows it (optional enhancement, do not block delivery on this).
+
+==================================================
+DATA MODEL
+==========
+
+Reuse the existing notifications/alerts data that powered the old Dashboard "تنبيهات النظام" block.
+
+Each notification object must at minimum contain:
+
+* id
+* title / message
+* relatedEntityName (e.g. contractor or registration name)
+* severity (warning, info, expired, etc.)
+* createdDate
+* isRead (boolean)
+
+If this structure does not fully exist yet, extend the current alerts mock data to include an "isRead" boolean field (default false for all existing mock alerts).
+
+==================================================
+STATE MANAGEMENT
+================
+
+Keep notifications state centralized (e.g. shared context, hook, or store already used in the project) so that:
+
+* The unread count badge in the navbar.
+* The dropdown list.
+* The full notifications page.
+
+...all stay in sync. Marking a notification as read in any of these places must reflect instantly everywhere else.
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Maintain existing design language and Navy Blue identity.
+
+Maintain current Dark Mode and Light Mode color systems.
+
+All notification-related colors (unread badge, severity indicators, dropdown highlights) must follow the COLOR CONSISTENCY rules above and visually feel like they belong to the same palette as the existing "أحدث المشاريع" status/type badges — not a separate or louder color scheme.
+
+Maintain RTL layout across the bell icon, badge, dropdown, and full page.
+
+Reuse existing components (cards, badges, icons, dropdown/menu patterns) whenever possible instead of creating new unrelated UI patterns.
+
+The notifications bell should feel like a standard enterprise SaaS notification center (similar to Gmail, Slack, or any professional dashboard system).
+
+Do not add backend.
+
+Do not add database.
+
+Keep everything based on the current local mock data / state architecture.

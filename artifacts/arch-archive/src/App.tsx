@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useAppContext } from "@/context/AppContext";
+import { NotificationsProvider } from "@/context/NotificationsContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import NotFound from "@/pages/not-found";
 
@@ -16,6 +17,7 @@ import ContractorDetails from "./pages/contractor-details";
 import Correspondence from "./pages/correspondence";
 import Meetings from "./pages/meetings";
 import UsersPage from "./pages/users";
+import NotificationsPage from "./pages/notifications";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +66,9 @@ function Router() {
       <Route path="/users">
         <ProtectedRoute component={UsersPage} />
       </Route>
+      <Route path="/notifications">
+        <ProtectedRoute component={NotificationsPage} />
+      </Route>
       <Route path="/">
         <Redirect to="/dashboard" />
       </Route>
@@ -77,10 +82,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AppProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
+          <NotificationsProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+            <Toaster />
+          </NotificationsProvider>
         </AppProvider>
       </TooltipProvider>
     </QueryClientProvider>

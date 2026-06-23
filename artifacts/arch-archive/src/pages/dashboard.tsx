@@ -4,9 +4,8 @@ import { useAppContext } from '../context/AppContext';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Button } from '../components/ui/button';
-import { FolderKanban, CheckCircle2, Clock, FileText, ArrowUpRight, AlertTriangle, Bell, Activity, CalendarClock, ShieldAlert } from 'lucide-react';
+import { FolderKanban, CheckCircle2, Clock, FileText, ArrowUpRight, Activity } from 'lucide-react';
 import { PROJECT_TYPES } from '../types';
-import { mockContractors } from '../data/mockData';
 
 /* ─────────────────────────────────────────
    GLASS CARD — vivid neon border + gradient
@@ -65,8 +64,6 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const isDark = theme === 'dark';
 
-  const TODAY = new Date();
-
   /* ── Text tokens — high-contrast, no more washed-out ── */
   const c = {
     /* Primary headings */
@@ -117,37 +114,6 @@ export default function Dashboard() {
     active:    projects.filter(p => p.status === 'active').length,
   }), [projects]);
 
-  /* ── Smart Alerts ── */
-  const alerts = useMemo(() => {
-    const result: { level: 'danger' | 'warning' | 'info'; title: string; body: string; link?: string }[] = [];
-
-    // Contractor registration alerts
-    mockContractors.forEach(c => {
-      if (!c.commercialRegistrationExpiry) return;
-      const expiry = new Date(c.commercialRegistrationExpiry);
-      const daysLeft = Math.ceil((expiry.getTime() - TODAY.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysLeft < 0) {
-        result.push({ level: 'danger', title: 'سجل تجاري منتهي', body: `${c.name} — انتهى منذ ${Math.abs(daysLeft)} يوم`, link: `/contractors/${c.id}` });
-      } else if (daysLeft <= 30) {
-        result.push({ level: 'danger', title: 'سجل تجاري ينتهي قريباً', body: `${c.name} — ينتهي خلال ${daysLeft} يوم`, link: `/contractors/${c.id}` });
-      } else if (daysLeft <= 90) {
-        result.push({ level: 'warning', title: 'سجل تجاري يقترب من الانتهاء', body: `${c.name} — ينتهي خلال ${daysLeft} يوم`, link: `/contractors/${c.id}` });
-      }
-    });
-
-    // Active project end-date alerts
-    projects.filter(p => p.status === 'active' && p.endDate).forEach(p => {
-      const endDate = new Date(p.endDate!);
-      const daysLeft = Math.ceil((endDate.getTime() - TODAY.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysLeft < 0) {
-        result.push({ level: 'danger', title: 'تأخر في إنجاز المشروع', body: `${p.name} — تجاوز الموعد بـ ${Math.abs(daysLeft)} يوم`, link: `/projects/${p.id}` });
-      } else if (daysLeft <= 60) {
-        result.push({ level: 'warning', title: 'اقتراب موعد تسليم مشروع', body: `${p.name} — يتبقى ${daysLeft} يوم`, link: `/projects/${p.id}` });
-      }
-    });
-
-    return result.slice(0, 5);
-  }, [projects]);
 
   /* ── Activity Feed ── */
   const activities = useMemo(() => {
@@ -288,44 +254,6 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* ── Smart Alerts ── */}
-      {alerts.length > 0 && (
-        <GlassCard accentColor={isDark ? '#f472b6' : '#be185d'}
-          accentGrad={isDark
-            ? 'linear-gradient(135deg, rgba(239,68,68,0.20) 0%, rgba(251,191,36,0.05) 100%)'
-            : 'linear-gradient(135deg, rgba(236,72,153,0.12) 0%, rgba(251,191,36,0.04) 100%)'}>
-          <div className="p-5 pb-3 flex items-center gap-2">
-            <Bell className="w-4 h-4" style={{ color: isDark ? '#f472b6' : '#be185d' }} />
-            <h2 className="text-base font-bold flex-1" style={{ color: c.title }}>تنبيهات النظام</h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-              style={{ background: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.10)', color: isDark ? '#f87171' : '#dc2626', border: '1px solid rgba(239,68,68,0.25)' }}>
-              {alerts.length}
-            </span>
-          </div>
-          <div className="px-5 pb-4 space-y-2">
-            {alerts.map((a, i) => {
-              const danger = a.level === 'danger';
-              const alertColor = danger ? (isDark ? '#f87171' : '#dc2626') : (isDark ? '#fbbf24' : '#d97706');
-              const alertBg   = danger ? (isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.06)') : (isDark ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.06)');
-              const alertBrd  = danger ? (isDark ? 'rgba(239,68,68,0.22)' : 'rgba(239,68,68,0.18)') : (isDark ? 'rgba(251,191,36,0.22)' : 'rgba(251,191,36,0.18)');
-              const Icon = danger ? ShieldAlert : AlertTriangle;
-              return (
-                <div key={i}
-                  className={`flex items-start gap-3 p-3 rounded-xl ${a.link ? 'cursor-pointer hover:opacity-80' : ''}`}
-                  style={{ background: alertBg, border: `1px solid ${alertBrd}` }}
-                  onClick={() => a.link && setLocation(a.link)}>
-                  <Icon className="w-4 h-4 mt-0.5 shrink-0" style={{ color: alertColor }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold" style={{ color: alertColor }}>{a.title}</p>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: c.secondary }}>{a.body}</p>
-                  </div>
-                  {a.link && <ArrowUpRight className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: alertColor, opacity: 0.60 }} />}
-                </div>
-              );
-            })}
-          </div>
-        </GlassCard>
-      )}
 
       {/* ── Latest Projects ── */}
       <GlassCard accentColor={isDark ? '#00f0ff' : '#0e7490'}>

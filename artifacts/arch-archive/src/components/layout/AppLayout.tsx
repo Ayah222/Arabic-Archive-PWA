@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAppContext } from "../../context/AppContext";
+import { useNotifications, NOTIF_COLORS } from "../../context/NotificationsContext";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -15,6 +16,11 @@ import {
   Mail,
   CalendarCheck,
   Users,
+  Bell,
+  ShieldAlert,
+  AlertTriangle,
+  Info,
+  CheckCheck,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -137,8 +143,29 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { theme, toggleTheme, logout, userType } = useAppContext();
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!bellOpen) return;
+    const handler = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.key === "Escape") setBellOpen(false);
+        return;
+      }
+      if (bellRef.current && !bellRef.current.contains(e.target as Node))
+        setBellOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", handler);
+    };
+  }, [bellOpen]);
 
   const navItems = [
     { path: "/dashboard",       label: "لوحة التحكم",           icon: LayoutDashboard },
@@ -469,18 +496,195 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
             </h2>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-xl w-9 h-9 md:w-10 md:h-10"
-            onClick={toggleTheme}
-          >
-            {isDark ? (
-              <Sun className="w-4 h-4 md:w-5 md:h-5" />
-            ) : (
-              <Moon className="w-4 h-4 md:w-5 md:h-5" />
-            )}
-          </Button>
+          {/* ── Bell + Theme buttons ── */}
+          <div className="flex items-center gap-1">
+
+            {/* ── Bell Icon + Dropdown ── */}
+            <div className="relative" ref={bellRef}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative rounded-xl w-9 h-9 md:w-10 md:h-10"
+                onClick={() => setBellOpen(prev => !prev)}
+                aria-label="التنبيهات"
+              >
+                <Bell className="w-4 h-4 md:w-5 md:h-5" />
+                {unreadCount > 0 && (
+                  <span
+                    className="absolute top-0.5 right-0.5 min-w-[17px] h-[17px] px-[3px] text-[10px] font-black leading-none flex items-center justify-center rounded-full"
+                    style={{
+                      background: isDark ? 'rgba(255,0,128,0.90)' : 'rgba(220,38,100,0.88)',
+                      color: '#fff',
+                      boxShadow: isDark ? '0 0 8px rgba(255,0,128,0.60)' : 'none',
+                    }}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+
+              {/* ── Dropdown Panel ── */}
+              {bellOpen && (
+                <div
+                  className="absolute top-full mt-2 rounded-2xl overflow-hidden"
+                  style={{
+                    right: 0,
+                    width: 340,
+                    zIndex: 50,
+                    background: isDark ? 'rgba(10,8,22,0.97)' : 'rgba(248,250,255,0.98)',
+                    backdropFilter: 'blur(28px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+                    border: isDark ? '1px solid rgba(0,240,255,0.12)' : '1px solid rgba(99,102,241,0.16)',
+                    boxShadow: isDark
+                      ? '0 24px 60px rgba(0,0,0,0.80), 0 0 0 1px rgba(0,240,255,0.06)'
+                      : '0 20px 50px rgba(31,38,135,0.14), 0 0 0 1px rgba(99,102,241,0.08)',
+                  }}
+                >
+                  {/* Dropdown header */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3"
+                    style={{
+                      borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(99,102,241,0.09)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4" style={{ color: isDark ? '#ff4da6' : '#be185d' }} />
+                      <span className="text-sm font-bold" style={{ color: isDark ? '#fff' : '#1e1b4b' }}>
+                        التنبيهات
+                      </span>
+                      {unreadCount > 0 && (
+                        <span
+                          className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                          style={{
+                            background: isDark ? 'rgba(255,0,128,0.14)' : 'rgba(236,72,153,0.10)',
+                            color: isDark ? '#ff4da6' : '#be185d',
+                            border: isDark ? '1px solid rgba(255,0,128,0.25)' : '1px solid rgba(236,72,153,0.22)',
+                          }}
+                        >
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllRead}
+                        className="flex items-center gap-1 text-xs font-bold transition-opacity hover:opacity-70"
+                        style={{ color: isDark ? '#00f0ff' : '#6366f1' }}
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        تحديد الكل
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Notification items */}
+                  <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: isDark ? '#00f0ff' : '#6366f1' }} />
+                        <p className="text-xs" style={{ color: isDark ? 'rgba(255,255,255,0.35)' : '#9ca3af' }}>
+                          لا توجد تنبيهات
+                        </p>
+                      </div>
+                    ) : (
+                      notifications.slice(0, 10).map(n => {
+                        const c = NOTIF_COLORS[n.level][isDark ? 'dark' : 'light'];
+                        const Icon = n.level === 'danger' ? ShieldAlert : n.level === 'warning' ? AlertTriangle : Info;
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => {
+                              markRead(n.id);
+                              if (n.link) { setBellOpen(false); setLocation(n.link); }
+                            }}
+                            className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150 hover:opacity-80"
+                            style={{
+                              background: n.isRead
+                                ? 'transparent'
+                                : (isDark ? `${c.bg}` : `${c.bg}`),
+                              borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(99,102,241,0.06)',
+                            }}
+                          >
+                            {/* Icon */}
+                            <div
+                              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                              style={{
+                                background: c.bg,
+                                border: `1px solid ${c.border}`,
+                                opacity: n.isRead ? 0.5 : 1,
+                              }}
+                            >
+                              <Icon className="w-3.5 h-3.5" style={{ color: c.text }} />
+                            </div>
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p
+                                  className="text-xs font-bold truncate"
+                                  style={{
+                                    color: n.isRead
+                                      ? (isDark ? 'rgba(255,255,255,0.38)' : '#9ca3af')
+                                      : (isDark ? 'rgba(255,255,255,0.90)' : '#1e1b4b'),
+                                  }}
+                                >
+                                  {n.title}
+                                </p>
+                                {!n.isRead && (
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ background: c.text, boxShadow: isDark ? `0 0 5px ${c.text}` : 'none' }}
+                                  />
+                                )}
+                              </div>
+                              <p
+                                className="text-[11px] mt-0.5 truncate"
+                                style={{ color: isDark ? 'rgba(255,255,255,0.40)' : '#6b7280' }}
+                              >
+                                {n.body}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div
+                    className="px-4 py-2.5"
+                    style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(99,102,241,0.09)' }}
+                  >
+                    <Link
+                      href="/notifications"
+                      onClick={() => setBellOpen(false)}
+                      className="flex items-center justify-center gap-1.5 text-xs font-bold py-1.5 rounded-xl w-full transition-all hover:opacity-80"
+                      style={{
+                        color: isDark ? '#00f0ff' : '#6366f1',
+                        background: isDark ? 'rgba(0,240,255,0.06)' : 'rgba(99,102,241,0.06)',
+                        border: isDark ? '1px solid rgba(0,240,255,0.15)' : '1px solid rgba(99,102,241,0.15)',
+                      }}
+                    >
+                      إظهار جميع التنبيهات
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Theme Toggle ── */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl w-9 h-9 md:w-10 md:h-10"
+              onClick={toggleTheme}
+            >
+              {isDark ? (
+                <Sun className="w-4 h-4 md:w-5 md:h-5" />
+              ) : (
+                <Moon className="w-4 h-4 md:w-5 md:h-5" />
+              )}
+            </Button>
+          </div>
         </header>
 
         <main className="flex-1 p-3 md:p-5 lg:p-6 overflow-x-hidden">
