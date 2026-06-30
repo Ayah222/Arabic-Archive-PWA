@@ -323,6 +323,29 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const [singleDeleteDoc, setSingleDeleteDoc] = useState<Document | null>(null);
   const [activeTab, setActiveTab] = useState<'docs'|'contracts'|'letters'|'meetings'|'contractors'>('docs');
 
+  // ── Rating modal state ──
+  const [ratingModalContractor, setRatingModalContractor] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState({ quality: 80, commitment: 80, safety: 80, speed: 80, notes: "" });
+  const [localRatings, setLocalRatings] = useState<Record<string, { quality: number; commitment: number; safety: number; speed: number; notes: string }>>({});
+
+  const openRatingModal = (contractorId: string) => {
+    const base = localRatings[contractorId] ?? projectRatings.find(r => r.contractorId === contractorId);
+    setEditRating({
+      quality: base?.quality ?? 80,
+      commitment: base?.commitment ?? 80,
+      safety: base?.safety ?? 80,
+      speed: base?.speed ?? 80,
+      notes: base?.notes ?? "",
+    });
+    setRatingModalContractor(contractorId);
+  };
+
+  const saveRating = () => {
+    if (!ratingModalContractor) return;
+    setLocalRatings(prev => ({ ...prev, [ratingModalContractor]: { ...editRating } }));
+    setRatingModalContractor(null);
+  };
+
   const project = projects.find((p) => p.id === id);
 
   const categories: {
