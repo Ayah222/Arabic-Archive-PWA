@@ -395,6 +395,18 @@ export default function ContractorDetails({ id }: Props) {
   >("projects");
   const [editForm, setEditForm] = useState<FormData | null>(null);
 
+  // ── Rating modal ──
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [editRating, setEditRating] = useState({ quality: 80, commitment: 80, safety: 80, speed: 80 });
+  const [localRating, setLocalRating] = useState<{ quality: number; commitment: number; safety: number; speed: number } | null>(null);
+
+  const openRatingModal = () => {
+    const base = localRating ?? contractor?.ratings;
+    setEditRating({ quality: base?.quality ?? 80, commitment: base?.commitment ?? 80, safety: base?.safety ?? 80, speed: base?.speed ?? 80 });
+    setRatingModalOpen(true);
+  };
+  const saveRating = () => { setLocalRating({ ...editRating }); setRatingModalOpen(false); };
+
   const contractor = useMemo(
     () => contractors.find((c) => c.id === id),
     [contractors, id],
@@ -730,63 +742,73 @@ export default function ContractorDetails({ id }: Props) {
         </div>
 
         {/* ── Ratings ── */}
-        {contractor.ratings && (
-          <div
-            className="mt-5 pt-5"
-            style={{
-              borderTop: isDark
-                ? "1px solid rgba(255,255,255,0.06)"
-                : "1px solid rgba(99,102,241,0.08)",
-            }}
-          >
-            <p
-              className="text-sm font-bold mb-3"
-              style={{ color: isDark ? "rgba(255,255,255,0.72)" : "#374151" }}
+        {(contractor.ratings || localRating) && (() => {
+          const activeRating = localRating ?? contractor.ratings!;
+          return (
+            <div
+              className="mt-5 pt-5"
+              style={{
+                borderTop: isDark
+                  ? "1px solid rgba(255,255,255,0.06)"
+                  : "1px solid rgba(99,102,241,0.08)",
+              }}
             >
-              تقييم الأداء
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                { label: "جودة العمل", value: contractor.ratings.quality, color: "#00f0ff" },
-                { label: "الالتزام بالمواعيد", value: contractor.ratings.commitment, color: "#c084fc" },
-                { label: "معايير السلامة", value: contractor.ratings.safety, color: "#4ade80" },
-                { label: "سرعة التنفيذ", value: contractor.ratings.speed, color: "#fb923c" },
-              ].map((r) => (
-                <div key={r.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      className="text-xs font-medium"
-                      style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#64748b" }}
-                    >
-                      {r.label}
-                    </span>
-                    <span
-                      className="text-xs font-bold"
-                      style={{ color: r.color }}
-                    >
-                      {r.value}%
-                    </span>
-                  </div>
-                  <div
-                    className="h-2 rounded-full overflow-hidden"
-                    style={{
-                      background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
-                    }}
-                  >
+              <p
+                className="text-sm font-bold mb-3"
+                style={{ color: isDark ? "rgba(255,255,255,0.72)" : "#374151" }}
+              >
+                تقييم الأداء
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { label: "جودة العمل",            value: activeRating.quality,    color: "#00f0ff" },
+                  { label: "الالتزام بالمواعيد",    value: activeRating.commitment, color: "#c084fc" },
+                  { label: "معايير السلامة",         value: activeRating.safety,     color: "#4ade80" },
+                  { label: "سرعة التنفيذ",           value: activeRating.speed,      color: "#fb923c" },
+                ].map((r) => (
+                  <div key={r.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#64748b" }}
+                      >
+                        {r.label}
+                      </span>
+                      <span className="text-xs font-bold" style={{ color: r.color }}>
+                        {r.value}%
+                      </span>
+                    </div>
                     <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${r.value}%`,
-                        background: `linear-gradient(to left, ${r.color}cc, ${r.color})`,
-                        boxShadow: isDark ? `0 0 8px ${r.color}55` : "none",
-                      }}
-                    />
+                      className="h-2 rounded-full overflow-hidden"
+                      style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)" }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${r.value}%`,
+                          background: `linear-gradient(to left, ${r.color}cc, ${r.color})`,
+                          boxShadow: isDark ? `0 0 8px ${r.color}55` : "none",
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              {/* زر تقييم الأداء */}
+              <button
+                onClick={openRatingModal}
+                className="mt-4 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                style={{
+                  background: isDark ? "rgba(0,240,255,0.07)" : "rgba(99,102,241,0.07)",
+                  border: isDark ? "1px solid rgba(0,240,255,0.22)" : "1px solid rgba(99,102,241,0.22)",
+                  color: isDark ? "#00f0ff" : "#6366f1",
+                }}
+              >
+                تقييم الأداء
+              </button>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* ── KPI Cards ── */}
@@ -1314,6 +1336,82 @@ export default function ContractorDetails({ id }: Props) {
           onClose={() => setShowDelete(false)}
         />
       )}
+
+      {/* ── Rating Modal ── */}
+      {ratingModalOpen && (() => {
+        const sliders = [
+          { key: "quality"    as const, label: "جودة العمل",         desc: "جودة المواد والتنفيذ",       color: "#00f0ff" },
+          { key: "commitment" as const, label: "الالتزام بالمواعيد", desc: "الالتزام بالمواعيد والبنود", color: "#c084fc" },
+          { key: "safety"     as const, label: "معايير السلامة",      desc: "تطبيق معايير السلامة",       color: "#4ade80" },
+          { key: "speed"      as const, label: "سرعة التنفيذ",        desc: "سرعة الإنجاز والتسليم",      color: "#fb923c" },
+        ];
+        const avg = Math.round((editRating.quality + editRating.commitment + editRating.safety + editRating.speed) / 4);
+        const avgClr = avg >= 85 ? "#4ade80" : avg >= 70 ? (isDark ? "#00f0ff" : "#6366f1") : "#fb923c";
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(10px)" }}
+            onClick={() => setRatingModalOpen(false)}>
+            <div className="w-full max-w-md rounded-2xl p-6 space-y-5"
+              onClick={e => e.stopPropagation()}
+              style={{ background: isDark ? "rgba(10,5,25,0.97)" : "rgba(255,255,255,0.97)",
+                border: isDark ? "1px solid rgba(0,240,255,0.18)" : "1px solid rgba(99,102,241,0.22)",
+                boxShadow: isDark ? "0 30px 80px rgba(0,0,0,0.80), 0 0 40px rgba(0,240,255,0.06)" : "0 20px 60px rgba(99,102,241,0.14)" }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-black" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>تقييم الأداء</h2>
+                  <p className="text-xs mt-0.5" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>{contractor.name}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-black font-mono tabular-nums"
+                    style={{ color: avgClr, textShadow: isDark ? `0 0 20px ${avgClr}60` : "none" }}>
+                    {avg}
+                  </p>
+                  <p className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.38)" : "#9ca3af" }}>المتوسط</p>
+                </div>
+              </div>
+
+              {/* Sliders */}
+              <div className="space-y-4">
+                {sliders.map(({ key, label, desc, color }) => {
+                  const val = editRating[key];
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div>
+                          <span className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{label}</span>
+                          <span className="text-xs mr-1.5" style={{ color: isDark ? "rgba(255,255,255,0.38)" : "#9ca3af" }}>{desc}</span>
+                        </div>
+                        <span className="text-sm font-black font-mono tabular-nums" style={{ color }}>{val}%</span>
+                      </div>
+                      <input type="range" min={0} max={100} value={val}
+                        onChange={e => setEditRating(r => ({ ...r, [key]: Number(e.target.value) }))}
+                        className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                        style={{ accentColor: color, background: `linear-gradient(to left, ${color}, ${color} ${val}%, ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)"} ${val}%)` }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setRatingModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl text-sm font-bold"
+                  style={{ border: isDark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.10)",
+                    color: isDark ? "rgba(255,255,255,0.50)" : "#9ca3af" }}>
+                  إلغاء
+                </button>
+                <button onClick={saveRating}
+                  className="flex-1 py-2 rounded-xl text-sm font-bold"
+                  style={{ background: isDark ? "linear-gradient(135deg,#00f0ff,#818cf8)" : "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", border: "none" }}>
+                  حفظ التقييم
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
