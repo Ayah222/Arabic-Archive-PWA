@@ -1481,7 +1481,8 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
               <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>لا يوجد مقاولون مرتبطون بهذا المشروع</p>
             </div>
           ) : projectContractors.map(contractor => {
-            const rating = projectRatings.find(r => r.contractorId === contractor.id);
+            const mockRating = projectRatings.find(r => r.contractorId === contractor.id);
+            const rating = localRatings[contractor.id] ?? mockRating;
             const avgRating = rating ? Math.round((rating.quality + rating.commitment + rating.safety + rating.speed) / 4) : null;
             return (
               <div key={contractor.id} className="rounded-2xl p-4 cursor-pointer hover:opacity-90 transition-opacity"
@@ -1524,6 +1525,15 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
                     {rating?.notes && (
                       <p className="text-xs mt-2 leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#6b7280" }}>{rating.notes}</p>
                     )}
+                    {/* زر تقييم الأداء */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openRatingModal(contractor.id); }}
+                      className="mt-3 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                      style={{ background: isDark ? "rgba(0,240,255,0.07)" : "rgba(99,102,241,0.07)",
+                        border: isDark ? "1px solid rgba(0,240,255,0.22)" : "1px solid rgba(99,102,241,0.22)",
+                        color: isDark ? "#00f0ff" : "#6366f1" }}>
+                      تقييم الأداء
+                    </button>
                   </div>
                   {avgRating !== null && (
                     <div className="shrink-0 text-center">
@@ -1540,6 +1550,96 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           })}
         </div>
       )}
+
+      {/* ── Rating Modal ── */}
+      {ratingModalContractor && (() => {
+        const contractor = projectContractors.find(c => c.id === ratingModalContractor)!;
+        const avg = Math.round((editRating.quality + editRating.commitment + editRating.safety + editRating.speed) / 4);
+        const sliders = [
+          { key: "quality"    as const, label: "الجودة",   desc: "جودة المواد والتنفيذ" },
+          { key: "commitment" as const, label: "الالتزام", desc: "الالتزام بالمواعيد والبنود" },
+          { key: "safety"     as const, label: "السلامة",  desc: "تطبيق معايير السلامة" },
+          { key: "speed"      as const, label: "السرعة",   desc: "سرعة الإنجاز والتسليم" },
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(10px)" }}
+            onClick={() => setRatingModalContractor(null)}>
+            <div className="w-full max-w-md rounded-2xl p-6 space-y-5"
+              onClick={e => e.stopPropagation()}
+              style={{ background: isDark ? "rgba(10,5,25,0.97)" : "rgba(255,255,255,0.97)",
+                border: isDark ? "1px solid rgba(0,240,255,0.18)" : "1px solid rgba(99,102,241,0.22)",
+                boxShadow: isDark ? "0 30px 80px rgba(0,0,0,0.80), 0 0 40px rgba(0,240,255,0.06)" : "0 20px 60px rgba(99,102,241,0.14)" }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-black" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>تقييم الأداء</h2>
+                  <p className="text-xs mt-0.5" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>{contractor?.name}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-black font-mono tabular-nums"
+                    style={{ color: avg >= 85 ? "#4ade80" : avg >= 70 ? (isDark ? "#00f0ff" : "#6366f1") : "#fb923c",
+                      textShadow: isDark ? `0 0 20px ${avg >= 85 ? "#4ade80" : avg >= 70 ? "#00f0ff" : "#fb923c"}60` : "none" }}>
+                    {avg}
+                  </p>
+                  <p className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.38)" : "#9ca3af" }}>المتوسط</p>
+                </div>
+              </div>
+
+              {/* Sliders */}
+              <div className="space-y-4">
+                {sliders.map(({ key, label, desc }) => {
+                  const val = editRating[key];
+                  const clr = val >= 85 ? "#4ade80" : val >= 70 ? (isDark ? "#00f0ff" : "#6366f1") : "#fb923c";
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div>
+                          <span className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{label}</span>
+                          <span className="text-xs mr-1.5" style={{ color: isDark ? "rgba(255,255,255,0.38)" : "#9ca3af" }}>{desc}</span>
+                        </div>
+                        <span className="text-sm font-black font-mono tabular-nums" style={{ color: clr }}>{val}%</span>
+                      </div>
+                      <input type="range" min={0} max={100} value={val}
+                        onChange={e => setEditRating(r => ({ ...r, [key]: Number(e.target.value) }))}
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                        style={{ accentColor: clr, background: `linear-gradient(to left, ${clr}, ${clr} ${val}%, ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)"} ${val}%)` }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>ملاحظات (اختياري)</label>
+                <textarea rows={2} value={editRating.notes}
+                  onChange={e => setEditRating(r => ({ ...r, notes: e.target.value }))}
+                  placeholder="أي ملاحظات إضافية على أداء المقاول..."
+                  className="w-full resize-none rounded-xl px-3 py-2 text-sm outline-none"
+                  style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                    border: isDark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.10)",
+                    color: isDark ? "#e2e8f0" : "#1e293b", fontFamily: "inherit" }} />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button onClick={() => setRatingModalContractor(null)}
+                  className="flex-1 py-2 rounded-xl text-sm font-bold"
+                  style={{ border: isDark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.10)",
+                    color: isDark ? "rgba(255,255,255,0.50)" : "#9ca3af" }}>
+                  إلغاء
+                </button>
+                <button onClick={saveRating}
+                  className="flex-1 py-2 rounded-xl text-sm font-bold"
+                  style={{ background: isDark ? "linear-gradient(135deg,#00f0ff,#818cf8)" : "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", border: "none" }}>
+                  حفظ التقييم
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Dialogs ── */}
       <DocumentPreviewModal
