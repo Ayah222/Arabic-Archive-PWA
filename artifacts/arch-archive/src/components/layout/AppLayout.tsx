@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   Info,
   CheckCheck,
+  FileSignature,
+  Search,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -183,10 +185,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   const navItems = [
     { path: "/dashboard",       label: "لوحة التحكم",           icon: LayoutDashboard },
     { path: "/projects",        label: "المشاريع",              icon: FolderOpen       },
+    { path: "/contracts",       label: "العقود",                icon: FileSignature    },
     { path: "/documents",       label: "المستندات",             icon: FileText         },
     { path: "/contractors",     label: "المقاولون",             icon: HardHat          },
     { path: "/correspondence",  label: "الخطابات والمراسلات",   icon: Mail             },
     { path: "/meetings",        label: "الاجتماعات",            icon: CalendarCheck    },
+    { path: "/search",          label: "البحث الموحد",          icon: Search           },
     { path: "/users",           label: "المستخدمون",            icon: Users            },
   ];
 

@@ -41,7 +41,8 @@ import {
   Briefcase,
   Link as LinkIcon,
 } from "lucide-react";
-import { Document, DocumentType, PROJECT_TYPES } from "../types";
+import { Document, DocumentType, PROJECT_TYPES, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS, ContractStatus } from "../types";
+import { mockLetters, mockMeetings, mockContractors, mockProjectContractorRatings } from "../data/mockData";
 import {
   getPreviewType,
   getThumbnailUrl,
@@ -299,6 +300,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const {
     projects,
     documents,
+    contracts,
     deleteProject,
     deleteDocument,
     deleteDocuments,
@@ -319,6 +321,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [singleDeleteDoc, setSingleDeleteDoc] = useState<Document | null>(null);
+  const [activeTab, setActiveTab] = useState<'docs'|'contracts'|'letters'|'meetings'|'contractors'>('docs');
 
   const project = projects.find((p) => p.id === id);
 
@@ -361,6 +364,12 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
     });
     return counts;
   }, [projectDocs]);
+
+  const projectContracts = useMemo(() => contracts.filter(c => c.projectId === id), [contracts, id]);
+  const projectLetters = useMemo(() => mockLetters.filter(l => l.projectId === id), [id]);
+  const projectMeetings = useMemo(() => mockMeetings.filter(m => m.projectId === id), [id]);
+  const projectContractors = useMemo(() => mockContractors.filter(c => c.projectIds.includes(id)), [id]);
+  const projectRatings = useMemo(() => mockProjectContractorRatings.filter(r => r.projectId === id), [id]);
 
   if (!project) {
     return (
@@ -1087,6 +1096,43 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
         </div>
       )}
 
+      {/* ── Tab Navigation ── */}
+      <div className="flex gap-1 p-1 rounded-2xl"
+        style={{ background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)", border: isDark ? "1px solid rgba(0,240,255,0.08)" : "1px solid rgba(99,102,241,0.10)" }}>
+        {([
+          { key: 'docs' as const,        label: 'المستندات',  icon: FileText,       count: projectDocs.length },
+          { key: 'contracts' as const,    label: 'العقود',     icon: FileSignature,  count: projectContracts.length },
+          { key: 'letters' as const,      label: 'الخطابات',   icon: Mail,           count: projectLetters.length },
+          { key: 'meetings' as const,     label: 'الاجتماعات', icon: Calendar,       count: projectMeetings.length },
+          { key: 'contractors' as const,  label: 'المقاولون',  icon: HardHat,        count: projectContractors.length },
+        ]).map(tab => {
+          const active = activeTab === tab.key;
+          return (
+            <button key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all"
+              style={active
+                ? { background: isDark ? "rgba(0,240,255,0.08)" : "rgba(99,102,241,0.09)",
+                    border: isDark ? "1px solid rgba(0,240,255,0.45)" : "1px solid rgba(99,102,241,0.45)",
+                    color: isDark ? "#00f0ff" : "#4338ca",
+                    boxShadow: isDark ? "0 0 12px rgba(0,240,255,0.16)" : "0 2px 8px rgba(99,102,241,0.14)" }
+                : { border: "1px solid transparent", color: isDark ? "rgba(255,255,255,0.40)" : "#9ca3af" }}>
+              <tab.icon className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline truncate">{tab.label}</span>
+              {tab.count > 0 && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ background: active ? (isDark ? "rgba(0,240,255,0.15)" : "rgba(99,102,241,0.12)") : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    color: active ? (isDark ? "#00f0ff" : "#4338ca") : isDark ? "rgba(255,255,255,0.38)" : "#9ca3af" }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Docs Tab ── */}
+      {activeTab === 'docs' && (<>
       {/* ── Category Cards ── */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -1231,6 +1277,246 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 
         <div className="p-4">{renderDocsContent()}</div>
       </Card>
+      </>)}
+
+      {/* ── Contracts Tab ── */}
+      {activeTab === 'contracts' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-bold" style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b" }}>عقود المشروع</h2>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setLocation('/contracts')}>
+              <Plus className="w-4 h-4" /> فتح صفحة العقود
+            </Button>
+          </div>
+          {projectContracts.length === 0 ? (
+            <div className="rounded-2xl flex flex-col items-center justify-center py-12 gap-3"
+              style={{ border: isDark ? "1px dashed rgba(0,240,255,0.15)" : "1px dashed rgba(99,102,241,0.18)" }}>
+              <FileSignature className="w-10 h-10 opacity-20" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
+              <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>لا توجد عقود مرتبطة بهذا المشروع</p>
+              <Button size="sm" variant="outline" onClick={() => setLocation('/contracts')}>فتح صفحة العقود</Button>
+            </div>
+          ) : projectContracts.map(contract => (
+            <div key={contract.id} className="rounded-2xl p-4"
+              style={{ background: isDark ? "rgba(255,255,255,0.024)" : "rgba(255,255,255,0.72)",
+                border: isDark ? "1px solid rgba(0,240,255,0.12)" : "1px solid rgba(99,102,241,0.15)" }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-xs font-bold" style={{ color: isDark ? "#00f0ff" : "#6366f1" }}>{contract.number}</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                      style={{ background: isDark ? CONTRACT_STATUS_COLORS[contract.status].darkBg : CONTRACT_STATUS_COLORS[contract.status].bg,
+                        color: isDark ? CONTRACT_STATUS_COLORS[contract.status].darkText : CONTRACT_STATUS_COLORS[contract.status].text }}>
+                      {CONTRACT_STATUS_LABELS[contract.status]}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{contract.client}</p>
+                  {contract.classification && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md mt-1 inline-block"
+                      style={{ background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: isDark ? "rgba(255,255,255,0.50)" : "#9ca3af" }}>
+                      {contract.classification}
+                    </span>
+                  )}
+                </div>
+                <div className="text-left shrink-0">
+                  <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{contract.value.toLocaleString("ar-SA")} ﷼</p>
+                  <p className="text-xs mt-0.5" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>{contract.durationMonths} شهراً</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2 text-xs" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>
+                <Clock className="w-3 h-3" />
+                <span>{new Date(contract.startDate).toLocaleDateString("ar-SA")}</span>
+                <span>←</span>
+                <span>{new Date(contract.endDate).toLocaleDateString("ar-SA")}</span>
+              </div>
+              {contract.notes && (
+                <p className="text-xs mt-2 leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#6b7280" }}>{contract.notes}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Letters Tab ── */}
+      {activeTab === 'letters' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-bold" style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b" }}>خطابات ومراسلات المشروع</h2>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setLocation('/correspondence')}>
+              <Plus className="w-4 h-4" /> إضافة خطاب
+            </Button>
+          </div>
+          {projectLetters.length === 0 ? (
+            <div className="rounded-2xl flex flex-col items-center justify-center py-12 gap-3"
+              style={{ border: isDark ? "1px dashed rgba(0,240,255,0.15)" : "1px dashed rgba(99,102,241,0.18)" }}>
+              <Mail className="w-10 h-10 opacity-20" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
+              <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>لا توجد خطابات مرتبطة بهذا المشروع</p>
+            </div>
+          ) : projectLetters.map(letter => {
+            const classMap: Record<string, { label: string; color: string }> = {
+              outgoing:        { label: "صادر",        color: isDark ? "#38bdf8" : "#0ea5e9" },
+              incoming:        { label: "وارد",         color: isDark ? "#c084fc" : "#a855f7" },
+              meeting_minutes: { label: "محضر اجتماع", color: isDark ? "#34d399" : "#10b981" },
+            };
+            const cls = classMap[letter.letterClassification ?? "outgoing"] ?? classMap["outgoing"];
+            return (
+              <div key={letter.id} className="rounded-2xl p-4"
+                style={{ background: isDark ? "rgba(255,255,255,0.024)" : "rgba(255,255,255,0.72)",
+                  border: isDark ? "1px solid rgba(0,240,255,0.10)" : "1px solid rgba(99,102,241,0.13)" }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: `${cls.color}18`, border: `1px solid ${cls.color}30` }}>
+                    <Mail className="w-4 h-4" style={{ color: cls.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-mono text-xs font-bold" style={{ color: cls.color }}>{letter.letterNumber}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: `${cls.color}18`, color: cls.color }}>{cls.label}</span>
+                      {letter.classification && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-md"
+                          style={{ background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>
+                          {letter.classification}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold truncate" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{letter.letterSubject || letter.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>{letter.letterEntity}</p>
+                  </div>
+                  <span className="text-xs shrink-0" style={{ color: isDark ? "rgba(255,255,255,0.40)" : "#9ca3af" }}>
+                    {new Date(letter.createdAt).toLocaleDateString("ar-SA")}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Meetings Tab ── */}
+      {activeTab === 'meetings' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-bold" style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b" }}>اجتماعات المشروع</h2>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setLocation('/meetings')}>
+              <Plus className="w-4 h-4" /> إضافة اجتماع
+            </Button>
+          </div>
+          {projectMeetings.length === 0 ? (
+            <div className="rounded-2xl flex flex-col items-center justify-center py-12 gap-3"
+              style={{ border: isDark ? "1px dashed rgba(0,240,255,0.15)" : "1px dashed rgba(99,102,241,0.18)" }}>
+              <Calendar className="w-10 h-10 opacity-20" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
+              <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>لا توجد اجتماعات مرتبطة بهذا المشروع</p>
+            </div>
+          ) : projectMeetings.map(meeting => (
+            <div key={meeting.id} className="rounded-2xl p-4"
+              style={{ background: isDark ? "rgba(255,255,255,0.024)" : "rgba(255,255,255,0.72)",
+                border: isDark ? "1px solid rgba(0,240,255,0.10)" : "1px solid rgba(99,102,241,0.13)" }}>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: isDark ? "rgba(52,211,153,0.14)" : "rgba(16,185,129,0.10)", border: isDark ? "1px solid rgba(52,211,153,0.25)" : "1px solid rgba(16,185,129,0.18)" }}>
+                  <Calendar className="w-4 h-4" style={{ color: isDark ? "#34d399" : "#10b981" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{meeting.name}</p>
+                  {meeting.meetingDate && (
+                    <p className="text-xs mt-0.5" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>
+                      {new Date(meeting.meetingDate).toLocaleDateString("ar-SA")}
+                      {meeting.meetingLocation && ` · ${meeting.meetingLocation}`}
+                    </p>
+                  )}
+                  {meeting.attendees && meeting.attendees.length > 0 && (
+                    <p className="text-xs mt-1" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>
+                      الحضور: {meeting.attendees.slice(0, 3).join("، ")}{meeting.attendees.length > 3 ? ` و${meeting.attendees.length - 3} آخرين` : ""}
+                    </p>
+                  )}
+                  {meeting.decisions && meeting.decisions.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {meeting.decisions.slice(0, 2).map((d, i) => (
+                        <div key={i} className="flex items-start gap-1.5">
+                          <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: isDark ? "#34d399" : "#10b981" }} />
+                          <p className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.65)" : "#374151" }}>{d}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Contractors Tab ── */}
+      {activeTab === 'contractors' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-bold" style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b" }}>مقاولو المشروع</h2>
+          </div>
+          {projectContractors.length === 0 ? (
+            <div className="rounded-2xl flex flex-col items-center justify-center py-12 gap-3"
+              style={{ border: isDark ? "1px dashed rgba(0,240,255,0.15)" : "1px dashed rgba(99,102,241,0.18)" }}>
+              <HardHat className="w-10 h-10 opacity-20" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
+              <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>لا يوجد مقاولون مرتبطون بهذا المشروع</p>
+            </div>
+          ) : projectContractors.map(contractor => {
+            const rating = projectRatings.find(r => r.contractorId === contractor.id);
+            const avgRating = rating ? Math.round((rating.quality + rating.commitment + rating.safety + rating.speed) / 4) : null;
+            return (
+              <div key={contractor.id} className="rounded-2xl p-4 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setLocation(`/contractors/${contractor.id}`)}
+                style={{ background: isDark ? "rgba(255,255,255,0.024)" : "rgba(255,255,255,0.72)",
+                  border: isDark ? "1px solid rgba(0,240,255,0.10)" : "1px solid rgba(99,102,241,0.13)" }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: isDark ? "rgba(0,240,255,0.08)" : "rgba(99,102,241,0.08)",
+                      border: isDark ? "1px solid rgba(0,240,255,0.20)" : "1px solid rgba(99,102,241,0.18)" }}>
+                    <HardHat className="w-5 h-5" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold" style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}>{contractor.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#9ca3af" }}>{contractor.number}</p>
+                    {rating && (
+                      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {([
+                          { label: "الجودة",   value: rating.quality },
+                          { label: "الالتزام", value: rating.commitment },
+                          { label: "السلامة",  value: rating.safety },
+                          { label: "السرعة",   value: rating.speed },
+                        ]).map(({ label, value }) => (
+                          <div key={label}>
+                            <p className="text-xs mb-1" style={{ color: isDark ? "rgba(255,255,255,0.40)" : "#9ca3af" }}>{label}</p>
+                            <div className="h-1.5 rounded-full overflow-hidden"
+                              style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)" }}>
+                              <div className="h-full rounded-full transition-all"
+                                style={{ width: `${value}%`,
+                                  background: value >= 85 ? "#4ade80" : value >= 70 ? (isDark ? "#00f0ff" : "#6366f1") : "#fb923c" }} />
+                            </div>
+                            <p className="text-xs mt-0.5 font-mono font-bold tabular-nums"
+                              style={{ color: value >= 85 ? "#4ade80" : value >= 70 ? (isDark ? "#00f0ff" : "#6366f1") : "#fb923c" }}>
+                              {value}%
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {rating?.notes && (
+                      <p className="text-xs mt-2 leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#6b7280" }}>{rating.notes}</p>
+                    )}
+                  </div>
+                  {avgRating !== null && (
+                    <div className="shrink-0 text-center">
+                      <p className="text-2xl font-black font-mono tabular-nums"
+                        style={{ color: avgRating >= 85 ? "#4ade80" : avgRating >= 70 ? (isDark ? "#00f0ff" : "#6366f1") : "#fb923c" }}>
+                        {avgRating}
+                      </p>
+                      <p className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.40)" : "#9ca3af" }}>تقييم</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Dialogs ── */}
       <DocumentPreviewModal

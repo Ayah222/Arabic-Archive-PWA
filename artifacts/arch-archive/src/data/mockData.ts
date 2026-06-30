@@ -1,4 +1,4 @@
-import { Project, Document, Contractor } from "../types";
+import { Project, Document, Contractor, Contract, ProjectContractorRating } from "../types";
 
 // ─── 3 Projects ──────────────────────────────────────────────────────────────
 export const mockProjects: Project[] = [
@@ -83,6 +83,8 @@ export const mockDocuments: Document[] = [
     type: "report",
     projectId: "proj_1",
     createdAt: "2023-06-20T00:00:00.000Z",
+    classification: "تقارير فنية",
+    status: "معتمد",
   },
   {
     id: "doc_con_1",
@@ -92,6 +94,8 @@ export const mockDocuments: Document[] = [
     projectId: "proj_1",
     createdAt: "2023-05-18T00:00:00.000Z",
     contractorId: "cont_1",
+    classification: "عقود تنفيذ",
+    status: "منتهي",
   },
   {
     id: "doc_quo_1",
@@ -101,6 +105,8 @@ export const mockDocuments: Document[] = [
     projectId: "proj_1",
     createdAt: "2023-06-01T00:00:00.000Z",
     contractorId: "cont_4",
+    classification: "عروض أسعار",
+    status: "مقبول",
   },
   {
     id: "doc_ltr_1",
@@ -112,6 +118,8 @@ export const mockDocuments: Document[] = [
     letterClassification: "outgoing",
     letterEntity: "أمانة محافظة جدة",
     letterSubject: "طلب إذن الدخول لموقع مشروع برج الأعمال المركزي",
+    classification: "مراسلات حكومية",
+    status: "مُرسَل",
   },
   {
     id: "doc_drw_1",
@@ -120,6 +128,8 @@ export const mockDocuments: Document[] = [
     type: "drawing",
     projectId: "proj_1",
     createdAt: "2023-06-10T00:00:00.000Z",
+    classification: "مخططات معمارية",
+    status: "معتمد",
   },
   {
     id: "doc_img_1",
@@ -128,6 +138,8 @@ export const mockDocuments: Document[] = [
     type: "image",
     projectId: "proj_1",
     createdAt: "2023-07-15T00:00:00.000Z",
+    classification: "توثيق الموقع",
+    status: "محفوظ",
   },
   {
     id: "doc_rep_1b",
@@ -136,6 +148,8 @@ export const mockDocuments: Document[] = [
     type: "report",
     projectId: "proj_1",
     createdAt: "2023-09-30T00:00:00.000Z",
+    classification: "تقارير دورية",
+    status: "معتمد",
   },
   // ── proj_2 docs ──
   {
@@ -146,6 +160,8 @@ export const mockDocuments: Document[] = [
     projectId: "proj_2",
     createdAt: "2023-08-05T00:00:00.000Z",
     contractorId: "cont_2",
+    classification: "عقود تنفيذ",
+    status: "نشط",
   },
   {
     id: "doc_rep_2",
@@ -154,6 +170,8 @@ export const mockDocuments: Document[] = [
     type: "report",
     projectId: "proj_2",
     createdAt: "2023-07-28T00:00:00.000Z",
+    classification: "دراسات بيئية",
+    status: "معتمد",
   },
   {
     id: "doc_mtg_2",
@@ -166,6 +184,8 @@ export const mockDocuments: Document[] = [
     attendees: ["م. سارة الحربي", "م. فيصل القحطاني", "المهندس المستشار"],
     decisions: ["اعتماد المخططات المعمارية النهائية", "بدء أعمال التحضير للموقع"],
     tasks: ["تسليم مخططات تفصيلية خلال أسبوعين", "استكمال إجراءات الترخيص"],
+    classification: "اجتماعات تصميمية",
+    status: "موثق",
   },
   {
     id: "doc_ltr_2",
@@ -177,6 +197,8 @@ export const mockDocuments: Document[] = [
     letterClassification: "incoming",
     letterEntity: "أمانة منطقة الرياض",
     letterSubject: "الموافقة على التصميم المعماري لمشروع تطوير كورنيش الملك فهد",
+    classification: "مراسلات حكومية",
+    status: "مستلم",
   },
   {
     id: "doc_drw_2",
@@ -185,6 +207,8 @@ export const mockDocuments: Document[] = [
     type: "drawing",
     projectId: "proj_2",
     createdAt: "2023-09-01T00:00:00.000Z",
+    classification: "مخططات إنشائية",
+    status: "معتمد",
   },
   {
     id: "doc_quo_2",
@@ -194,6 +218,8 @@ export const mockDocuments: Document[] = [
     projectId: "proj_2",
     createdAt: "2023-09-10T00:00:00.000Z",
     contractorId: "cont_6",
+    classification: "عروض أسعار",
+    status: "قيد الدراسة",
   },
   // ── proj_3 docs ──
   {
@@ -207,6 +233,8 @@ export const mockDocuments: Document[] = [
     attendees: ["م. عبدالله الزهراني", "ممثل وزارة الصحة", "الاستشاري الرئيسي", "مدير المشروع"],
     decisions: ["تحديد نطاق العمل وفق المواصفات المعتمدة", "تشكيل فريق الإشراف الهندسي"],
     tasks: ["إعداد جداول الكميات خلال 30 يوماً", "تجهيز الموقع والبنية التحتية"],
+    classification: "اجتماعات تأسيسية",
+    status: "موثق",
   },
   {
     id: "doc_con_3",
@@ -216,6 +244,8 @@ export const mockDocuments: Document[] = [
     projectId: "proj_3",
     createdAt: "2023-08-25T00:00:00.000Z",
     contractorId: "cont_1",
+    classification: "عقود إنشاء",
+    status: "نشط",
   },
   {
     id: "doc_rep_3",
@@ -224,6 +254,8 @@ export const mockDocuments: Document[] = [
     type: "report",
     projectId: "proj_3",
     createdAt: "2023-09-05T00:00:00.000Z",
+    classification: "دراسات جدوى",
+    status: "معتمد",
   },
   {
     id: "doc_ltr_3",
@@ -235,6 +267,8 @@ export const mockDocuments: Document[] = [
     letterClassification: "outgoing",
     letterEntity: "مكتب الدار العربية للاستشارات",
     letterSubject: "تكليف بمهام الإشراف الهندسي لمشروع مستشفى الأمل التخصصي",
+    classification: "تكاليف وتفويضات",
+    status: "مُرسَل",
   },
   {
     id: "doc_drw_3",
@@ -243,6 +277,8 @@ export const mockDocuments: Document[] = [
     type: "drawing",
     projectId: "proj_3",
     createdAt: "2023-10-01T00:00:00.000Z",
+    classification: "مخططات طبية",
+    status: "قيد المراجعة",
   },
   {
     id: "doc_quo_3",
@@ -252,6 +288,121 @@ export const mockDocuments: Document[] = [
     projectId: "proj_3",
     createdAt: "2023-10-15T00:00:00.000Z",
     contractorId: "cont_5",
+    classification: "عروض أسعار طبية",
+    status: "قيد الدراسة",
+  },
+];
+
+// ─── Mock Contracts ───────────────────────────────────────────────────────────
+export const mockContracts: Contract[] = [
+  {
+    id: "contract_1",
+    number: "MOH-2023-0041",
+    projectId: "proj_1",
+    client: "وزارة الإسكان",
+    value: 125000000,
+    startDate: "2023-05-15T00:00:00.000Z",
+    endDate: "2025-05-15T00:00:00.000Z",
+    durationMonths: 24,
+    status: "completed",
+    classification: "عقود إنشاءات حكومية",
+    notes: "عقد المقاول الرئيسي لأعمال البناء والتشطيب الكامل لمشروع برج الأعمال المركزي بجدة",
+    createdAt: "2023-05-10T00:00:00.000Z",
+    updatedAt: "2025-05-20T00:00:00.000Z",
+  },
+  {
+    id: "contract_2",
+    number: "ARC-2023-0088",
+    projectId: "proj_2",
+    client: "أمانة العاصمة",
+    value: 340000000,
+    startDate: "2023-07-01T00:00:00.000Z",
+    endDate: "2026-07-01T00:00:00.000Z",
+    durationMonths: 36,
+    status: "active",
+    classification: "عقود تطوير حضري",
+    notes: "عقد شامل لتطوير وتحديث كورنيش الملك فهد يشمل المشاة والمرافق والتشجير",
+    createdAt: "2023-06-25T00:00:00.000Z",
+    updatedAt: "2024-03-10T00:00:00.000Z",
+  },
+  {
+    id: "contract_3",
+    number: "MOH-2023-0157",
+    projectId: "proj_3",
+    client: "وزارة الصحة",
+    value: 520000000,
+    startDate: "2023-08-20T00:00:00.000Z",
+    endDate: "2027-08-20T00:00:00.000Z",
+    durationMonths: 48,
+    status: "active",
+    classification: "عقود منشآت صحية",
+    notes: "عقد إنشاء مستشفى الأمل التخصصي بطاقة 400 سرير وجميع المرافق الطبية المساندة",
+    createdAt: "2023-08-15T00:00:00.000Z",
+    updatedAt: "2024-01-05T00:00:00.000Z",
+  },
+];
+
+// ─── Per-project contractor ratings ──────────────────────────────────────────
+export const mockProjectContractorRatings: ProjectContractorRating[] = [
+  {
+    id: "pcr_1",
+    contractorId: "cont_1",
+    projectId: "proj_1",
+    quality: 91,
+    commitment: 87,
+    safety: 95,
+    speed: 78,
+    notes: "أداء ممتاز في التشطيبات والواجهات. تأخر طفيف في تسليم مخططات الدور الأرضي.",
+  },
+  {
+    id: "pcr_2",
+    contractorId: "cont_1",
+    projectId: "proj_3",
+    quality: 85,
+    commitment: 80,
+    safety: 90,
+    speed: 72,
+    notes: "أداء جيد في المرحلة الأولى. يحتاج متابعة في معايير الجودة للمرحلة الثانية.",
+  },
+  {
+    id: "pcr_3",
+    contractorId: "cont_2",
+    projectId: "proj_2",
+    quality: 84,
+    commitment: 90,
+    safety: 88,
+    speed: 82,
+    notes: "ملتزم بالجداول الزمنية وتقارير التقدم. أداء سلامة ممتاز في جميع مراحل المشروع.",
+  },
+  {
+    id: "pcr_4",
+    contractorId: "cont_4",
+    projectId: "proj_1",
+    quality: 88,
+    commitment: 75,
+    safety: 96,
+    speed: 70,
+    notes: "جودة تنفيذ الكهرباء عالية جداً، لكن تأخر ملحوظ في مرحلة التركيبات الخارجية.",
+  },
+  {
+    id: "pcr_5",
+    contractorId: "cont_5",
+    projectId: "proj_3",
+    quality: 68,
+    commitment: 62,
+    safety: 78,
+    speed: 65,
+    notes: "أداء أقل من المأمول. تم إصدار إنذار رسمي بسبب التأخر في جدول التسليم.",
+  },
+  {
+    id: "pcr_6",
+    contractorId: "cont_6",
+    projectId: "proj_2",
+    quality: 93,
+    commitment: 89,
+    safety: 91,
+    speed: 86,
+    notes: "تميز في تنفيذ أنظمة التكييف المركزي. من أفضل المقاولين أداءً في هذا المشروع.",
   },
 ];
 
@@ -464,48 +615,56 @@ export const mockLetters: Document[] = [
     type: "letter", projectId: "proj_1", createdAt: "2026-06-01T00:00:00.000Z",
     letterClassification: "outgoing", letterNumber: "خ/2026/001",
     letterEntity: "أمانة محافظة جدة", letterSubject: "طلب اعتماد المخططات المعمارية لمشروع برج الأعمال",
+    contractId: "contract_1", classification: "مراسلات حكومية", status: "مُرسَل",
   },
   {
     id: "let_2", number: "DOC-LET-002", name: "رد بالاعتماد المبدئي",
     type: "letter", projectId: "proj_1", createdAt: "2026-06-05T00:00:00.000Z",
     letterClassification: "incoming", letterNumber: "أم/2026/0412",
     letterEntity: "أمانة محافظة جدة", letterSubject: "الاعتماد المبدئي للمخططات مع ملاحظات",
+    contractId: "contract_1", classification: "مراسلات حكومية", status: "مستلم",
   },
   {
     id: "let_3", number: "DOC-LET-003", name: "خطاب مطالبة بتسوية المستخلص",
     type: "letter", projectId: "proj_2", createdAt: "2026-06-08T00:00:00.000Z",
     letterClassification: "outgoing", letterNumber: "خ/2026/002",
     letterEntity: "شركة الأفق للمقاولات", letterSubject: "المطالبة بسداد المستخلص الثالث",
+    contractId: "contract_2", classification: "مراسلات مقاولين", status: "مُرسَل",
   },
   {
     id: "let_4", number: "DOC-LET-004", name: "خطاب وارد من الاستشاري",
     type: "letter", projectId: "proj_2", createdAt: "2026-06-10T00:00:00.000Z",
     letterClassification: "incoming", letterNumber: "ق/2026/089",
     letterEntity: "مكتب الهندسة المتحدة", letterSubject: "ملاحظات على تقرير التقدم الأسبوعي",
+    contractId: "contract_2", classification: "مراسلات استشارية", status: "مستلم",
   },
   {
     id: "let_5", number: "DOC-LET-005", name: "خطاب تكليف مهندس الموقع",
     type: "letter", projectId: "proj_3", createdAt: "2026-05-20T00:00:00.000Z",
     letterClassification: "outgoing", letterNumber: "خ/2026/003",
     letterEntity: "إدارة الموارد البشرية", letterSubject: "تكليف المهندس سعود المالكي مهندساً للموقع",
+    contractId: "contract_3", classification: "تكاليف وتفويضات", status: "مُرسَل",
   },
   {
     id: "let_6", number: "DOC-LET-006", name: "خطاب اعتذار عن المشاركة",
     type: "letter", projectId: "proj_3", createdAt: "2026-05-25T00:00:00.000Z",
     letterClassification: "incoming", letterNumber: "ش/2026/0051",
     letterEntity: "شركة النخبة للمقاولات", letterSubject: "الاعتذار عن تقديم عرض سعر للمشروع",
+    classification: "مراسلات مقاولين", status: "مستلم",
   },
   {
     id: "let_7", number: "DOC-LET-007", name: "محضر اجتماع التصميم الأولي",
     type: "letter", projectId: "proj_1", createdAt: "2026-05-15T00:00:00.000Z",
     letterClassification: "meeting_minutes", letterNumber: "م/2026/001",
     letterEntity: "فريق التصميم المعماري", letterSubject: "محضر اجتماع مراجعة التصميم الأولي",
+    contractId: "contract_1", classification: "محاضر اجتماعات", status: "موثق",
   },
   {
     id: "let_8", number: "DOC-LET-008", name: "محضر اجتماع متابعة التنفيذ",
     type: "letter", projectId: "proj_2", createdAt: "2026-06-12T00:00:00.000Z",
     letterClassification: "meeting_minutes", letterNumber: "م/2026/002",
     letterEntity: "فريق المشروع", letterSubject: "محضر اجتماع المتابعة الأسبوعية للتنفيذ",
+    contractId: "contract_2", classification: "محاضر اجتماعات", status: "موثق",
   },
 ];
 
@@ -526,6 +685,8 @@ export const mockMeetings: Document[] = [
       "رفع مخططات الصرف الصحي للاعتماد",
       "التنسيق مع مكتب الاستشاري لمراجعة المخططات",
     ],
+    classification: "اجتماعات إطلاق",
+    status: "موثق",
   },
   {
     id: "meet_2", number: "DOC-MTG-002", name: "اجتماع مراجعة التقدم الشهري",
@@ -542,6 +703,8 @@ export const mockMeetings: Document[] = [
       "الحصول على موافقة المالك على تعديلات الواجهات",
       "إعداد المستخلص الرابع وتقديمه للمراجعة",
     ],
+    classification: "اجتماعات متابعة",
+    status: "موثق",
   },
   {
     id: "meet_3", number: "DOC-MTG-003", name: "اجتماع متابعة سلامة الموقع",
@@ -558,6 +721,8 @@ export const mockMeetings: Document[] = [
       "إعداد خطة طوارئ محدّثة للموقع",
       "جدولة تدريب يومي للعمال على إجراءات السلامة",
     ],
+    classification: "اجتماعات سلامة",
+    status: "موثق",
   },
   {
     id: "meet_4", number: "DOC-MTG-004", name: "اجتماع تقييم المقاولين",
@@ -573,6 +738,8 @@ export const mockMeetings: Document[] = [
       "رفع تقارير التقييم النهائية خلال أسبوع",
       "إخطار مقاول الكهرباء رسمياً بالتأخر",
     ],
+    classification: "اجتماعات تقييم",
+    status: "موثق",
   },
 ];
 

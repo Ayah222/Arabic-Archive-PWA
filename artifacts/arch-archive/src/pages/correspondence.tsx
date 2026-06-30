@@ -4,7 +4,7 @@ import { mockLetters, mockProjects } from "../data/mockData";
 import { Document } from "../types";
 import {
   Mail, ArrowUpRight, ArrowDownLeft, FileCheck,
-  Plus, Search, X, Save, Trash2,
+  Plus, Search, X, Save, Trash2, Sparkles, Loader2,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 
@@ -50,8 +50,36 @@ function emptyForm() {
     name: "",
     projectId: "proj_1",
     createdAt: new Date().toISOString().slice(0, 10),
+    classification: "",
   };
 }
+
+const AUTO_EXTRACT_TEMPLATES = [
+  {
+    letterNumber: "خ/2026/009",
+    letterEntity: "أمانة محافظة جدة",
+    letterSubject: "طلب تمديد مدة تنفيذ مشروع برج الأعمال المركزي",
+    classification: "مراسلات حكومية",
+    name: "خطاب طلب تمديد مدة التنفيذ",
+    letterClassification: "outgoing" as const,
+  },
+  {
+    letterNumber: "ق/2026/0124",
+    letterEntity: "شركة الرؤية للاستشارات الهندسية",
+    letterSubject: "ملاحظات استشارية على مخططات المرحلة الثالثة",
+    classification: "مراسلات استشارية",
+    name: "خطاب ملاحظات الاستشاري",
+    letterClassification: "incoming" as const,
+  },
+  {
+    letterNumber: "م/2026/007",
+    letterEntity: "فريق الإشراف الهندسي",
+    letterSubject: "محضر اجتماع مراجعة التقدم الأسبوعي للمشروع",
+    classification: "محاضر اجتماعات",
+    name: "محضر اجتماع المتابعة",
+    letterClassification: "meeting_minutes" as const,
+  },
+];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -65,6 +93,16 @@ export default function Correspondence() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+
+  const handleAutoExtract = () => {
+    setExtracting(true);
+    setTimeout(() => {
+      const tpl = AUTO_EXTRACT_TEMPLATES[Math.floor(Math.random() * AUTO_EXTRACT_TEMPLATES.length)];
+      setForm(f => ({ ...f, ...tpl }));
+      setExtracting(false);
+    }, 1800);
+  };
 
   const visible = useMemo(() => {
     let list = filter === "all" ? letters : letters.filter((l) => l.letterClassification === filter);
@@ -115,6 +153,7 @@ export default function Correspondence() {
       letterNumber: form.letterNumber.trim(),
       letterEntity: form.letterEntity.trim(),
       letterSubject: form.letterSubject.trim(),
+      classification: form.classification.trim() || undefined,
     };
     add(newDoc);
     setForm(emptyForm());
@@ -253,6 +292,18 @@ export default function Correspondence() {
               <button onClick={() => setShowAdd(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:opacity-70" style={{ color: muted }}><X className="w-4 h-4" /></button>
             </div>
 
+            {/* Auto-extract button */}
+            <button onClick={handleAutoExtract} disabled={extracting}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-bold transition-all"
+              style={{ background: isDark ? "rgba(0,240,255,0.06)" : "rgba(99,102,241,0.06)",
+                border: isDark ? "1px solid rgba(0,240,255,0.22)" : "1px solid rgba(99,102,241,0.22)",
+                color: isDark ? "#00f0ff" : "#6366f1",
+                boxShadow: extracting ? (isDark ? "0 0 14px rgba(0,240,255,0.20)" : "0 0 10px rgba(99,102,241,0.18)") : "none" }}>
+              {extracting
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> جاري تحليل الوثيقة...</>
+                : <><Sparkles className="w-4 h-4" /> استخراج البيانات تلقائياً</>}
+            </button>
+
             <div className="space-y-3">
               {/* نوع الخطاب */}
               <div>
@@ -309,6 +360,12 @@ export default function Correspondence() {
                     {mockProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
+              </div>
+
+              {/* التصنيف */}
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>التصنيف (اختياري)</label>
+                <input style={inp} placeholder="مثال: مراسلات حكومية، تكاليف وتفويضات..." value={form.classification} onChange={(e) => setForm((f) => ({ ...f, classification: e.target.value }))} />
               </div>
             </div>
 
