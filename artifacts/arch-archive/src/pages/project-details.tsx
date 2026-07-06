@@ -40,6 +40,7 @@ import {
   User,
   Briefcase,
   Link as LinkIcon,
+  X,
 } from "lucide-react";
 import { Document, DocumentType, PROJECT_TYPES, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS, ContractStatus } from "../types";
 import { mockLetters, mockMeetings, mockContractors, mockProjectContractorRatings } from "../data/mockData";
@@ -301,6 +302,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
     projects,
     documents,
     contracts,
+    addContract,
     deleteProject,
     deleteDocument,
     deleteDocuments,
@@ -327,6 +329,68 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
   const [ratingModalContractor, setRatingModalContractor] = useState<string | null>(null);
   const [editRating, setEditRating] = useState({ quality: 80, commitment: 80, safety: 80, speed: 80, notes: "" });
   const [localRatings, setLocalRatings] = useState<Record<string, { quality: number; commitment: number; safety: number; speed: number; notes: string }>>({});
+
+  // ── Add Contract modal ──
+  const [addContractOpen, setAddContractOpen] = useState(false);
+  const [contractForm, setContractForm] = useState({
+    number: "", client: "", value: "", startDate: "", endDate: "",
+    durationMonths: "", status: "active" as ContractStatus, classification: "", notes: "",
+  });
+  const resetContractForm = () => setContractForm({
+    number: "", client: "", value: "", startDate: "", endDate: "",
+    durationMonths: "", status: "active" as ContractStatus, classification: "", notes: "",
+  });
+  const handleSaveContract = () => {
+    if (!contractForm.number.trim() || !contractForm.client.trim()) return;
+    addContract({
+      id: `contract_${Date.now()}`,
+      number: contractForm.number,
+      projectId: id,
+      client: contractForm.client,
+      value: parseFloat(contractForm.value) || 0,
+      startDate: contractForm.startDate ? new Date(contractForm.startDate).toISOString() : new Date().toISOString(),
+      endDate: contractForm.endDate ? new Date(contractForm.endDate).toISOString() : new Date().toISOString(),
+      durationMonths: parseInt(contractForm.durationMonths) || 12,
+      status: contractForm.status,
+      classification: contractForm.classification,
+      notes: contractForm.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    resetContractForm();
+    setAddContractOpen(false);
+  };
+
+  // ── Add Meeting modal ──
+  const [addMeetingOpen, setAddMeetingOpen] = useState(false);
+  const [localMeetings, setLocalMeetings] = useState<Document[]>([]);
+  const [meetingForm, setMeetingForm] = useState({
+    name: "", meetingDate: new Date().toISOString().slice(0, 10), meetingLocation: "",
+    attendeesText: "", decisionsText: "", tasksText: "",
+  });
+  const resetMeetingForm = () => setMeetingForm({
+    name: "", meetingDate: new Date().toISOString().slice(0, 10), meetingLocation: "",
+    attendeesText: "", decisionsText: "", tasksText: "",
+  });
+  const handleSaveMeeting = () => {
+    if (!meetingForm.name.trim() || !meetingForm.meetingDate) return;
+    const newMeeting: Document = {
+      id: `meet_${Date.now()}`,
+      number: `DOC-MTG-${Date.now().toString().slice(-4)}`,
+      name: meetingForm.name.trim(),
+      type: "meeting",
+      projectId: id,
+      createdAt: new Date(meetingForm.meetingDate).toISOString(),
+      meetingDate: new Date(meetingForm.meetingDate).toISOString(),
+      meetingLocation: meetingForm.meetingLocation.trim() || undefined,
+      attendees: meetingForm.attendeesText ? meetingForm.attendeesText.split("\n").map(s => s.trim()).filter(Boolean) : [],
+      decisions: meetingForm.decisionsText ? meetingForm.decisionsText.split("\n").map(s => s.trim()).filter(Boolean) : [],
+      tasks: meetingForm.tasksText ? meetingForm.tasksText.split("\n").map(s => s.trim()).filter(Boolean) : [],
+    };
+    setLocalMeetings(prev => [newMeeting, ...prev]);
+    resetMeetingForm();
+    setAddMeetingOpen(false);
+  };
 
   const openRatingModal = (contractorId: string) => {
     const base = localRatings[contractorId] ?? projectRatings.find(r => r.contractorId === contractorId);
@@ -390,7 +454,10 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 
   const projectContracts = useMemo(() => contracts.filter(c => c.projectId === id), [contracts, id]);
   const projectLetters = useMemo(() => mockLetters.filter(l => l.projectId === id), [id]);
-  const projectMeetings = useMemo(() => mockMeetings.filter(m => m.projectId === id), [id]);
+  const projectMeetings = useMemo(
+    () => [...localMeetings, ...mockMeetings].filter(m => m.projectId === id),
+    [localMeetings, id]
+  );
   const projectContractors = useMemo(() => mockContractors.filter(c => c.projectIds.includes(id)), [id]);
   const projectRatings = useMemo(() => mockProjectContractorRatings.filter(r => r.projectId === id), [id]);
 
@@ -1307,8 +1374,8 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-bold" style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b" }}>عقود المشروع</h2>
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setLocation('/contracts')}>
-              <Plus className="w-4 h-4" /> فتح صفحة العقود
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => { resetContractForm(); setAddContractOpen(true); }}>
+              <Plus className="w-4 h-4" /> إضافة عقد
             </Button>
           </div>
           {projectContracts.length === 0 ? (
@@ -1316,7 +1383,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
               style={{ border: isDark ? "1px dashed rgba(0,240,255,0.15)" : "1px dashed rgba(99,102,241,0.18)" }}>
               <FileSignature className="w-10 h-10 opacity-20" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
               <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.42)" : "#9ca3af" }}>لا توجد عقود مرتبطة بهذا المشروع</p>
-              <Button size="sm" variant="outline" onClick={() => setLocation('/contracts')}>فتح صفحة العقود</Button>
+              <Button size="sm" variant="outline" onClick={() => { resetContractForm(); setAddContractOpen(true); }}>إضافة عقد</Button>
             </div>
           ) : projectContracts.map(contract => (
             <div key={contract.id} className="rounded-2xl p-4"
@@ -1419,7 +1486,7 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-bold" style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b" }}>اجتماعات المشروع</h2>
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setLocation('/meetings')}>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => { resetMeetingForm(); setAddMeetingOpen(true); }}>
               <Plus className="w-4 h-4" /> إضافة اجتماع
             </Button>
           </div>
@@ -1550,6 +1617,164 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
           })}
         </div>
       )}
+
+      {/* ── Add Contract Modal ── */}
+      {addContractOpen && (() => {
+        const accent = isDark ? "#00f0ff" : "#6366f1";
+        const textMain = isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b";
+        const textMuted = isDark ? "rgba(255,255,255,0.45)" : "#6b7280";
+        const labelColor = isDark ? "rgba(0,240,255,0.65)" : "#6366f1";
+        const fieldCls = "w-full rounded-xl px-3 py-2 text-sm border outline-none transition-all focus:ring-2 bg-transparent";
+        const fieldStyle: React.CSSProperties = {
+          background: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.7)",
+          border: isDark ? "1px solid rgba(0,240,255,0.18)" : "1px solid rgba(99,102,241,0.25)",
+          color: isDark ? "#e2e8f0" : "#1e293b",
+        };
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+            onClick={e => { if (e.target === e.currentTarget) setAddContractOpen(false); }}>
+            <div className="w-full max-w-2xl rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto"
+              style={{ background: isDark ? "#0c0a1a" : "#f8faff",
+                border: isDark ? "1px solid rgba(0,240,255,0.20)" : "1px solid rgba(99,102,241,0.25)",
+                boxShadow: isDark ? "0 0 60px rgba(0,240,255,0.12), 0 24px 80px rgba(0,0,0,0.80)" : "0 24px 80px rgba(99,102,241,0.15)" }}>
+              <div className="p-5 flex items-center justify-between"
+                style={{ borderBottom: isDark ? "1px solid rgba(0,240,255,0.10)" : "1px solid rgba(99,102,241,0.10)" }}>
+                <div className="flex items-center gap-3">
+                  <FileSignature className="w-5 h-5" style={{ color: accent }} />
+                  <h2 className="font-bold text-base" style={{ color: textMain }}>إضافة عقد جديد</h2>
+                </div>
+                <button onClick={() => setAddContractOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-muted transition-colors">
+                  <X className="w-4 h-4" style={{ color: textMuted }} />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>رقم العقد *</label>
+                    <input value={contractForm.number} onChange={e => setContractForm(f => ({ ...f, number: e.target.value }))}
+                      placeholder="مثال: MOH-2026-0041" className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>العميل *</label>
+                    <input value={contractForm.client} onChange={e => setContractForm(f => ({ ...f, client: e.target.value }))}
+                      placeholder="اسم الجهة أو العميل" className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>قيمة العقد (ريال)</label>
+                    <input type="number" value={contractForm.value} onChange={e => setContractForm(f => ({ ...f, value: e.target.value }))}
+                      placeholder="0" className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>مدة العقد (شهر)</label>
+                    <input type="number" value={contractForm.durationMonths} onChange={e => setContractForm(f => ({ ...f, durationMonths: e.target.value }))}
+                      placeholder="12" className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>تاريخ البداية</label>
+                    <input type="date" value={contractForm.startDate} onChange={e => setContractForm(f => ({ ...f, startDate: e.target.value }))}
+                      className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>تاريخ الانتهاء</label>
+                    <input type="date" value={contractForm.endDate} onChange={e => setContractForm(f => ({ ...f, endDate: e.target.value }))}
+                      className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>حالة العقد</label>
+                    <select value={contractForm.status} onChange={e => setContractForm(f => ({ ...f, status: e.target.value as ContractStatus }))}
+                      className={fieldCls} style={fieldStyle}>
+                      {(Object.entries(CONTRACT_STATUS_LABELS) as [ContractStatus, string][]).map(([k, v]) =>
+                        <option key={k} value={k}>{v}</option>
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>التصنيف</label>
+                    <input value={contractForm.classification} onChange={e => setContractForm(f => ({ ...f, classification: e.target.value }))}
+                      placeholder="اكتب أي تصنيف" className={fieldCls} style={fieldStyle} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-bold mb-1.5 block" style={{ color: labelColor }}>ملاحظات</label>
+                    <textarea value={contractForm.notes} onChange={e => setContractForm(f => ({ ...f, notes: e.target.value }))}
+                      rows={3} placeholder="أي ملاحظات إضافية..."
+                      className={fieldCls} style={{ ...fieldStyle, resize: "none" as const }} />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button onClick={handleSaveContract} className="flex-1 gap-2 font-bold"
+                    style={{ background: isDark ? "linear-gradient(135deg,#00f0ff,#7000ff)" : "linear-gradient(135deg,#6366f1,#a855f7)",
+                      color: "white", boxShadow: isDark ? "0 0 20px rgba(0,240,255,0.30)" : "0 4px 16px rgba(99,102,241,0.40)" }}>
+                    حفظ العقد
+                  </Button>
+                  <Button variant="outline" onClick={() => setAddContractOpen(false)} className="gap-2">
+                    <X className="w-4 h-4" /> إلغاء
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Add Meeting Modal ── */}
+      {addMeetingOpen && (() => {
+        const title = isDark ? "rgba(255,255,255,0.92)" : "#1e1b4b";
+        const muted = isDark ? "rgba(255,255,255,0.42)" : "#6b7280";
+        const accent = isDark ? "#c084fc" : "#7c3aed";
+        const inp: React.CSSProperties = {
+          width: "100%", padding: "8px 12px", borderRadius: 10,
+          border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(99,102,241,0.22)",
+          background: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.80)",
+          color: isDark ? "#e2e8f0" : "#1e293b", fontSize: 13,
+          outline: "none", fontFamily: "inherit",
+        };
+        const ta: React.CSSProperties = { ...inp, resize: "vertical", minHeight: 72 };
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
+            onClick={e => { if (e.target === e.currentTarget) setAddMeetingOpen(false); }}>
+            <div className="w-full max-w-lg rounded-2xl p-6 space-y-3 max-h-[90vh] overflow-y-auto"
+              style={{ background: isDark ? "rgba(15,10,30,0.95)" : "rgba(255,255,255,0.97)", border: isDark ? "1px solid rgba(192,132,252,0.20)" : "1px solid rgba(124,58,237,0.20)", boxShadow: "0 30px 80px rgba(0,0,0,0.70)" }}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-black" style={{ color: title }}>إضافة اجتماع جديد</h2>
+                <button onClick={() => setAddMeetingOpen(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:opacity-70" style={{ color: muted }}><X className="w-4 h-4" /></button>
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>عنوان الاجتماع *</label>
+                <input style={inp} placeholder="مثال: اجتماع متابعة التنفيذ الأسبوعي" value={meetingForm.name} onChange={e => setMeetingForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>تاريخ الاجتماع *</label>
+                <input type="date" style={inp} value={meetingForm.meetingDate} onChange={e => setMeetingForm(f => ({ ...f, meetingDate: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>موقع الاجتماع</label>
+                <input style={inp} placeholder="مثال: قاعة الاجتماعات — مكتب جدة" value={meetingForm.meetingLocation} onChange={e => setMeetingForm(f => ({ ...f, meetingLocation: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>الحضور (سطر لكل شخص)</label>
+                <textarea style={ta} placeholder={"م. أحمد العمري\nأ. سارة الشهري"} value={meetingForm.attendeesText} onChange={e => setMeetingForm(f => ({ ...f, attendeesText: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>القرارات (سطر لكل قرار)</label>
+                <textarea style={ta} placeholder={"الموافقة على جدول التنفيذ"} value={meetingForm.decisionsText} onChange={e => setMeetingForm(f => ({ ...f, decisionsText: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: muted }}>المهام (سطر لكل مهمة)</label>
+                <textarea style={ta} placeholder={"رفع المخططات للاعتماد"} value={meetingForm.tasksText} onChange={e => setMeetingForm(f => ({ ...f, tasksText: e.target.value }))} />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleSaveMeeting} className="flex-1 gap-2 rounded-xl text-sm font-bold h-9"
+                  style={{ background: isDark ? "linear-gradient(135deg,#c084fc,#818cf8)" : "linear-gradient(135deg,#7c3aed,#6366f1)", color: "#fff", border: "none" }}>
+                  حفظ
+                </Button>
+                <Button variant="ghost" onClick={() => setAddMeetingOpen(false)} className="rounded-xl h-9 px-4" style={{ color: muted }}>إلغاء</Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Rating Modal ── */}
       {ratingModalContractor && (() => {

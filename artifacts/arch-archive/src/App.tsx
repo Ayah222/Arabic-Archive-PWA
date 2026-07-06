@@ -15,10 +15,8 @@ import Documents from "./pages/documents";
 import Contractors from "./pages/contractors";
 import ContractorDetails from "./pages/contractor-details";
 import Correspondence from "./pages/correspondence";
-import Meetings from "./pages/meetings";
 import UsersPage from "./pages/users";
 import NotificationsPage from "./pages/notifications";
-import ContractsPage from "./pages/contracts";
 import SearchPage from "./pages/search";
 
 const queryClient = new QueryClient();
@@ -61,12 +59,6 @@ function Router() {
       </Route>
       <Route path="/correspondence">
         <ProtectedRoute component={Correspondence} />
-      </Route>
-      <Route path="/meetings">
-        <ProtectedRoute component={Meetings} />
-      </Route>
-      <Route path="/contracts">
-        <ProtectedRoute component={ContractsPage} />
       </Route>
       <Route path="/search">
         <ProtectedRoute component={SearchPage} />

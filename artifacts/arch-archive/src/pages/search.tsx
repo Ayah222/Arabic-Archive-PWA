@@ -248,7 +248,7 @@ export default function SearchPage() {
               {results.matchContracts.map(c => {
                 const proj = projects.find(p => p.id === c.projectId);
                 return (
-                  <ResultRow key={c.id} onClick={() => setLocation("/contracts")} isDark={isDark} accent={accent}>
+                  <ResultRow key={c.id} onClick={() => setLocation(proj ? `/projects/${proj.id}` : "/projects")} isDark={isDark} accent={accent}>
                     <div className="flex-1 min-w-0">
                       <span className="font-mono text-xs font-bold ml-2" style={{ color: accent }}>{c.number}</span>
                       <span className="text-sm font-semibold" style={{ color: textMain }}>{proj?.name ?? c.client}</span>
@@ -279,7 +279,7 @@ export default function SearchPage() {
           {results.matchMeetings.length > 0 && (
             <ResultSection title="الاجتماعات" icon={Calendar} count={results.matchMeetings.length} isDark={isDark} accent={accent}>
               {results.matchMeetings.map(m => (
-                <ResultRow key={m.id} onClick={() => setLocation("/meetings")} isDark={isDark} accent={accent}>
+                <ResultRow key={m.id} onClick={() => setLocation(m.projectId ? `/projects/${m.projectId}` : "/projects")} isDark={isDark} accent={accent}>
                   <div className="flex-1 min-w-0">
                     <span className="font-mono text-xs font-bold ml-2" style={{ color: accent }}>{m.number}</span>
                     <span className="text-sm font-semibold" style={{ color: textMain }}>{m.name}</span>
