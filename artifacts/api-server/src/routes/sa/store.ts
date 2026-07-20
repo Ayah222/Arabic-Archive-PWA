@@ -103,6 +103,7 @@ export const store: {
   meetings: SAMeeting[];
   letters: SALetter[];
   notifications: SANotification[];
+  finance: SAFinanceRecord[];
 } = {
   projects: [
     {
@@ -412,6 +413,82 @@ export const store: {
     },
   ],
 };
+
+export interface SAFinanceRecord {
+  id: string;
+  title: string;
+  amount: number;
+  type: "income" | "expense";
+  category: string;
+  date: string;
+  reminderDate: string | null;
+  notes: string | null;
+  projectId: string | null;
+  createdAt: string;
+}
+
+store.finance = [
+  {
+    id: randomUUID(),
+    title: "دفعة أولى - برج الأعمال المركزي",
+    amount: 1500000,
+    type: "income",
+    category: "دفعات المشاريع",
+    date: "2024-10-15",
+    reminderDate: null,
+    notes: "الدفعة الأولى بعد توقيع العقد",
+    projectId: store.projects[0]?.id ?? null,
+    createdAt: new Date(Date.now() - 7776000000).toISOString(),
+  },
+  {
+    id: randomUUID(),
+    title: "رسوم تصاريح بناء",
+    amount: 45000,
+    type: "expense",
+    category: "رسوم حكومية",
+    date: "2024-11-01",
+    reminderDate: "2025-11-01",
+    notes: "تجديد سنوي في نوفمبر",
+    projectId: store.projects[0]?.id ?? null,
+    createdAt: new Date(Date.now() - 6912000000).toISOString(),
+  },
+  {
+    id: randomUUID(),
+    title: "دفعة تحصيل - مجمع الواحة",
+    amount: 850000,
+    type: "income",
+    category: "دفعات المشاريع",
+    date: "2025-02-20",
+    reminderDate: null,
+    notes: "الدفعة الثانية حسب الجدول الزمني",
+    projectId: store.projects[1]?.id ?? null,
+    createdAt: new Date(Date.now() - 3888000000).toISOString(),
+  },
+  {
+    id: randomUUID(),
+    title: "رواتب الفريق - مارس 2025",
+    amount: 120000,
+    type: "expense",
+    category: "رواتب",
+    date: "2025-03-31",
+    reminderDate: "2025-04-30",
+    notes: "تذكير بموعد رواتب أبريل",
+    projectId: null,
+    createdAt: new Date(Date.now() - 2592000000).toISOString(),
+  },
+  {
+    id: randomUUID(),
+    title: "ضريبة القيمة المضافة Q1 2025",
+    amount: 187500,
+    type: "expense",
+    category: "ضرائب",
+    date: "2025-04-15",
+    reminderDate: new Date(Date.now() + 864000000 * 3).toISOString().split("T")[0],
+    notes: "موعد تسديد الضريبة الفصل القادم",
+    projectId: null,
+    createdAt: new Date(Date.now() - 1296000000).toISOString(),
+  },
+];
 
 export function newId() {
   return randomUUID();

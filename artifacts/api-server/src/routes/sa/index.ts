@@ -9,6 +9,8 @@ import dashboardRouter from "./dashboard";
 import notificationsRouter from "./notifications";
 import voiceRouter from "./voice";
 import uploadRouter from "./upload";
+import financeRouter from "./finance";
+import globalRouter from "./global";
 
 const router: IRouter = Router();
 
@@ -22,5 +24,7 @@ router.use(meetingsRouter);
 router.use(lettersRouter);
 router.use(voiceRouter);
 router.use(uploadRouter);
+router.use(financeRouter);
+router.use(globalRouter);
 
 export default router;
