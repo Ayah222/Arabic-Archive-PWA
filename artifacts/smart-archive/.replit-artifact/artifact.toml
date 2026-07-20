@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/smart-archive/"
+title = "أرشيف ذكي - Smart Archive PWA"
+version = "1.0.0"
+id = "artifacts/smart-archive"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/smart-archive/" ]
+localPort = 23813
+
+[services.development]
+run = "pnpm --filter @workspace/smart-archive run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/smart-archive", "run", "build" ]
+publicDir = "artifacts/smart-archive/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23813"
+BASE_PATH = "/smart-archive/"
