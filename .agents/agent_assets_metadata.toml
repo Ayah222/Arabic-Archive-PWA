@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Eq3X6PAJrDUTRUPdJRbt5"
+uri = "file://testing-guide.md"
+type = "text"
+title = "دليل الاختبار والنقل إلى الإنتاج"
