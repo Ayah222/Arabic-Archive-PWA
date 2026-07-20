@@ -1,6 +1,4 @@
-/* Arabic font - must be first @import */
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -12,97 +10,276 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: var(--primary-border);
+
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary-border: var(--secondary-border);
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted-border: var(--muted-border);
+
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent-border: var(--accent-border);
+
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive-border: var(--destructive-border);
+
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
-  --font-sans: var(--app-font-sans);
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --font-sans: "Cairo", sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ════════════════════════════════════════
+   LIGHT MODE
+   ════════════════════════════════════════ */
 :root {
-  --background: 220 20% 97%;
-  --foreground: 224 71% 8%;
-  --border: 220 13% 88%;
-  --input: 220 13% 88%;
-  --ring: 224 72% 47%;
+  --button-outline: rgba(0,0,0,.08);
+  --badge-outline: rgba(0,0,0,.05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0,.03);
+  --elevate-2: rgba(0,0,0,.07);
+
+  --glass-bg:           rgba(255, 255, 255, 0.45);
+  --glass-border-color: rgba(255, 255, 255, 0.62);
+  --glass-inner-glow:   inset 0 1px 3px rgba(255, 255, 255, 0.80);
+  --glass-drop-shadow:  0 10px 30px rgba(31, 38, 135, 0.06);
+  --glass-blur:         blur(25px) saturate(160%);
+  --glass-card-bg:      rgba(255, 255, 255, 0.52);
+  --glass-card-border:  rgba(255, 255, 255, 0.72);
+  --glass-sidebar-bg:   rgba(255, 255, 255, 0.40);
+
+  --accent-glow-cyan:   linear-gradient(135deg, rgba(6,182,212,0.13) 0%, rgba(147,51,234,0.04) 100%);
+  --accent-glow-pink:   linear-gradient(135deg, rgba(236,72,153,0.13) 0%, rgba(99,102,241,0.04) 100%);
+  --accent-glow-purple: linear-gradient(135deg, rgba(168,85,247,0.13) 0%, rgba(6,182,212,0.04) 100%);
+  --btn-active-gradient: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+
+  --badge-active-bg:      rgba(6,182,212,0.10);
+  --badge-active-border:  rgba(6,182,212,0.30);
+  --badge-active-text:    #0891b2;
+  --badge-done-bg:        rgba(236,72,153,0.10);
+  --badge-done-border:    rgba(236,72,153,0.30);
+  --badge-done-text:      #db2777;
+
+  --bg-page: radial-gradient(140% 140% at 50% 10%, #f5f7fb 0%, #e4e8f1 100%);
+
+  --background: 222 30% 94%;
+  --foreground: 222 20% 10%;
+  --border: 220 18% 84%;
+
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 8%;
+  --card-foreground: 222 20% 10%;
+  --card-border: 220 20% 86%;
+
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 240 20% 22%;
+  --sidebar-border: 220 18% 88%;
+  --sidebar-primary: 258 90% 66%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 20% 94%;
+  --sidebar-accent-foreground: 240 20% 22%;
+  --sidebar-ring: 258 90% 66%;
+
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 8%;
-  --primary: 224 72% 47%;
+  --popover-foreground: 222 20% 10%;
+  --popover-border: 220 18% 86%;
+
+  --primary: 258 90% 66%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 92%;
-  --secondary-foreground: 224 71% 8%;
-  --muted: 220 14% 94%;
+
+  --secondary: 220 20% 93%;
+  --secondary-foreground: 222 20% 14%;
+
+  --muted: 220 18% 96%;
   --muted-foreground: 220 14% 46%;
-  --accent: 224 72% 95%;
-  --accent-foreground: 224 72% 35%;
-  --destructive: 0 84% 60%;
+
+  --accent: 190 90% 45%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 48%;
   --destructive-foreground: 0 0% 100%;
-  --sidebar: 224 72% 47%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-border: 224 72% 40%;
-  --app-font-sans: 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
-  --radius: 0.75rem;
+
+  --input: 220 16% 88%;
+  --ring: 258 90% 66%;
+
+  --app-font-sans: 'Cairo', sans-serif;
+  --radius: .5rem;
+
+  --shadow-sm:  0 2px 6px  rgba(0,0,0,.06);
+  --shadow:     0 4px 14px rgba(0,0,0,.08);
+  --shadow-md:  0 6px 22px rgba(0,0,0,.09);
+  --shadow-lg:  0 10px 36px rgba(0,0,0,.10);
+  --shadow-xl:  0 18px 50px rgba(0,0,0,.11);
+  --shadow-2xl: 0 28px 64px rgba(0,0,0,.12);
+
+  --primary-border:     hsl(from hsl(var(--primary))     h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border:   hsl(from hsl(var(--secondary))   h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border:       hsl(from hsl(var(--muted))       h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border:      hsl(from hsl(var(--accent))      h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+/* ════════════════════════════════════════
+   DARK MODE — Purple Obsidian + Neon Liquid Glass
+   ════════════════════════════════════════ */
+.dark {
+  --button-outline: rgba(255,255,255,.06);
+  --badge-outline: rgba(255,255,255,.04);
+  --opaque-button-border-intensity: 10;
+  --elevate-1: rgba(255,255,255,.04);
+  --elevate-2: rgba(255,255,255,.08);
+
+  --glass-bg:           rgba(255, 255, 255, 0.024);
+  --glass-border-color: rgba(255, 255, 255, 0.080);
+  --glass-inner-glow:   inset 0 1px 2px rgba(255, 255, 255, 0.150);
+  --glass-drop-shadow:  0 12px 40px rgba(0, 0, 0, 0.560);
+  --glass-blur:         blur(20px) saturate(200%);
+  --glass-card-bg:      rgba(255, 255, 255, 0.028);
+  --glass-card-border:  rgba(255, 255, 255, 0.090);
+  --glass-sidebar-bg:   rgba(10, 8, 20, 0.60);
+
+  --accent-glow-cyan:   linear-gradient(135deg, rgba(0,240,255,0.22) 0%, rgba(112,0,255,0.06) 100%);
+  --accent-glow-pink:   linear-gradient(135deg, rgba(255,0,128,0.20) 0%, rgba(112,0,255,0.06) 100%);
+  --accent-glow-purple: linear-gradient(135deg, rgba(147,51,234,0.24) 0%, rgba(6,182,212,0.06) 100%);
+  --btn-active-gradient: linear-gradient(90deg, #00f0ff 0%, #7000ff 100%);
+
+  --badge-active-bg:      rgba(0,240,255,0.14);
+  --badge-active-border:  rgba(0,240,255,0.40);
+  --badge-active-text:    #00f0ff;
+  --badge-done-bg:        rgba(236,72,153,0.14);
+  --badge-done-border:    rgba(236,72,153,0.40);
+  --badge-done-text:      #ec4899;
+
+  --bg-page: radial-gradient(140% 140% at 50% 0%, #0d0a1a 0%, #05040a 100%);
+
+  --background: 258 30% 6%;
+  --foreground: 240 18% 90%;
+  --border: 258 16% 16%;
+
+  --card: 258 22% 8%;
+  --card-foreground: 240 18% 90%;
+  --card-border: 258 18% 18%;
+
+  --sidebar: 258 28% 5%;
+  --sidebar-foreground: 240 14% 72%;
+  --sidebar-border: 258 20% 12%;
+  --sidebar-primary: 187 100% 50%;
+  --sidebar-primary-foreground: 258 30% 5%;
+  --sidebar-accent: 258 20% 12%;
+  --sidebar-accent-foreground: 240 14% 72%;
+  --sidebar-ring: 187 100% 50%;
+
+  --popover: 258 22% 9%;
+  --popover-foreground: 240 18% 90%;
+  --popover-border: 258 18% 20%;
+
+  --primary: 187 100% 50%;
+  --primary-foreground: 258 30% 5%;
+
+  --secondary: 258 20% 12%;
+  --secondary-foreground: 240 14% 80%;
+
+  --muted: 258 18% 9%;
+  --muted-foreground: 258 10% 52%;
+
+  --accent: 190 100% 55%;
+  --accent-foreground: 258 30% 5%;
+
+  --destructive: 0 65% 42%;
+  --destructive-foreground: 240 18% 93%;
+
+  --input: 258 18% 14%;
+  --ring: 187 100% 50%;
+
+  --shadow-sm:  0 3px 8px  rgba(0,0,0,.65);
+  --shadow:     0 6px 16px rgba(0,0,0,.60);
+  --shadow-md:  0 8px 24px rgba(0,0,0,.55);
+  --shadow-lg:  0 14px 40px rgba(0,0,0,.55);
+  --shadow-xl:  0 22px 54px rgba(0,0,0,.58);
+  --shadow-2xl: 0 32px 68px rgba(0,0,0,.60);
 }
 
 @layer base {
   * { @apply border-border; }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-    direction: rtl;
-    font-family: 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
+    @apply font-sans antialiased text-foreground;
+    background: var(--bg-page);
+    min-height: 100vh;
   }
-  html { direction: rtl; }
 }
 
-/* Arabic font import */
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
-
-/* Smooth scrolling */
-html { scroll-behavior: smooth; }
-
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: hsl(var(--muted)); }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
-
-/* PWA safe area */
-body { padding-bottom: env(safe-area-inset-bottom); }
-
-/* Tab bar safe area */
-.tab-bar-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem); }
-
-/* Voice button animation */
-@keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.5); opacity: 0; }
-}
-.pulse-ring::before {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: pulse-ring 1s ease-out infinite;
+@layer utilities {
+  .liquid-glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-color);
+    box-shadow: var(--glass-inner-glow), var(--glass-drop-shadow);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+  .liquid-glass-card {
+    background: var(--glass-card-bg);
+    border: 1px solid var(--glass-card-border);
+    box-shadow: var(--glass-inner-glow), var(--glass-drop-shadow);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+  .glow {
+    box-shadow: 0 0 28px hsl(var(--primary) / 0.26), 0 0 80px hsl(var(--primary) / 0.08);
+  }
+  .glow-sm {
+    box-shadow: 0 0 14px hsl(var(--primary) / 0.20), 0 0 36px hsl(var(--primary) / 0.06);
+  }
+  .glow-btn {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.32), 0 4px 16px hsl(0 0% 0% / 0.28);
+  }
+  .glow-btn:hover {
+    box-shadow: 0 0 32px hsl(var(--primary) / 0.45), 0 4px 20px hsl(0 0% 0% / 0.35);
+  }
 }
 
-/* Transition defaults */
-.transition-all { transition-duration: 200ms; }
+/* Dark select styling */
+.dark select {
+  background-color: #0f0c1f !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(0, 240, 255, 0.15) !important;
+  color-scheme: dark;
+}
+.dark select option {
+  background-color: #0f0c1f !important;
+  color: #e2e8f0 !important;
+}
+.dark select option:checked {
+  background: linear-gradient(#1a1040, #1a1040) !important;
+  color: #00f0ff !important;
+  font-weight: 700;
+}
+.dark select:focus {
+  outline: none !important;
+  border-color: rgba(0, 240, 255, 0.40) !important;
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.10) !important;
+}
