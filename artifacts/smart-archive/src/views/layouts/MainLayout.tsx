@@ -174,7 +174,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col min-w-0 relative" style={{ zIndex:1 }}>
         {/* Header */}
-        <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 sticky top-0 overflow-hidden"
+        <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 sticky top-0"
           style={{ background: isDark ? "rgba(8,6,18,0.78)" : "rgba(248,250,255,0.88)",
             backdropFilter:"blur(24px) saturate(180%)", WebkitBackdropFilter:"blur(24px) saturate(180%)",
             borderBottom: isDark ? "1px solid rgba(0,240,255,0.08)" : "1px solid rgba(99,102,241,0.10)",
