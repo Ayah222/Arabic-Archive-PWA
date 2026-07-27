@@ -101,7 +101,7 @@ export function useCurrentUser() {
 
 export function useAllContractors(q?: string) {
   const url = `${API}/all/contractors${q ? `?q=${encodeURIComponent(q)}` : ""}`;
-  return useQuery<Array<{ id: string; projectId: string; projectName: string; name: string; specialty: string; phone: string | null; email: string | null; status: string; notes: string | null; createdAt: string }>>({
+  return useQuery<Array<{ id: string; projectId: string; projectName: string; name: string; specialty: string; phone: string | null; email: string | null; status: string; notes: string | null; rating: { workQuality: number; scheduleCompliance: number; safetyStandards: number; executionSpeed: number; average: number; updatedAt: string } | null; createdAt: string }>>({
     queryKey: ["all-contractors", q],
     queryFn: () => get(url),
   });
@@ -353,6 +353,56 @@ export function useLetterActions(projectId: string) {
   });
 
   return { updateDistribution };
+}
+
+/* ─── Contractor rating ─── */
+export function useContractorRating(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cid, scores }: { cid: string; scores: { workQuality: number; scheduleCompliance: number; safetyStandards: number; executionSpeed: number } }) =>
+      patch<unknown>(`${API}/projects/${projectId}/contractors/${cid}/rating`, scores),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contractors", projectId] });
+      qc.invalidateQueries({ queryKey: ["all-contractors"] });
+    },
+  });
+}
+
+/* ─── Global create hooks (with project selector) ─── */
+export function useGlobalCreateContractor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: { name: string; specialty: string; phone: string | null; email: string | null; status: string; notes: string | null } }) =>
+      post<unknown>(`${API}/projects/${projectId}/contractors`, data),
+    onSuccess: (_d, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ["contractors", projectId] });
+      qc.invalidateQueries({ queryKey: ["all-contractors"] });
+    },
+  });
+}
+
+export function useGlobalCreateMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: { title: string; date: string; location: string | null; agenda: string | null; notes: string | null; attendees: string[] } }) =>
+      post<unknown>(`${API}/projects/${projectId}/meetings`, data),
+    onSuccess: (_d, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ["meetings", projectId] });
+      qc.invalidateQueries({ queryKey: ["all-meetings"] });
+    },
+  });
+}
+
+export function useGlobalCreateLetter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: { subject: string; direction: string; from: string; to: string; date: string; reference: string | null; notes: string | null; fileUrl: string | null } }) =>
+      post<unknown>(`${API}/projects/${projectId}/letters`, data),
+    onSuccess: (_d, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ["letters", projectId] });
+      qc.invalidateQueries({ queryKey: ["all-letters"] });
+    },
+  });
 }
 
 /* ─── Document approval + revision ─── */

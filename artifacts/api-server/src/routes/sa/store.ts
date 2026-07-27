@@ -32,6 +32,15 @@ export interface SAContract {
   createdAt: string;
 }
 
+export interface SAContractorRating {
+  workQuality: number;        // جودة العمل (0-100)
+  scheduleCompliance: number; // الالتزام بالمواعيد (0-100)
+  safetyStandards: number;    // معايير السلامة (0-100)
+  executionSpeed: number;     // سرعة التنفيذ (0-100)
+  average: number;
+  updatedAt: string;
+}
+
 export interface SAProjectContractor {
   id: string;
   projectId: string;
@@ -41,6 +50,7 @@ export interface SAProjectContractor {
   email: string | null;
   status: "active" | "inactive";
   notes: string | null;
+  rating: SAContractorRating | null;
   createdAt: string;
 }
 
@@ -286,6 +296,7 @@ export const store: {
       email: "ahmed@example.com",
       status: "active",
       notes: "مشرف موقع رئيسي",
+      rating: { workQuality: 90, scheduleCompliance: 85, safetyStandards: 95, executionSpeed: 80, average: 88, updatedAt: now },
       createdAt: now,
     },
     {
@@ -297,6 +308,7 @@ export const store: {
       email: null,
       status: "active",
       notes: null,
+      rating: { workQuality: 78, scheduleCompliance: 70, safetyStandards: 88, executionSpeed: 75, average: 78, updatedAt: now },
       createdAt: now,
     },
     {
@@ -308,6 +320,7 @@ export const store: {
       email: "fahad@example.com",
       status: "active",
       notes: null,
+      rating: null,
       createdAt: now,
     },
   ],

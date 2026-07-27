@@ -1,18 +1,90 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { useAllMeetings } from "../../controllers/useGlobal";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useAllMeetings, useGlobalCreateMeeting } from "../../controllers/useGlobal";
+import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
-import { CalendarCheck, MapPin, Users, ExternalLink } from "lucide-react";
+import { CalendarCheck, MapPin, Users, ExternalLink, Plus, X } from "lucide-react";
+
+const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
+const btnPrimary = "w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 mt-2";
+
+function AddMeetingModal({ onClose }: { onClose: () => void }) {
+  const { data: projects } = useProjects();
+  const create = useGlobalCreateMeeting();
+  const [form, setForm] = useState({ projectId: "", title: "", date: "", location: "", agenda: "", notes: "" });
+
+  const handleSubmit = async () => {
+    if (!form.projectId || !form.title.trim() || !form.date) return;
+    await create.mutateAsync({
+      projectId: form.projectId,
+      data: { title: form.title, date: form.date, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null, attendees: [] },
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+      <div className="w-full max-w-md rounded-2xl border border-border p-6 relative" style={{ background: "rgba(12,10,25,0.97)" }}>
+        <button onClick={onClose} className="absolute left-4 top-4 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        <h2 className="font-bold text-lg mb-4 text-center">إضافة اجتماع</h2>
+        <div className="space-y-3">
+          <div><label className="block text-sm font-medium mb-1">المشروع *</label>
+            <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} className={inputCls} dir="rtl">
+              <option value="">اختر المشروع</option>
+              {projects?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div><label className="block text-sm font-medium mb-1">موضوع الاجتماع *</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="موضوع الاجتماع" className={inputCls} dir="rtl" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-sm font-medium mb-1">التاريخ *</label>
+              <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
+            </div>
+            <div><label className="block text-sm font-medium mb-1">الموقع</label>
+              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="قاعة الاجتماعات..." className={inputCls} dir="rtl" />
+            </div>
+          </div>
+          <div><label className="block text-sm font-medium mb-1">جدول الأعمال</label>
+            <textarea value={form.agenda} onChange={e => setForm(f => ({ ...f, agenda: e.target.value }))} rows={2} className={`${inputCls} resize-none`} dir="rtl" />
+          </div>
+          <div><label className="block text-sm font-medium mb-1">ملاحظات</label>
+            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} dir="rtl" />
+          </div>
+          <button onClick={handleSubmit} disabled={create.isPending || !form.projectId || !form.title.trim() || !form.date} className={btnPrimary}>
+            {create.isPending ? "جاري الإضافة..." : "إضافة الاجتماع"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AllMeetings() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
   const { data, isLoading } = useAllMeetings(q || undefined);
+
+  useEffect(() => {
+    if (searchParams.get("add") === "1") {
+      setShowAdd(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">الاجتماعات</h1>
-        <p className="text-sm text-muted-foreground mt-1">جميع الاجتماعات عبر المشاريع</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">الاجتماعات</h1>
+          <p className="text-sm text-muted-foreground mt-1">جميع الاجتماعات عبر المشاريع</p>
+        </div>
+        <button onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, rgba(0,240,255,0.18), rgba(99,102,241,0.18))", border: "1px solid rgba(0,240,255,0.35)", color: "#00f0ff" }}>
+          <Plus className="w-4 h-4" /> إضافة اجتماع
+        </button>
       </div>
 
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث عن اجتماع..."
@@ -22,7 +94,7 @@ export default function AllMeetings() {
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl animate-pulse bg-muted" />)}</div>
       ) : !data?.length ? (
-        <EmptyState icon="🤝" title="لا توجد اجتماعات" description="أضف اجتماعات من صفحة تفاصيل المشروع" />
+        <EmptyState icon="🤝" title="لا توجد اجتماعات" description="أضف أول اجتماع بالضغط على الزر أعلاه" />
       ) : (
         <div className="space-y-3">
           {data.map(m => (
@@ -51,6 +123,7 @@ export default function AllMeetings() {
           ))}
         </div>
       )}
+      {showAdd && <AddMeetingModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert, HardHat, FileSignature,
-  CalendarCheck, Mail, Search, Wallet, BarChart2, HelpCircle, Users,
+  CalendarCheck, Mail, Search, Wallet, BarChart2, HelpCircle, Users, Plus,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -141,25 +141,36 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">
           {navItems.map(({ to, label, Icon }) => {
             const active = isActive(to);
+            const hasQuickAdd = ["/contractors", "/meetings", "/letters"].includes(to);
             return (
-              <Link key={to} to={to} onClick={() => setSidebarOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group"
-                style={active ? activeStyle : { color: isDark ? "rgba(255,255,255,0.55)" : "#6b7280", border:"1px solid transparent" }}>
-                {!active && (
-                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: isDark ? "rgba(0,240,255,0.04)" : "rgba(99,102,241,0.06)" }} />
+              <div key={to} className="flex items-center gap-1 group/row">
+                <Link to={to} onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group flex-1 min-w-0"
+                  style={active ? activeStyle : { color: isDark ? "rgba(255,255,255,0.55)" : "#6b7280", border:"1px solid transparent" }}>
+                  {!active && (
+                    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: isDark ? "rgba(0,240,255,0.04)" : "rgba(99,102,241,0.06)" }} />
+                  )}
+                  <Icon className={`w-4 h-4 shrink-0 relative z-10 ${active ? "" : "opacity-50 group-hover:opacity-80 transition-opacity"}`} />
+                  <span className="whitespace-nowrap relative z-10 text-sm font-bold flex-1">{label}</span>
+                  {to === "/notifications" && unreadCount > 0 && (
+                    <span className="text-xs font-black px-1.5 py-0.5 rounded-full shrink-0 relative z-10"
+                      style={{ background: isDark ? "rgba(255,0,128,0.14)" : "rgba(236,72,153,0.10)", color: isDark ? "#ff4da6" : "#be185d", border: isDark ? "1px solid rgba(255,0,128,0.25)" : "1px solid rgba(236,72,153,0.22)" }}>
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                  {active && <LayoutGrid className="w-3.5 h-3.5 shrink-0 relative z-10 opacity-55" />}
+                </Link>
+                {hasQuickAdd && (
+                  <button
+                    onClick={() => { setSidebarOpen(false); navigate(`${to}?add=1`); }}
+                    title={`إضافة جديد`}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 opacity-0 group-hover/row:opacity-100 transition-all duration-200 hover:scale-110"
+                    style={{ background: isDark ? "rgba(0,240,255,0.12)" : "rgba(99,102,241,0.12)", color: isDark ? "#00f0ff" : "#6366f1", border: isDark ? "1px solid rgba(0,240,255,0.25)" : "1px solid rgba(99,102,241,0.25)" }}>
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
                 )}
-                {active && <span className="text-xs font-bold relative z-10" style={{ color: isDark ? "rgba(0,240,255,0.70)" : "rgba(99,102,241,0.70)" }}>+</span>}
-                <Icon className={`w-4 h-4 shrink-0 relative z-10 ${active ? "" : "opacity-50 group-hover:opacity-80 transition-opacity"}`} />
-                <span className="whitespace-nowrap relative z-10 text-sm font-bold flex-1">{label}</span>
-                {to === "/notifications" && unreadCount > 0 && (
-                  <span className="text-xs font-black px-1.5 py-0.5 rounded-full shrink-0 relative z-10"
-                    style={{ background: isDark ? "rgba(255,0,128,0.14)" : "rgba(236,72,153,0.10)", color: isDark ? "#ff4da6" : "#be185d", border: isDark ? "1px solid rgba(255,0,128,0.25)" : "1px solid rgba(236,72,153,0.22)" }}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-                {active && <LayoutGrid className="w-3.5 h-3.5 shrink-0 relative z-10 opacity-55" />}
-              </Link>
+              </div>
             );
           })}
         </nav>
