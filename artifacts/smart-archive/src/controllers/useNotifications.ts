@@ -23,5 +23,5 @@ export function useNotifications() {
     }
   };
 
-  return { list, markRead, unreadCount, markAllRead };
+  return { notifications: list.data ?? [], list, markRead, unreadCount, markAllRead };
 }

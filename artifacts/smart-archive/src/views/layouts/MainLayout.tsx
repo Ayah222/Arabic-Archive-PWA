@@ -175,12 +175,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
           })}
         </nav>
 
-        {/* Mic + bottom */}
-        <div className="p-4 mt-auto" style={{ borderTop: isDark ? "1px solid rgba(0,240,255,0.08)" : "1px solid rgba(99,102,241,0.10)" }}>
-          <div className="flex justify-center">
-            <MicrophoneButton onResult={(msg) => setToast({ message: msg, type: "info" })} />
-          </div>
-        </div>
       </aside>
 
       {/* ── Main ── */}
@@ -297,6 +291,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <main className="flex-1 p-3 md:p-5 lg:p-6 overflow-x-hidden">
           {children}
         </main>
+      </div>
+
+      {/* ── Mic FAB — fixed bottom-left, always visible ── */}
+      <div className="fixed z-50" style={{ bottom: 24, left: 24 }}>
+        <MicrophoneButton onResult={(msg) => setToast({ message: msg, type: "info" })} />
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
