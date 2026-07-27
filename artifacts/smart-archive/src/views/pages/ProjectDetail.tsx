@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, type SAPhoto } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -31,15 +31,16 @@ import {
   type LetterDirection,
 } from "../../models/types";
 
-type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts";
+type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "contracts", label: "العقود", icon: "📋" },
-  { id: "contractors", label: "المقاولون", icon: "👷" },
-  { id: "documents", label: "الملفات الفنية", icon: "📄" },
-  { id: "meetings", label: "الاجتماعات", icon: "🤝" },
-  { id: "letters", label: "الخطابات", icon: "✉️" },
-  { id: "contacts", label: "جهات الاتصال", icon: "👤" },
+  { id: "contracts",   label: "العقود",          icon: "📋" },
+  { id: "contractors", label: "المقاولون",        icon: "👷" },
+  { id: "documents",   label: "الملفات الفنية",   icon: "📄" },
+  { id: "meetings",    label: "الاجتماعات",       icon: "🤝" },
+  { id: "letters",     label: "الخطابات",         icon: "✉️" },
+  { id: "contacts",    label: "جهات الاتصال",     icon: "👤" },
+  { id: "photos",      label: "الصور",            icon: "🖼️" },
 ];
 
 export default function ProjectDetail() {
@@ -147,6 +148,9 @@ export default function ProjectDetail() {
         )}
         {activeTab === "contacts" && (
           <ContactsTab projectId={id} setToast={setToast} />
+        )}
+        {activeTab === "photos" && (
+          <PhotosTab projectId={id} setToast={setToast} />
         )}
       </div>
     </div>
@@ -713,6 +717,131 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync(deleteId!); setDeleteId(null); setToast({ message: "تم حذف جهة الاتصال", type: "success" }); }} title="حذف جهة الاتصال" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
+    </div>
+  );
+}
+
+/* ===== PHOTOS TAB ===== */
+function PhotosTab({ projectId, setToast }: TabProps) {
+  const { data: photos = [], isLoading } = useProjectPhotos(projectId);
+  const { add, remove } = usePhotoActions(projectId);
+  const [preview, setPreview] = useState<SAPhoto | null>(null);
+  const [desc, setDesc] = useState("");
+  const inputRef = useState<HTMLInputElement | null>(null);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        await add.mutateAsync({ dataUrl, name: file.name, description: desc });
+        setToast({ message: "تم رفع الصورة", type: "success" });
+      };
+      reader.readAsDataURL(file);
+    });
+    setDesc("");
+  };
+
+  const handleDelete = async (id: string) => {
+    await remove.mutateAsync(id);
+    setToast({ message: "تم حذف الصورة", type: "success" });
+    if (preview?.id === id) setPreview(null);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Upload zone */}
+      <div
+        className="relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all hover:opacity-90"
+        style={{ borderColor: "rgba(0,240,255,0.30)", background: "rgba(0,240,255,0.03)" }}
+        onClick={() => document.getElementById("photo-upload-input")?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+      >
+        <div className="text-4xl mb-2">🖼️</div>
+        <p className="text-sm font-semibold" style={{ color: "#00f0ff" }}>اسحب الصور هنا أو انقر للاختيار</p>
+        <p className="text-xs text-muted-foreground mt-1">يدعم JPG، PNG، WEBP — يمكن اختيار عدة صور</p>
+        <input
+          id="photo-upload-input"
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={e => handleFiles(e.target.files)}
+        />
+      </div>
+
+      {/* Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[...Array(6)].map((_, i) => <div key={i} className="aspect-square rounded-xl animate-pulse bg-muted" />)}
+        </div>
+      ) : photos.length === 0 ? (
+        <div className="py-16 text-center">
+          <div className="text-5xl mb-3">📷</div>
+          <p className="text-sm font-semibold text-foreground">لا توجد صور بعد</p>
+          <p className="text-xs text-muted-foreground mt-1">ارفع أولى صور المشروع من المنطقة أعلاه</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {photos.map(photo => (
+            <div key={photo.id} className="relative group aspect-square rounded-xl overflow-hidden cursor-pointer"
+              style={{ border: "1px solid rgba(0,240,255,0.12)" }}
+              onClick={() => setPreview(photo)}>
+              <img src={photo.dataUrl} alt={photo.name}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.70) 0%, transparent 50%)" }}>
+                <button
+                  className="self-end w-7 h-7 rounded-full flex items-center justify-center text-white text-xs"
+                  style={{ background: "rgba(255,0,80,0.80)" }}
+                  onClick={e => { e.stopPropagation(); handleDelete(photo.id); }}>
+                  ✕
+                </button>
+                <p className="text-white text-[11px] font-medium truncate">{photo.name}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(8px)" }}
+          onClick={() => setPreview(null)}>
+          <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+            <img src={preview.dataUrl} alt={preview.name}
+              className="w-full max-h-[80vh] object-contain rounded-2xl" />
+            <div className="mt-3 flex items-center justify-between">
+              <div>
+                <p className="text-white font-semibold text-sm">{preview.name}</p>
+                {preview.description && <p className="text-gray-400 text-xs mt-0.5">{preview.description}</p>}
+                <p className="text-gray-500 text-xs mt-0.5">{new Date(preview.uploadedAt).toLocaleDateString("ar-SA")}</p>
+              </div>
+              <div className="flex gap-2">
+                <a href={preview.dataUrl} download={preview.name}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                  style={{ background: "rgba(0,240,255,0.20)", border: "1px solid rgba(0,240,255,0.30)" }}>
+                  تنزيل
+                </a>
+                <button onClick={() => handleDelete(preview.id)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                  style={{ background: "rgba(255,0,80,0.20)", border: "1px solid rgba(255,0,80,0.30)" }}>
+                  حذف
+                </button>
+                <button onClick={() => setPreview(null)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                  style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
+                  إغلاق
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

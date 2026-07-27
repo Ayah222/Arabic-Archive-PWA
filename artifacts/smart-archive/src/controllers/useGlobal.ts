@@ -417,6 +417,35 @@ export function useGlobalCreateLetter() {
   });
 }
 
+/* ─── Photos ─── */
+export interface SAPhoto {
+  id: string; projectId: string; dataUrl: string;
+  name: string; description: string; uploadedAt: string;
+}
+
+export function useProjectPhotos(projectId: string) {
+  return useQuery<SAPhoto[]>({
+    queryKey: ["photos", projectId],
+    queryFn: () => fetch(`${API}/projects/${projectId}/photos`).then(r => r.json()),
+    enabled: !!projectId,
+  });
+}
+
+export function usePhotoActions(projectId: string) {
+  const qc = useQueryClient();
+  const add = useMutation({
+    mutationFn: (data: { dataUrl: string; name: string; description: string }) =>
+      post<SAPhoto>(`${API}/projects/${projectId}/photos`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", projectId] }),
+  });
+  const remove = useMutation({
+    mutationFn: (photoId: string) =>
+      fetch(`${API}/projects/${projectId}/photos/${photoId}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", projectId] }),
+  });
+  return { add, remove };
+}
+
 /* ─── Document approval + revision ─── */
 export function useDocumentActions(projectId: string) {
   const qc = useQueryClient();

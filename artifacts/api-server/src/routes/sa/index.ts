@@ -15,6 +15,7 @@ import contactsRouter from "./contacts";
 import reportsRouter from "./reports";
 import usersRouter from "./users";
 import auditRouter from "./audit";
+import photosRouter from "./photos";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(contactsRouter);
 router.use(reportsRouter);
 router.use(usersRouter);
 router.use(auditRouter);
+router.use(photosRouter);
 
 export default router;
