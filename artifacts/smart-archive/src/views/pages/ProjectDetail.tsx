@@ -154,20 +154,20 @@ export default function ProjectDetail() {
 }
 
 /* ===== CONTRACTS TAB ===== */
+type ContractFormData = {
+  title: string; party: string; value: string;
+  startDate: string; endDate: string; status: ContractStatus; notes: string;
+};
+const defaultContractForm: ContractFormData = {
+  title: "", party: "", value: "", startDate: "", endDate: "", status: "active", notes: ""
+};
+
 function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, update, remove } = useContracts(projectId);
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ContractFormData>(defaultContractForm);
-
-  type ContractFormData = {
-    title: string; party: string; value: string;
-    startDate: string; endDate: string; status: ContractStatus; notes: string;
-  };
-  const defaultContractForm: ContractFormData = {
-    title: "", party: "", value: "", startDate: "", endDate: "", status: "active", notes: ""
-  };
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.party.trim()) return;
@@ -231,7 +231,6 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
   );
 }
 
-type ContractFormData = { title: string; party: string; value: string; startDate: string; endDate: string; status: ContractStatus; notes: string; };
 function ContractForm({ data, onChange, onSubmit, loading, submitLabel }: { data: ContractFormData; onChange: (d: ContractFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string }) {
   const set = (k: keyof ContractFormData, v: string) => onChange({ ...data, [k]: v });
   return (
@@ -255,15 +254,15 @@ function ContractForm({ data, onChange, onSubmit, loading, submitLabel }: { data
 }
 
 /* ===== CONTRACTORS TAB ===== */
+type ContractorTabFormData = { name: string; specialty: string; phone: string; email: string; status: "active" | "inactive"; notes: string; };
+const defaultContractorForm: ContractorTabFormData = { name: "", specialty: "", phone: "", email: "", status: "active", notes: "" };
+
 function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, update, remove } = useProjectContractors(projectId);
   const [showCreate, setShowCreate] = useState(false);
-  const [editItem, setEditItem] = useState<{ id: string; data: ContractorFormData } | null>(null);
+  const [editItem, setEditItem] = useState<{ id: string; data: ContractorTabFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState<ContractorFormData>(defaultContractorForm);
-
-  type ContractorFormData = { name: string; specialty: string; phone: string; email: string; status: "active" | "inactive"; notes: string; };
-  const defaultContractorForm: ContractorFormData = { name: "", specialty: "", phone: "", email: "", status: "active", notes: "" };
+  const [form, setForm] = useState<ContractorTabFormData>(defaultContractorForm);
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.specialty.trim()) return;
@@ -328,9 +327,8 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
   );
 }
 
-type ContractorFormData = { name: string; specialty: string; phone: string; email: string; status: "active" | "inactive"; notes: string; };
-function ContractorForm({ data, onChange, onSubmit, loading, submitLabel }: { data: ContractorFormData; onChange: (d: ContractorFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string }) {
-  const set = (k: keyof ContractorFormData, v: string) => onChange({ ...data, [k]: v });
+function ContractorForm({ data, onChange, onSubmit, loading, submitLabel }: { data: ContractorTabFormData; onChange: (d: ContractorTabFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string }) {
+  const set = (k: keyof ContractorTabFormData, v: string) => onChange({ ...data, [k]: v });
   return (
     <div className="space-y-3">
       <FormField label="الاسم *"><input value={data.name} onChange={(e) => set("name", e.target.value)} placeholder="اسم المقاول" className={inputCls} dir="rtl" /></FormField>
@@ -437,15 +435,15 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
 }
 
 /* ===== MEETINGS TAB ===== */
+type MeetingFormData = { title: string; date: string; location: string; agenda: string; notes: string; attendees: string[]; };
+const defaultMeetingForm: MeetingFormData = { title: "", date: "", location: "", agenda: "", notes: "", attendees: [] };
+
 function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useMeetings(projectId);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<MeetingFormData>(defaultMeetingForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [attendeeInput, setAttendeeInput] = useState("");
-
-  type MeetingFormData = { title: string; date: string; location: string; agenda: string; notes: string; attendees: string[]; };
-  const defaultMeetingForm: MeetingFormData = { title: "", date: "", location: "", agenda: "", notes: "", attendees: [] };
 
   const addAttendee = () => {
     const name = attendeeInput.trim();
@@ -529,14 +527,14 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
 }
 
 /* ===== LETTERS TAB ===== */
+type LetterFormData = { subject: string; direction: LetterDirection; from: string; to: string; date: string; reference: string; notes: string; distributionStatus?: string; recipients?: string[]; };
+const defaultLetterForm: LetterFormData = { subject: "", direction: "outgoing", from: "", to: "", date: "", reference: "", notes: "", distributionStatus: "not_sent", recipients: [] };
+
 function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useLetters(projectId);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<LetterFormData>(defaultLetterForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  type LetterFormData = { subject: string; direction: LetterDirection; from: string; to: string; date: string; reference: string; notes: string; };
-  const defaultLetterForm: LetterFormData = { subject: "", direction: "outgoing", from: "", to: "", date: "", reference: "", notes: "" };
 
   const handleCreate = async () => {
     if (!form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date) return;
