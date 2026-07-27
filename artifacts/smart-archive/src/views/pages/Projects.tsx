@@ -358,6 +358,7 @@ function ProjectForm({
           <label className="block text-sm font-medium mb-1.5">تاريخ البداية *</label>
           <input
             type="date"
+            dir="ltr"
             value={data.startDate}
             onChange={(e) => set("startDate", e.target.value)}
             className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
@@ -367,6 +368,7 @@ function ProjectForm({
           <label className="block text-sm font-medium mb-1.5">تاريخ الانتهاء</label>
           <input
             type="date"
+            dir="ltr"
             value={data.endDate}
             onChange={(e) => set("endDate", e.target.value)}
             className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"

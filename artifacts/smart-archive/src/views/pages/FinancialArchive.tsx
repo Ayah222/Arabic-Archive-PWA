@@ -261,12 +261,12 @@ function FinanceForm({ data, onChange, onSubmit, loading, submitLabel }: {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium mb-1.5">التاريخ *</label>
-          <input type="date" value={data.date} onChange={e => set("date", e.target.value)}
+          <input type="date" dir="ltr" value={data.date} onChange={e => set("date", e.target.value)}
             className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1.5">تذكير بتاريخ</label>
-          <input type="date" value={data.reminderDate ?? ""} onChange={e => set("reminderDate", e.target.value || null)}
+          <input type="date" dir="ltr" value={data.reminderDate ?? ""} onChange={e => set("reminderDate", e.target.value || null)}
             className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
       </div>

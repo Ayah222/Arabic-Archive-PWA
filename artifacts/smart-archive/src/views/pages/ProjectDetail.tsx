@@ -243,8 +243,8 @@ function ContractForm({ data, onChange, onSubmit, loading, submitLabel }: { data
       <FormField label="الطرف الآخر *"><input value={data.party} onChange={(e) => set("party", e.target.value)} placeholder="اسم الشركة أو المقاول" className={inputCls} dir="rtl" /></FormField>
       <FormField label="قيمة العقد (ريال)"><input type="number" value={data.value} onChange={(e) => set("value", e.target.value)} placeholder="0" className={inputCls} /></FormField>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="تاريخ البداية"><input type="date" value={data.startDate} onChange={(e) => set("startDate", e.target.value)} className={inputCls} /></FormField>
-        <FormField label="تاريخ الانتهاء"><input type="date" value={data.endDate} onChange={(e) => set("endDate", e.target.value)} className={inputCls} /></FormField>
+        <FormField label="تاريخ البداية"><input type="date" dir="ltr" value={data.startDate} onChange={(e) => set("startDate", e.target.value)} className={inputCls} /></FormField>
+        <FormField label="تاريخ الانتهاء"><input type="date" dir="ltr" value={data.endDate} onChange={(e) => set("endDate", e.target.value)} className={inputCls} /></FormField>
       </div>
       <FormField label="الحالة">
         <select value={data.status} onChange={(e) => set("status", e.target.value)} className={inputCls} dir="rtl">
@@ -501,7 +501,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <div className="space-y-3">
           <FormField label="عنوان الاجتماع *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الاجتماع" className={inputCls} dir="rtl" /></FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} /></FormField>
+            <FormField label="التاريخ *"><input type="date" dir="ltr" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} /></FormField>
             <FormField label="الموقع"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="مكتب، موقع..." className={inputCls} dir="rtl" /></FormField>
           </div>
           <FormField label="الحضور">
@@ -608,7 +608,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
             <FormField label="إلى *"><input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="المستلم" className={inputCls} dir="rtl" /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} /></FormField>
+            <FormField label="التاريخ *"><input type="date" dir="ltr" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} /></FormField>
             <FormField label="رقم المرجع"><input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="SA-2025-001" className={inputCls} dir="ltr" /></FormField>
           </div>
           <FormField label="حالة التوزيع (Prompt 1)">
