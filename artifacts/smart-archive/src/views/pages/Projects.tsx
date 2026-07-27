@@ -398,6 +398,17 @@ function ProjectForm({
           />
         </div>
       </div>
+      <div>
+        <label className="block text-sm font-medium mb-1.5">رابط الموقع في خرائط جوجل</label>
+        <input
+          value={(data as { mapsUrl?: string }).mapsUrl ?? ""}
+          onChange={(e) => onChange({ ...data, mapsUrl: e.target.value } as typeof data & { mapsUrl: string })}
+          placeholder="https://maps.google.com/..."
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          dir="ltr"
+          type="url"
+        />
+      </div>
       <button
         onClick={onSubmit}
         disabled={loading || !data.name.trim() || !data.client.trim()}

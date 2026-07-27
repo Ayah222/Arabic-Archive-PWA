@@ -87,6 +87,22 @@ router.patch("/sa/projects/:id", async (req, res): Promise<void> => {
   res.json(store.projects[idx]);
 });
 
+// PATCH /sa/projects/:id/extra — lightweight fields not in Zod schema (mapsUrl, etc.)
+router.patch("/sa/projects/:id/extra", async (req, res): Promise<void> => {
+  const { id } = req.params;
+  const idx = store.projects.findIndex((p) => p.id === id);
+  if (idx === -1) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  const { mapsUrl } = req.body as { mapsUrl?: string | null };
+  if (mapsUrl !== undefined) {
+    (store.projects[idx] as Record<string, unknown>).mapsUrl = mapsUrl ?? null;
+  }
+  store.projects[idx].updatedAt = new Date().toISOString();
+  res.json(store.projects[idx]);
+});
+
 router.delete("/sa/projects/:id", async (req, res): Promise<void> => {
   const params = DeleteProjectParams.safeParse(req.params);
   if (!params.success) {

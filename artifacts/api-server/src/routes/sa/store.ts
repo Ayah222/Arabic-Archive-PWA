@@ -14,6 +14,7 @@ export interface SAProject {
   budget: number | null;
   location: string | null;
   coverImage: string | null;
+  mapsUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,11 +64,25 @@ export interface SADocumentRevision {
   uploadedAt: string;
 }
 
+export interface SAAttachment {
+  id: string;
+  projectId: string;
+  entityType: "contract" | "meeting" | "letter" | "custom_doc";
+  entityId: string;            // contractId / meetingId / letterId / projectId for custom_doc
+  dataUrl: string;             // base64 data URL
+  name: string;                // user-defined display name
+  customType: string;          // user-defined category/type label
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
+
 export interface SADocument {
   id: string;
   projectId: string;
   name: string;
-  type: "pdf" | "image" | "word" | "excel" | "other";
+  docRef: string;
+  type: "pdf" | "image" | "word" | "excel" | "powerpoint" | "text" | "other";
   url: string;
   size: number | null;
   notes: string | null;
@@ -171,11 +186,17 @@ export interface SAFinanceRecord {
 
 export const counters = {
   letterRef: 0,
+  docRef: 0,
 };
 
 export function nextLetterRef(): string {
   counters.letterRef += 1;
   return `LTR-${new Date().getFullYear()}-${String(counters.letterRef).padStart(3, "0")}`;
+}
+
+export function nextDocRef(): string {
+  counters.docRef += 1;
+  return `DOC-${new Date().getFullYear()}-${String(counters.docRef).padStart(3, "0")}`;
 }
 
 /* ─────────────── Seed data ─────────────── */
@@ -197,6 +218,7 @@ export const store: {
   contacts: SAContact[];
   auditLogs: SAAuditLog[];
   users: SAUser[];
+  attachments: SAAttachment[];
 } = {
   projects: [
     {
@@ -211,6 +233,7 @@ export const store: {
       budget: 15000000,
       location: "الرياض، حي العليا",
       coverImage: null,
+      mapsUrl: null,
       createdAt: "2024-01-10T08:00:00Z",
       updatedAt: "2025-01-15T10:00:00Z",
     },
@@ -226,6 +249,7 @@ export const store: {
       budget: 28000000,
       location: "جدة، حي النسيم",
       coverImage: null,
+      mapsUrl: null,
       createdAt: "2024-05-20T09:00:00Z",
       updatedAt: "2025-02-01T11:00:00Z",
     },
@@ -241,6 +265,7 @@ export const store: {
       budget: 22000000,
       location: "الدمام، حي النور",
       coverImage: null,
+      mapsUrl: null,
       createdAt: "2023-02-20T07:00:00Z",
       updatedAt: "2024-12-01T09:00:00Z",
     },
@@ -329,6 +354,7 @@ export const store: {
       id: randomUUID(),
       projectId: p1,
       name: "المخططات المعمارية",
+      docRef: "DOC-2024-001",
       type: "pdf",
       url: "/uploads/arch-plans.pdf",
       size: 2048000,
@@ -345,6 +371,7 @@ export const store: {
       id: randomUUID(),
       projectId: p1,
       name: "تقرير فحص التربة",
+      docRef: "DOC-2024-002",
       type: "pdf",
       url: "/uploads/soil-report.pdf",
       size: 512000,
@@ -360,6 +387,7 @@ export const store: {
       id: randomUUID(),
       projectId: p2,
       name: "مخططات التنسيق",
+      docRef: "DOC-2024-003",
       type: "pdf",
       url: "/uploads/coord-plans.pdf",
       size: 1024000,
@@ -623,10 +651,12 @@ export const store: {
       createdAt: now,
     },
   ],
+  attachments: [],
 };
 
-// Initialize counter based on existing letters
+// Initialize counters based on existing data
 counters.letterRef = store.letters.length;
+counters.docRef = store.documents.length;
 
 export function newId() {
   return randomUUID();

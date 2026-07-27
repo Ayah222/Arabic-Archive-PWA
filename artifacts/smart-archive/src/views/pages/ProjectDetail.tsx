@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, type SAPhoto } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, type SAPhoto, type SAAttachment } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -31,14 +31,15 @@ import {
   type LetterDirection,
 } from "../../models/types";
 
-type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos";
+type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos" | "custom_docs";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "contracts",   label: "العقود",          icon: "📋" },
   { id: "contractors", label: "المقاولون",        icon: "👷" },
-  { id: "documents",   label: "الملفات الفنية",   icon: "📄" },
+  { id: "documents",   label: "المخططات",         icon: "📐" },
   { id: "meetings",    label: "الاجتماعات",       icon: "🤝" },
   { id: "letters",     label: "الخطابات",         icon: "✉️" },
+  { id: "custom_docs", label: "مستندات أخرى",     icon: "🗂️" },
   { id: "contacts",    label: "جهات الاتصال",     icon: "👤" },
   { id: "photos",      label: "الصور",            icon: "🖼️" },
 ];
@@ -106,6 +107,16 @@ export default function ProjectDetail() {
           {project.location && <span>📍 {project.location}</span>}
           <span>📅 {formatDate(project.startDate)}</span>
           {project.budget && <span>💰 {formatCurrency(project.budget)}</span>}
+          {(project as { mapsUrl?: string | null }).mapsUrl && (
+            <a
+              href={(project as { mapsUrl?: string | null }).mapsUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              🗺️ خريطة الموقع
+            </a>
+          )}
         </div>
       </div>
 
@@ -151,6 +162,9 @@ export default function ProjectDetail() {
         )}
         {activeTab === "photos" && (
           <PhotosTab projectId={id} setToast={setToast} />
+        )}
+        {activeTab === "custom_docs" && (
+          <CustomDocsTab projectId={id} setToast={setToast} />
         )}
       </div>
     </div>
@@ -218,6 +232,7 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
                 <button onClick={() => setEditItem({ id: c.id, data: { title: c.title, party: c.party, value: c.value.toString(), startDate: c.startDate, endDate: c.endDate, status: c.status as ContractStatus, notes: c.notes ?? "" } })} className="text-primary hover:underline">تعديل</button>
                 <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline">حذف</button>
               </div>
+              <AttachmentsPanel projectId={projectId} entityType="contract" entityId={c.id} compact />
             </div>
           ))}
         </div>
@@ -393,7 +408,12 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
             <div key={d.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex items-start gap-3">
               <span className="text-3xl mt-0.5">{DOCUMENT_TYPE_ICONS[d.type as DocumentType]}</span>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm truncate">{d.name}</h3>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h3 className="font-semibold text-sm truncate">{d.name}</h3>
+                  {"docRef" in d && (d as { docRef?: string }).docRef && (
+                    <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">{(d as { docRef?: string }).docRef}</span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">{DOCUMENT_TYPE_LABELS[d.type as DocumentType]}{d.size ? ` · ${(d.size / 1024).toFixed(0)}KB` : ""}</p>
                 {d.notes && <p className="text-xs text-muted-foreground mt-1 italic">{d.notes}</p>}
                 <p className="text-xs text-muted-foreground">{formatDate(d.createdAt)}</p>
@@ -493,6 +513,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               {m.agenda && <p className="text-sm text-muted-foreground mt-2"><strong>الأجندة:</strong> {m.agenda}</p>}
               {m.notes && <p className="text-sm text-muted-foreground mt-1 italic">{m.notes}</p>}
               <button onClick={() => setDeleteId(m.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
+              <AttachmentsPanel projectId={projectId} entityType="meeting" entityId={m.id} compact />
             </div>
           ))}
         </div>
@@ -590,6 +611,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
               </div>
               {l.notes && <p className="text-sm text-muted-foreground mt-1 italic">{l.notes}</p>}
               <button onClick={() => setDeleteId(l.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
+              <AttachmentsPanel projectId={projectId} entityType="letter" entityId={l.id} compact />
             </div>
           ))}
         </div>
@@ -839,6 +861,294 @@ function PhotosTab({ projectId, setToast }: TabProps) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== ATTACHMENTS PANEL ===== */
+// Shared panel — appears inside each contract / meeting / letter card AND in the "مستندات أخرى" tab
+type TabProps = { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void };
+
+function AttachmentsPanel({
+  projectId,
+  entityType,
+  entityId,
+  compact = false,
+}: {
+  projectId: string;
+  entityType: "contract" | "meeting" | "letter" | "custom_doc";
+  entityId: string;
+  compact?: boolean;
+}) {
+  const { data: attachments = [], isLoading } = useEntityAttachments(projectId, entityType, entityId);
+  const { add, remove } = useAttachmentActions(projectId);
+  const [showAdd, setShowAdd] = useState(false);
+  const [attName, setAttName] = useState("");
+  const [attType, setAttType] = useState("مستند");
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      await add.mutateAsync({
+        entityType, entityId,
+        dataUrl,
+        name: attName || file.name,
+        customType: attType,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+      setShowAdd(false);
+      setAttName("");
+      setAttType("مستند");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const mimeIcon = (mime: string) => {
+    if (mime.startsWith("image/")) return "🖼️";
+    if (mime === "application/pdf") return "📕";
+    if (mime.includes("word")) return "📝";
+    if (mime.includes("excel") || mime.includes("spreadsheet")) return "📊";
+    if (mime.includes("powerpoint") || mime.includes("presentation")) return "📋";
+    if (mime.startsWith("text/")) return "📄";
+    return "📎";
+  };
+
+  return (
+    <div className={compact ? "mt-3 border-t border-border pt-3" : "mt-4"}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-muted-foreground">
+          📎 المرفقات ({isLoading ? "…" : attachments.length})
+        </span>
+        <button
+          onClick={() => setShowAdd((v) => !v)}
+          className="text-xs text-primary hover:underline"
+        >
+          {showAdd ? "إلغاء" : "+ إرفاق ملف"}
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="bg-muted/40 rounded-xl p-3 mb-2 space-y-2">
+          <input
+            value={attName}
+            onChange={(e) => setAttName(e.target.value)}
+            placeholder="اسم المستند (اختياري)"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs"
+            dir="rtl"
+          />
+          <input
+            value={attType}
+            onChange={(e) => setAttType(e.target.value)}
+            placeholder="نوع / تصنيف (مثال: تقرير، ضمان، فاتورة...)"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs"
+            dir="rtl"
+          />
+          <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
+            📂 اختر أي ملف (Word، Excel، PDF، صورة، نص...)
+            <input type="file" className="hidden" onChange={handleFile} />
+          </label>
+        </div>
+      )}
+
+      {attachments.length > 0 && (
+        <div className="space-y-1">
+          {attachments.map((att: SAAttachment) => (
+            <div key={att.id} className="flex items-center gap-2 text-xs bg-secondary/40 rounded-lg px-2 py-1.5">
+              <span className="text-base">{mimeIcon(att.mimeType)}</span>
+              <div className="flex-1 min-w-0">
+                <span className="font-medium truncate block">{att.name}</span>
+                <span className="text-muted-foreground">{att.customType}</span>
+              </div>
+              <a
+                href={att.dataUrl}
+                download={att.name}
+                className="text-primary hover:underline shrink-0"
+              >
+                تنزيل
+              </a>
+              <button
+                onClick={() => remove.mutateAsync({ aid: att.id, entityType, entityId })}
+                className="text-destructive hover:text-red-400 shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== CUSTOM DOCS TAB ===== */
+function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
+  const { data: docs = [], isLoading } = useEntityAttachments(projectId, "custom_doc", projectId);
+  const { add, remove } = useAttachmentActions(projectId);
+  const [showAdd, setShowAdd] = useState(false);
+  const [attName, setAttName] = useState("");
+  const [attType, setAttType] = useState("");
+  const [search, setSearch] = useState("");
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!attName.trim()) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      await add.mutateAsync({
+        entityType: "custom_doc",
+        entityId: projectId,
+        dataUrl,
+        name: attName,
+        customType: attType || "مستند حر",
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+      setShowAdd(false);
+      setAttName("");
+      setAttType("");
+      _setToast({ message: "تم إضافة المستند", type: "success" });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const filtered = search
+    ? docs.filter((d) =>
+        d.name.toLowerCase().includes(search.toLowerCase()) ||
+        d.customType.toLowerCase().includes(search.toLowerCase())
+      )
+    : docs;
+
+  const mimeIcon = (mime: string) => {
+    if (mime.startsWith("image/")) return "🖼️";
+    if (mime === "application/pdf") return "📕";
+    if (mime.includes("word")) return "📝";
+    if (mime.includes("excel") || mime.includes("spreadsheet")) return "📊";
+    if (mime.includes("powerpoint") || mime.includes("presentation")) return "📋";
+    if (mime.startsWith("text/")) return "📄";
+    return "📎";
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">مستندات أخرى ({docs.length})</h2>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+        >
+          + إضافة مستند
+        </button>
+      </div>
+
+      {/* Search */}
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="🔍 بحث في المستندات..."
+        className="w-full px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm mb-4"
+        dir="rtl"
+      />
+
+      {isLoading ? (
+        <LoadingSkeleton />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon="🗂️"
+          title={search ? "لا نتائج" : "لا توجد مستندات"}
+          description={search ? "جرّب كلمة بحث أخرى" : "أضف أي مستند بأي نوع واسمّه كما تشاء"}
+        />
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((d) => (
+            <div key={d.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex items-center gap-3">
+              <span className="text-3xl">{mimeIcon(d.mimeType)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{d.name}</p>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  {d.customType}
+                </span>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {new Date(d.uploadedAt).toLocaleDateString("ar-SA")}
+                  {d.size ? ` · ${(d.size / 1024).toFixed(0)} KB` : ""}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <a
+                  href={d.dataUrl}
+                  download={d.name}
+                  className="text-xs text-primary hover:underline text-left"
+                >
+                  تنزيل
+                </a>
+                <button
+                  onClick={async () => {
+                    await remove.mutateAsync({ aid: d.id, entityType: "custom_doc", entityId: projectId });
+                    _setToast({ message: "تم حذف المستند", type: "success" });
+                  }}
+                  className="text-xs text-destructive hover:underline"
+                >
+                  حذف
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setShowAdd(false)}>
+          <div
+            className="bg-card rounded-2xl border border-border p-6 w-full max-w-md space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-lg">إضافة مستند حر</h3>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">اسم المستند *</label>
+              <input
+                value={attName}
+                onChange={(e) => setAttName(e.target.value)}
+                placeholder="مثال: ضمان بنكي، رخصة بناء، شهادة جودة..."
+                className={inputCls}
+                dir="rtl"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">التصنيف / النوع</label>
+              <input
+                value={attType}
+                onChange={(e) => setAttType(e.target.value)}
+                placeholder="مثال: ضمان، ترخيص، تقرير، عرض سعر..."
+                className={inputCls}
+                dir="rtl"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">الملف *</label>
+              <label className={`block text-center py-4 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors ${!attName.trim() ? "opacity-50 cursor-not-allowed" : ""}`}>
+                <span className="text-3xl block mb-1">📂</span>
+                <span className="text-sm text-muted-foreground">اختر أي ملف (Word، Excel، PDF، صورة، نص...)</span>
+                <input
+                  type="file"
+                  className="hidden"
+                  disabled={!attName.trim()}
+                  onChange={handleFile}
+                />
+              </label>
+              {!attName.trim() && <p className="text-xs text-muted-foreground mt-1">أدخل اسم المستند أولاً</p>}
+            </div>
+            <button onClick={() => setShowAdd(false)} className="w-full py-2 rounded-xl border border-border text-sm hover:bg-muted transition-colors">إلغاء</button>
           </div>
         </div>
       )}

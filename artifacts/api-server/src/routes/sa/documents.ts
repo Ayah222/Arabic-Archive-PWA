@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { store, newId, addAuditLog, type SADocumentRevision } from "./store";
+import { store, newId, addAuditLog, nextDocRef, type SADocumentRevision } from "./store";
 
 const router: IRouter = Router();
 
@@ -34,7 +34,8 @@ router.post("/sa/projects/:id/documents", async (req, res): Promise<void> => {
     id: newId(),
     projectId: id,
     name,
-    type: type as "pdf" | "image" | "word" | "excel" | "other",
+    docRef: nextDocRef(),
+    type: type as "pdf" | "image" | "word" | "excel" | "powerpoint" | "text" | "other",
     url,
     size: size ?? null,
     notes: notes ?? null,

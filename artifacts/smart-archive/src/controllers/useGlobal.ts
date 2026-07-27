@@ -446,6 +446,60 @@ export function usePhotoActions(projectId: string) {
   return { add, remove };
 }
 
+/* ─── Attachments (flexible docs on any entity) ─── */
+export interface SAAttachment {
+  id: string;
+  projectId: string;
+  entityType: "contract" | "meeting" | "letter" | "custom_doc";
+  entityId: string;
+  dataUrl: string;
+  name: string;
+  customType: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
+
+export function useEntityAttachments(projectId: string, entityType: string, entityId: string) {
+  return useQuery<SAAttachment[]>({
+    queryKey: ["attachments", projectId, entityType, entityId],
+    queryFn: () => get(`${API}/projects/${projectId}/attachments?entityType=${encodeURIComponent(entityType)}&entityId=${encodeURIComponent(entityId)}`),
+    enabled: !!projectId && !!entityId,
+  });
+}
+
+export function useAttachmentActions(projectId: string) {
+  const qc = useQueryClient();
+  const add = useMutation({
+    mutationFn: (data: { entityType: string; entityId: string; dataUrl: string; name: string; customType: string; mimeType: string; size: number }) =>
+      post<SAAttachment>(`${API}/projects/${projectId}/attachments`, data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: ({ aid, entityType, entityId }: { aid: string; entityType: string; entityId: string }) =>
+      del(`${API}/projects/${projectId}/attachments/${aid}`).then(() => ({ aid, entityType, entityId })),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
+    },
+  });
+  return { add, remove };
+}
+
+/* ─── Update project extra fields (mapsUrl etc.) ─── */
+export function useUpdateProjectExtra(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { mapsUrl?: string | null }) =>
+      patch<unknown>(`${API}/projects/${projectId}/extra`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
 /* ─── Document approval + revision ─── */
 export function useDocumentActions(projectId: string) {
   const qc = useQueryClient();
