@@ -12,6 +12,11 @@ import SearchPage from "./views/pages/Search";
 import FinancialArchive from "./views/pages/FinancialArchive";
 import Notifications from "./views/pages/Notifications";
 import NotFound from "./views/pages/NotFound";
+import ReportsPage from "./views/pages/Reports";
+import FAQPage from "./views/pages/FAQ";
+import LoginPage from "./views/pages/Login";
+import UsersPage from "./views/pages/Users";
+import OnboardingTour from "./views/components/shared/OnboardingTour";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -23,21 +28,33 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
-        <MainLayout>
-          <Routes>
-            <Route path="/"               element={<Dashboard />} />
-            <Route path="/projects"       element={<Projects />} />
-            <Route path="/projects/:id"   element={<ProjectDetail />} />
-            <Route path="/contractors"    element={<AllContractors />} />
-            <Route path="/contracts"      element={<AllContracts />} />
-            <Route path="/meetings"       element={<AllMeetings />} />
-            <Route path="/letters"        element={<AllLetters />} />
-            <Route path="/finance"        element={<FinancialArchive />} />
-            <Route path="/search"         element={<SearchPage />} />
-            <Route path="/notifications"  element={<Notifications />} />
-            <Route path="*"              element={<NotFound />} />
-          </Routes>
-        </MainLayout>
+        <Routes>
+          {/* Login page — no layout */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* All other pages — with MainLayout */}
+          <Route path="/*" element={
+            <MainLayout>
+              <OnboardingTour />
+              <Routes>
+                <Route path="/"               element={<Dashboard />} />
+                <Route path="/projects"       element={<Projects />} />
+                <Route path="/projects/:id"   element={<ProjectDetail />} />
+                <Route path="/contractors"    element={<AllContractors />} />
+                <Route path="/contracts"      element={<AllContracts />} />
+                <Route path="/meetings"       element={<AllMeetings />} />
+                <Route path="/letters"        element={<AllLetters />} />
+                <Route path="/finance"        element={<FinancialArchive />} />
+                <Route path="/search"         element={<SearchPage />} />
+                <Route path="/notifications"  element={<Notifications />} />
+                <Route path="/reports"        element={<ReportsPage />} />
+                <Route path="/faq"            element={<FAQPage />} />
+                <Route path="/users"          element={<UsersPage />} />
+                <Route path="*"              element={<NotFound />} />
+              </Routes>
+            </MainLayout>
+          } />
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   );

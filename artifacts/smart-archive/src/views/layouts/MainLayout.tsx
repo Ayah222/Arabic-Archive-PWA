@@ -6,7 +6,7 @@ import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert, HardHat, FileSignature,
-  CalendarCheck, Mail, Search, Wallet,
+  CalendarCheck, Mail, Search, Wallet, BarChart2, HelpCircle, Users,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -37,6 +37,9 @@ const navItems = [
   { to: "/finance",       label: "الأرشيف المالي",       Icon: Wallet           },
   { to: "/search",        label: "البحث الموحد",         Icon: Search           },
   { to: "/notifications", label: "الإشعارات",           Icon: Bell             },
+  { to: "/reports",       label: "التقارير",             Icon: BarChart2        },
+  { to: "/faq",           label: "الأسئلة الشائعة",     Icon: HelpCircle       },
+  { to: "/users",         label: "المستخدمون",           Icon: Users            },
 ];
 
 interface MainLayoutProps { children: React.ReactNode; }

@@ -8,6 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
+import { useContacts, useContactActions, useDocumentActions } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -30,14 +31,15 @@ import {
   type LetterDirection,
 } from "../../models/types";
 
-type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters";
+type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "contracts", label: "العقود", icon: "📋" },
   { id: "contractors", label: "المقاولون", icon: "👷" },
-  { id: "documents", label: "المستندات", icon: "📄" },
+  { id: "documents", label: "الملفات الفنية", icon: "📄" },
   { id: "meetings", label: "الاجتماعات", icon: "🤝" },
   { id: "letters", label: "الخطابات", icon: "✉️" },
+  { id: "contacts", label: "جهات الاتصال", icon: "👤" },
 ];
 
 export default function ProjectDetail() {
@@ -142,6 +144,9 @@ export default function ProjectDetail() {
         )}
         {activeTab === "letters" && (
           <LettersTab projectId={id} setToast={setToast} />
+        )}
+        {activeTab === "contacts" && (
+          <ContactsTab projectId={id} setToast={setToast} />
         )}
       </div>
     </div>
@@ -390,6 +395,25 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
                 <p className="text-xs text-muted-foreground">{DOCUMENT_TYPE_LABELS[d.type as DocumentType]}{d.size ? ` · ${(d.size / 1024).toFixed(0)}KB` : ""}</p>
                 {d.notes && <p className="text-xs text-muted-foreground mt-1 italic">{d.notes}</p>}
                 <p className="text-xs text-muted-foreground">{formatDate(d.createdAt)}</p>
+                {/* Prompt 2: Revision + Approval */}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {"revisions" in d && Array.isArray((d as { revisions?: unknown[] }).revisions) && (
+                    <span className="text-xs font-mono text-muted-foreground">Rev {(d as { currentRevision?: number }).currentRevision ?? 0}</span>
+                  )}
+                  {"approvalStatus" in d && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                      (d as { approvalStatus?: string }).approvalStatus === "approved" ? "bg-green-500/15 text-green-400" :
+                      (d as { approvalStatus?: string }).approvalStatus === "rejected" ? "bg-red-500/15 text-red-400" :
+                      (d as { approvalStatus?: string }).approvalStatus === "approved_with_notes" ? "bg-orange-500/15 text-orange-400" :
+                      "bg-yellow-500/15 text-yellow-400"
+                    }`}>
+                      {(d as { approvalStatus?: string }).approvalStatus === "approved" ? "معتمد" :
+                       (d as { approvalStatus?: string }).approvalStatus === "rejected" ? "مرفوض" :
+                       (d as { approvalStatus?: string }).approvalStatus === "approved_with_notes" ? "معتمد مع ملاحظات" :
+                       "قيد المراجعة"}
+                    </span>
+                  )}
+                </div>
               </div>
               <button onClick={() => setDeleteId(d.id)} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>
             </div>
@@ -545,7 +569,23 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
                 <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(l.date)}</span>
               </div>
               <p className="text-sm text-muted-foreground">من: <strong>{l.from}</strong> إلى: <strong>{l.to}</strong></p>
-              {l.reference && <p className="text-xs text-muted-foreground mt-1">رقم المرجع: {l.reference}</p>}
+              {/* Prompt 1: autoRef + distributionStatus */}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {"autoRef" in l && (l as { autoRef?: string }).autoRef && (
+                  <span className="text-xs font-mono text-muted-foreground">{(l as { autoRef?: string }).autoRef}</span>
+                )}
+                {l.reference && <span className="text-xs text-muted-foreground">({l.reference})</span>}
+                {"distributionStatus" in l && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                    (l as { distributionStatus?: string }).distributionStatus === "received" ? "bg-green-500/15 text-green-400" :
+                    (l as { distributionStatus?: string }).distributionStatus === "sent" ? "bg-blue-500/15 text-blue-400" :
+                    "bg-gray-500/15 text-gray-400"
+                  }`}>
+                    {(l as { distributionStatus?: string }).distributionStatus === "received" ? "تم الاستلام" :
+                     (l as { distributionStatus?: string }).distributionStatus === "sent" ? "تم الإرسال" : "لم يُرسل"}
+                  </span>
+                )}
+              </div>
               {l.notes && <p className="text-sm text-muted-foreground mt-1 italic">{l.notes}</p>}
               <button onClick={() => setDeleteId(l.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
             </div>
@@ -569,11 +609,112 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
             <FormField label="التاريخ *"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} /></FormField>
             <FormField label="رقم المرجع"><input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="SA-2025-001" className={inputCls} dir="ltr" /></FormField>
           </div>
+          <FormField label="حالة التوزيع (Prompt 1)">
+            <select value={(form as { distributionStatus?: string }).distributionStatus ?? "not_sent"} onChange={(e) => setForm({ ...form, distributionStatus: e.target.value } as typeof form & { distributionStatus: string })} className={inputCls} dir="rtl">
+              <option value="not_sent">لم يُرسل</option>
+              <option value="sent">تم الإرسال</option>
+              <option value="received">تم الاستلام</option>
+            </select>
+          </FormField>
+          <FormField label="الجهات المستلمة">
+            <div className="flex flex-wrap gap-2 mt-1">
+              {(["owner","consultant","contractor","technical_office"] as const).map((r) => {
+                const labels: Record<string, string> = { owner: "مالك", consultant: "استشاري", contractor: "مقاول", technical_office: "مكتب فني" };
+                const selected = ((form as { recipients?: string[] }).recipients ?? []).includes(r);
+                return (
+                  <button key={r} type="button" onClick={() => {
+                    const prev = (form as { recipients?: string[] }).recipients ?? [];
+                    const next = selected ? prev.filter((x) => x !== r) : [...prev, r];
+                    setForm({ ...form, recipients: next } as typeof form & { recipients: string[] });
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-primary/20 border-primary text-primary" : "bg-secondary border-border text-muted-foreground"}`}>
+                    {labels[r]}
+                  </button>
+                );
+              })}
+            </div>
+          </FormField>
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
+          <p className="text-xs text-muted-foreground">سيتم توليد رقم مرجعي تلقائي (LTR-XXXX-XXX) عند الحفظ</p>
           <button onClick={handleCreate} disabled={create.isPending || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnCls}>{create.isPending ? "جاري..." : "إضافة الخطاب"}</button>
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, lid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الخطاب", type: "success" }); }} title="حذف الخطاب" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
+    </div>
+  );
+}
+
+/* ===== CONTACTS TAB (Prompt 5) ===== */
+function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
+  const { data, isLoading } = useContacts(projectId);
+  const { create, remove } = useContactActions(projectId);
+  const [showCreate, setShowCreate] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", role: "consultant", phone: "", email: "", notes: "" });
+
+  const ROLE_LABELS: Record<string, string> = {
+    owner: "مالك",
+    consultant: "استشاري",
+    contractor: "مقاول",
+    technical_office: "مكتب فني",
+    other: "أخرى",
+  };
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) return;
+    try {
+      await create.mutateAsync({ name: form.name, role: form.role as "owner" | "consultant" | "contractor" | "technical_office" | "other", phone: form.phone || null, email: form.email || null, notes: form.notes || null });
+      setShowCreate(false);
+      setForm({ name: "", role: "consultant", phone: "", email: "", notes: "" });
+      setToast({ message: "تم إضافة جهة الاتصال", type: "success" });
+    } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">جهات الاتصال ({data?.length ?? 0})</h2>
+        <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة جهة</button>
+      </div>
+      {isLoading ? <LoadingSkeleton /> : !data?.length ? (
+        <EmptyState icon="👤" title="لا توجد جهات اتصال" description="أضف جهات الاتصال المرتبطة بهذا المشروع" />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {data.map((c) => (
+            <div key={c.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <h3 className="font-semibold">{c.name}</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{ROLE_LABELS[c.role] ?? c.role}</span>
+                </div>
+              </div>
+              {c.phone && <p className="text-xs text-muted-foreground mt-1">📞 {c.phone}</p>}
+              {c.email && <p className="text-xs text-muted-foreground">✉️ {c.email}</p>}
+              {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
+              <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة جهة اتصال">
+        <div className="space-y-3">
+          <FormField label="الاسم *"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم الجهة أو الشخص" className={inputCls} dir="rtl" /></FormField>
+          <FormField label="الدور">
+            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputCls} dir="rtl">
+              <option value="owner">مالك</option>
+              <option value="consultant">استشاري</option>
+              <option value="contractor">مقاول</option>
+              <option value="technical_office">مكتب فني</option>
+              <option value="other">أخرى</option>
+            </select>
+          </FormField>
+          <FormField label="الهاتف"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="05XXXXXXXX" className={inputCls} dir="ltr" /></FormField>
+          <FormField label="البريد الإلكتروني"><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="example@email.com" className={inputCls} dir="ltr" /></FormField>
+          <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
+          <button onClick={handleCreate} disabled={create.isPending || !form.name.trim()} className={btnCls}>{create.isPending ? "جاري..." : "إضافة الجهة"}</button>
+        </div>
+      </Modal>
+      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync(deleteId!); setDeleteId(null); setToast({ message: "تم حذف جهة الاتصال", type: "success" }); }} title="حذف جهة الاتصال" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }

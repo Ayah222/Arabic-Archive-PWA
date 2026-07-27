@@ -11,6 +11,10 @@ import voiceRouter from "./voice";
 import uploadRouter from "./upload";
 import financeRouter from "./finance";
 import globalRouter from "./global";
+import contactsRouter from "./contacts";
+import reportsRouter from "./reports";
+import usersRouter from "./users";
+import auditRouter from "./audit";
 
 const router: IRouter = Router();
 
@@ -26,5 +30,9 @@ router.use(voiceRouter);
 router.use(uploadRouter);
 router.use(financeRouter);
 router.use(globalRouter);
+router.use(contactsRouter);
+router.use(reportsRouter);
+router.use(usersRouter);
+router.use(auditRouter);
 
 export default router;

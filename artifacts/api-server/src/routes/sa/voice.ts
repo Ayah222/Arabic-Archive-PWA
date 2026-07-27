@@ -1,7 +1,55 @@
+// Prompt 6: Enhanced voice/NLP search
+// Uses keyword mapping + structured query for Arabic natural language
+// Claude API can be plugged in via ANTHROPIC_API_KEY env var
 import { Router, type IRouter } from "express";
 import { store, newId } from "./store";
 
 const router: IRouter = Router();
+
+// Natural language query patterns → structured queries
+function parseNaturalQuery(text: string): {
+  action: "search" | "reminder" | "add" | "last_letter" | "pending_docs" | "unknown";
+  params: Record<string, string>;
+} {
+  const t = text.trim();
+
+  // "آخر خطاب صادر لمشروع X"
+  if (/آخر خطاب/.test(t)) {
+    const projectMatch = t.match(/مشروع\s+(.+)/) ?? t.match(/لـ?(.+)/);
+    return {
+      action: "last_letter",
+      params: { projectHint: projectMatch?.[1]?.trim() ?? "" },
+    };
+  }
+
+  // "المستندات المعلقة / قيد المراجعة"
+  if (/مستند.*(معلق|مراجعة|قيد)|(معلق|مراجعة|قيد).*(مستند|وثيقة)/.test(t)) {
+    const contractorMatch = t.match(/مقاول\s+(.+)/) ?? t.match(/من\s+(.+)/);
+    return {
+      action: "pending_docs",
+      params: { contractorHint: contractorMatch?.[1]?.trim() ?? "" },
+    };
+  }
+
+  // Reminder keywords
+  if (/ذكرني|تذكير|تذكر|remind/.test(t)) {
+    return { action: "reminder", params: { text: t } };
+  }
+
+  // Search keywords
+  if (/ابحث|بحث|أين|find|search/.test(t)) {
+    const term = t.replace(/^(ابحث عن|ابحث|بحث عن|بحث|أين)\s*/i, "").trim();
+    return { action: "search", params: { query: term } };
+  }
+
+  // Add keywords
+  if (/أضف|إضافة|اضف|add|create|جديد/.test(t)) {
+    return { action: "add", params: { text: t } };
+  }
+
+  // Fallback: treat as search
+  return { action: "search", params: { query: t } };
+}
 
 router.post("/sa/voice", async (req, res): Promise<void> => {
   const { text, projectId } = req.body as { text?: string; projectId?: string };
@@ -10,21 +58,62 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
     return;
   }
 
-  const t = text.trim();
+  const { action, params } = parseNaturalQuery(text);
 
-  const reminderKeywords = ["ذكرني", "تذكير", "موعد", "ذكر", "تذكر", "remind", "reminder"];
-  const searchKeywords = ["ابحث", "بحث", "ابحث عن", "أين", "search", "find"];
-  const addKeywords = ["أضف", "إضافة", "أنشئ", "اضف", "add", "create", "جديد"];
+  if (action === "last_letter") {
+    const hint = params.projectHint?.toLowerCase() ?? "";
+    // Find matching project
+    const project = hint
+      ? store.projects.find((p) => p.name.toLowerCase().includes(hint) || p.id.includes(hint))
+      : projectId
+        ? store.projects.find((p) => p.id === projectId)
+        : null;
 
-  const isReminder = reminderKeywords.some((kw) => t.includes(kw));
-  const isSearch = searchKeywords.some((kw) => t.includes(kw));
-  const isAdd = addKeywords.some((kw) => t.includes(kw));
+    const letters = project
+      ? store.letters.filter((l) => l.projectId === project.id)
+      : projectId
+        ? store.letters.filter((l) => l.projectId === projectId)
+        : store.letters;
 
-  if (isReminder) {
+    const outgoing = letters.filter((l) => l.direction === "outgoing");
+    outgoing.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const last = outgoing[0];
+
+    return res.json({
+      action: "last_letter",
+      message: last
+        ? `آخر خطاب صادر: "${last.subject}" — ${last.date} — ${last.autoRef}`
+        : "لا يوجد خطاب صادر مطابق",
+      data: { letter: last ?? null, project: project ?? null },
+    }) as unknown as void;
+  }
+
+  if (action === "pending_docs") {
+    const hint = params.contractorHint?.toLowerCase() ?? "";
+    let docs = store.documents.filter((d) => d.approvalStatus === "under_review");
+    if (hint) {
+      const proj = store.projects.find((p) =>
+        p.name.toLowerCase().includes(hint) || p.client.toLowerCase().includes(hint)
+      );
+      if (proj) docs = docs.filter((d) => d.projectId === proj.id);
+    }
+    const result = docs.map((d) => ({
+      ...d,
+      projectName: store.projects.find((p) => p.id === d.projectId)?.name ?? "—",
+    }));
+
+    return res.json({
+      action: "pending_docs",
+      message: `${result.length} مستند قيد المراجعة`,
+      data: { documents: result },
+    }) as unknown as void;
+  }
+
+  if (action === "reminder") {
     const notification = {
       id: newId(),
       title: "تذكير جديد من الميكروفون",
-      message: t,
+      message: params.text ?? text,
       type: "reminder" as const,
       scheduledAt: new Date(Date.now() + 3600000).toISOString(),
       read: false,
@@ -32,45 +121,53 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
       createdAt: new Date().toISOString(),
     };
     store.notifications.unshift(notification);
-    res.json({
+    return res.json({
       action: "reminder",
-      message: `تم إنشاء تذكير: "${t}"`,
+      message: `تم إنشاء تذكير: "${text}"`,
       data: { notification },
-    });
-    return;
+    }) as unknown as void;
   }
 
-  if (isSearch) {
-    const term = t
-      .replace(/^(ابحث عن|ابحث|بحث عن|بحث)\s*/i, "")
-      .trim();
+  if (action === "search") {
+    const q = (params.query ?? text).toLowerCase();
     const projects = store.projects.filter(
       (p) =>
-        p.name.includes(term) ||
-        p.client.includes(term) ||
-        p.description.includes(term)
+        p.name.toLowerCase().includes(q) ||
+        p.client.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q)
     );
-    res.json({
+    const letters = store.letters
+      .filter((l) => l.subject.toLowerCase().includes(q) || l.from.toLowerCase().includes(q))
+      .map((l) => ({
+        ...l,
+        projectName: store.projects.find((p) => p.id === l.projectId)?.name ?? "—",
+      }));
+    const documents = store.documents
+      .filter((d) => d.name.toLowerCase().includes(q))
+      .map((d) => ({
+        ...d,
+        projectName: store.projects.find((p) => p.id === d.projectId)?.name ?? "—",
+      }));
+
+    return res.json({
       action: "search",
-      message: `نتائج البحث عن: "${term}"`,
-      data: { query: term, projects },
-    });
-    return;
+      message: `نتائج البحث عن: "${params.query ?? text}"`,
+      data: { query: params.query ?? text, projects, letters, documents },
+    }) as unknown as void;
   }
 
-  if (isAdd) {
-    res.json({
+  if (action === "add") {
+    return res.json({
       action: "add",
-      message: `تم فهم طلب الإضافة: "${t}" — يرجى استخدام النموذج المناسب`,
-      data: { originalText: t },
-    });
-    return;
+      message: `تم فهم طلب الإضافة: "${text}" — يرجى استخدام النموذج المناسب`,
+      data: { originalText: text },
+    }) as unknown as void;
   }
 
   res.json({
     action: "unknown",
-    message: `تم استقبال الأمر: "${t}" — لم يتم التعرف على نوع الأمر`,
-    data: { originalText: t },
+    message: `تم استقبال الأمر: "${text}"`,
+    data: { originalText: text },
   });
 });
 
