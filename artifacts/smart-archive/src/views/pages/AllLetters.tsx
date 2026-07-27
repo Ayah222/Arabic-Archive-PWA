@@ -93,9 +93,9 @@ export default function AllLetters() {
           <p className="text-sm text-muted-foreground mt-1">جميع الخطابات الصادرة والواردة</p>
         </div>
         <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, rgba(255,0,128,0.18), rgba(112,0,255,0.18))", border: "1px solid rgba(255,0,128,0.35)", color: "#ff0080" }}>
-          <Plus className="w-4 h-4" /> إضافة خطاب
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+          style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
+          <Plus className="w-4 h-4" /> إضافة
         </button>
       </div>
 

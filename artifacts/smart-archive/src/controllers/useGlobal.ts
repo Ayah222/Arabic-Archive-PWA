@@ -369,6 +369,18 @@ export function useContractorRating(projectId: string) {
 }
 
 /* ─── Global create hooks (with project selector) ─── */
+export function useGlobalCreateContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: { title: string; party: string; value: number; startDate: string; endDate: string; status: string; notes: string | null; fileUrl: string | null } }) =>
+      post<unknown>(`${API}/projects/${projectId}/contracts`, data),
+    onSuccess: (_d, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ["contracts", projectId] });
+      qc.invalidateQueries({ queryKey: ["all-contracts"] });
+    },
+  });
+}
+
 export function useGlobalCreateContractor() {
   const qc = useQueryClient();
   return useMutation({

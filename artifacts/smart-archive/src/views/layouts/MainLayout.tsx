@@ -141,7 +141,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">
           {navItems.map(({ to, label, Icon }) => {
             const active = isActive(to);
-            const hasQuickAdd = ["/contractors", "/meetings", "/letters"].includes(to);
+            const hasQuickAdd = ["/contractors", "/meetings", "/letters", "/contracts"].includes(to);
             return (
               <div key={to} className="flex items-center gap-1 group/row">
                 <Link to={to} onClick={() => setSidebarOpen(false)}
