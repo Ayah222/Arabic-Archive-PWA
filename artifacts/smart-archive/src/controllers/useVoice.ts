@@ -1,8 +1,14 @@
 import { useState, useRef, useCallback } from "react";
-import { useProcessVoice } from "@workspace/api-client-react";
-import type { VoiceResult } from "@workspace/api-client-react";
+import { useMutation } from "@tanstack/react-query";
+import { SA, apiPost } from "../lib/apiClient";
 
 export type VoiceState = "idle" | "recording" | "processing" | "done" | "error";
+
+export interface VoiceResult {
+  action: "search" | "reminder" | "add" | "last_letter" | "pending_docs" | "unknown";
+  message: string;
+  data: Record<string, unknown>;
+}
 
 export function useVoice(projectId?: string) {
   const [state, setState] = useState<VoiceState>("idle");
@@ -11,14 +17,18 @@ export function useVoice(projectId?: string) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  const processVoice = useProcessVoice();
+  const processVoiceMutation = useMutation({
+    mutationFn: (data: { text: string; projectId?: string | null }) =>
+      apiPost<VoiceResult>(`${SA}/voice`, data),
+  });
 
   const submitText = useCallback(
     async (text: string) => {
       setState("processing");
       try {
-        const res = await processVoice.mutateAsync({
-          data: { text, projectId: projectId ?? null },
+        const res = await processVoiceMutation.mutateAsync({
+          text,
+          projectId: projectId ?? null,
         });
         setResult(res);
         setState("done");
@@ -29,7 +39,8 @@ export function useVoice(projectId?: string) {
         return null;
       }
     },
-    [processVoice, projectId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectId]
   );
 
   const startRecording = useCallback(async () => {
@@ -64,11 +75,8 @@ export function useVoice(projectId?: string) {
               await submitText(transcribeData.text);
               return;
             }
-          } catch {
-            /* fall through to stub */
-          }
+          } catch { /* fall through */ }
         }
-
         await submitText("أمر تجريبي - مفتاح OpenAI غير مضبوط");
       };
       mr.start();

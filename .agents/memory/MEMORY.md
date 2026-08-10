@@ -1,1 +1,2 @@
 - [Supabase Auth Integration](supabase-auth.md) — requireAuth applied at SA router level; audit headers overwritten from req.authUser to prevent spoofing; role hierarchy enforced server-side.
+- [smart-archive api-client broken imports](smart-archive-api-client.md) — NEVER import SA-specific hooks from @workspace/api-client-react; use src/lib/apiClient.ts instead or app shows blank white page.

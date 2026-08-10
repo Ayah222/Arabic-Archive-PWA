@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { useGetDashboard } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import { SA, apiGet } from "../../lib/apiClient";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import {
@@ -13,6 +14,23 @@ import {
   formatRelativeDate,
   type ProjectStatus,
 } from "../../models/types";
+
+interface DashboardData {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  onHoldProjects: number;
+  totalContracts: number;
+  totalDocuments: number;
+  totalMeetings: number;
+  totalLetters: number;
+  unreadNotifications: number;
+  recentProjects: {
+    id: string; name: string; client: string; status: string;
+    progress: number; location: string | null; budget: number | null;
+    updatedAt: string;
+  }[];
+}
 
 interface NeonStatProps {
   value: number;
@@ -40,7 +58,12 @@ function NeonStat({ value, label, Icon, gradient, glow, border, textColor }: Neo
 }
 
 export default function Dashboard() {
-  const { data, isLoading, isError } = useGetDashboard();
+  const { data, isLoading, isError } = useQuery<DashboardData>({
+    queryKey: ["sa-dashboard"],
+    queryFn: () => apiGet<DashboardData>(`${SA}/dashboard`),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
 
   if (isLoading) {
     return (

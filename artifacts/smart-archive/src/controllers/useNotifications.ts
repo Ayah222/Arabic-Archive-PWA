@@ -1,11 +1,9 @@
 /**
- * Notifications controller — uses direct fetch calls (same pattern as useGlobal.ts).
- * Does NOT import from @workspace/api-client-react to avoid missing-export crashes.
+ * Notifications controller — uses direct fetch calls via shared apiClient.
+ * Does NOT import from @workspace/api-client-react.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../lib/supabase";
-
-const API = "/api/sa";
+import { SA, apiGet, apiPatch } from "../lib/apiClient";
 
 export interface SANotification {
   id: string;
@@ -19,54 +17,28 @@ export interface SANotification {
   createdAt: string;
 }
 
-/* ── Auth helpers (duplicated here to keep this file self-contained) ── */
-async function getToken(): Promise<string | null> {
-  const demo = localStorage.getItem("sa_demo_token");
-  if (demo) return demo;
-  try {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
-  } catch { return null; }
-}
+const QK = ["sa-notifications"] as const;
 
-async function authHdr(extra?: Record<string, string>): Promise<Record<string, string>> {
-  const token = await getToken();
-  return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra };
-}
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = await authHdr(
-    init?.body ? { "Content-Type": "application/json" } : undefined
-  );
-  const r = await fetch(path, { ...init, headers: { ...headers, ...(init?.headers ?? {}) } });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json() as Promise<T>;
-}
-
-/* ── Hook ── */
 export function useNotifications() {
   const qc = useQueryClient();
 
   const list = useQuery<SANotification[]>({
-    queryKey: ["sa-notifications"],
-    queryFn: () => apiFetch<SANotification[]>(`${API}/notifications`),
+    queryKey: [...QK],
+    queryFn: () => apiGet<SANotification[]>(`${SA}/notifications`),
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
 
   const markReadMutation = useMutation({
     mutationFn: (nid: string) =>
-      apiFetch<SANotification>(`${API}/notifications/${nid}/read`, {
-        method: "PATCH",
-        body: JSON.stringify({ read: true }),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["sa-notifications"] }),
+      apiPatch<SANotification>(`${SA}/notifications/${nid}/read`, { read: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...QK] }),
   });
 
   const markAllReadMutation = useMutation({
     mutationFn: () =>
-      apiFetch<{ marked: number }>(`${API}/notifications/read-all`, { method: "PATCH", body: JSON.stringify({}) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["sa-notifications"] }),
+      apiPatch<{ marked: number }>(`${SA}/notifications/read-all`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...QK] }),
   });
 
   const unreadCount = list.data?.filter((n) => !n.read).length ?? 0;

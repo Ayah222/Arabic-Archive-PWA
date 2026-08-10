@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 import { getCurrentUser } from "./controllers/useGlobal";
+import { ErrorBoundary } from "./views/components/shared/ErrorBoundary";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
 import Projects from "./views/pages/Projects";
@@ -30,8 +31,7 @@ const queryClient = new QueryClient({
 
 /**
  * Route guard — fully synchronous.
- * getCurrentUser() already reads from localStorage, so no extra restore needed.
- * Uses window.location for redirect to avoid React Router basename edge-cases.
+ * getCurrentUser() reads from localStorage, so no async restore needed.
  */
 function RequireAuth({ children }: { children: ReactNode }) {
   const hasSession = !!localStorage.getItem("sa_demo_token") || !!getCurrentUser();
@@ -47,42 +47,44 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={BASE}>
-        <Routes>
-          {/* Auth pages — no layout, no guard */}
-          <Route path="/login"         element={<LoginPage />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter basename={BASE}>
+          <Routes>
+            {/* Auth pages — no layout, no guard */}
+            <Route path="/login"         element={<LoginPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Protected pages — wrapped in RequireAuth + MainLayout */}
-          <Route path="/*" element={
-            <RequireAuth>
-              <MainLayout>
-                <OnboardingTour />
-                <Routes>
-                  <Route path="/"               element={<Dashboard />} />
-                  <Route path="/projects"       element={<Projects />} />
-                  <Route path="/projects/:id"   element={<ProjectDetail />} />
-                  <Route path="/contractors"    element={<AllContractors />} />
-                  <Route path="/contracts"      element={<AllContracts />} />
-                  <Route path="/meetings"       element={<AllMeetings />} />
-                  <Route path="/letters"        element={<AllLetters />} />
-                  <Route path="/finance"        element={<FinancialArchive />} />
-                  <Route path="/search"         element={<SearchPage />} />
-                  <Route path="/notifications"  element={<Notifications />} />
-                  <Route path="/reports"        element={<ReportsPage />} />
-                  <Route path="/faq"            element={<FAQPage />} />
-                  <Route path="/users"          element={<UsersPage />} />
-                  <Route path="*"               element={<NotFound />} />
-                </Routes>
-              </MainLayout>
-            </RequireAuth>
-          } />
+            {/* Protected pages — wrapped in RequireAuth + MainLayout */}
+            <Route path="/*" element={
+              <RequireAuth>
+                <MainLayout>
+                  <OnboardingTour />
+                  <Routes>
+                    <Route path="/"               element={<Dashboard />} />
+                    <Route path="/projects"       element={<Projects />} />
+                    <Route path="/projects/:id"   element={<ProjectDetail />} />
+                    <Route path="/contractors"    element={<AllContractors />} />
+                    <Route path="/contracts"      element={<AllContracts />} />
+                    <Route path="/meetings"       element={<AllMeetings />} />
+                    <Route path="/letters"        element={<AllLetters />} />
+                    <Route path="/finance"        element={<FinancialArchive />} />
+                    <Route path="/search"         element={<SearchPage />} />
+                    <Route path="/notifications"  element={<Notifications />} />
+                    <Route path="/reports"        element={<ReportsPage />} />
+                    <Route path="/faq"            element={<FAQPage />} />
+                    <Route path="/users"          element={<UsersPage />} />
+                    <Route path="*"               element={<NotFound />} />
+                  </Routes>
+                </MainLayout>
+              </RequireAuth>
+            } />
 
-          {/* Catch-all: redirect to dashboard (protected) */}
-          <Route path="" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+            {/* Catch-all */}
+            <Route path="" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
