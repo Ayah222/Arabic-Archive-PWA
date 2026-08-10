@@ -1,8 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
-import { supabase } from "./lib/supabase";
-import { getCurrentUser, setCurrentUser } from "./controllers/useGlobal";
+import { type ReactNode } from "react";
+import { getCurrentUser } from "./controllers/useGlobal";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
 import Projects from "./views/pages/Projects";
@@ -22,31 +21,25 @@ import UsersPage from "./views/pages/Users";
 import AuthCallback from "./views/pages/AuthCallback";
 import OnboardingTour from "./views/components/shared/OnboardingTour";
 
-const BASE = import.meta.env.BASE_URL;
+// React Router basename must NOT have a trailing slash
+const BASE = (import.meta.env.BASE_URL as string).replace(/\/$/, "") || "/";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
 });
 
 /**
- * Route guard — fully synchronous. No loading flash.
- * If no demo token exists → renders <Navigate to="/login"> immediately.
- * Supabase OAuth sessions are handled by the AuthCallback page.
+ * Route guard — fully synchronous.
+ * getCurrentUser() already reads from localStorage, so no extra restore needed.
+ * Uses window.location for redirect to avoid React Router basename edge-cases.
  */
 function RequireAuth({ children }: { children: ReactNode }) {
-  const demoToken = localStorage.getItem("sa_demo_token");
+  const hasSession = !!localStorage.getItem("sa_demo_token") || !!getCurrentUser();
 
-  // Restore user from localStorage if needed
-  if (demoToken && !getCurrentUser()) {
-    try {
-      const cached = localStorage.getItem("sa_user");
-      if (cached) setCurrentUser(JSON.parse(cached));
-    } catch { /* ignore */ }
-  }
-
-  // No demo token and no Supabase user → redirect to login immediately, no flash
-  if (!demoToken && !getCurrentUser()) {
-    return <Navigate to="/login" replace />;
+  if (!hasSession) {
+    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+    window.location.replace(`${base}/login`);
+    return null;
   }
 
   return <>{children}</>;
