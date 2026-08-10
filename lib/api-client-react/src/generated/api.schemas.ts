@@ -71,6 +71,7 @@ export interface Notification {
   title: string;
   message: string;
   type: NotificationType;
+  priority?: "high" | "medium" | "low";
   /** @nullable */
   scheduledAt?: string | null;
   read: boolean;

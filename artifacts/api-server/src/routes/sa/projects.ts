@@ -42,6 +42,7 @@ router.post("/sa/projects", async (req, res): Promise<void> => {
     budget: parsed.data.budget ?? null,
     location: parsed.data.location ?? null,
     coverImage: parsed.data.coverImage ?? null,
+    mapsUrl: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -97,7 +98,7 @@ router.patch("/sa/projects/:id/extra", async (req, res): Promise<void> => {
   }
   const { mapsUrl } = req.body as { mapsUrl?: string | null };
   if (mapsUrl !== undefined) {
-    (store.projects[idx] as Record<string, unknown>).mapsUrl = mapsUrl ?? null;
+    (store.projects[idx] as unknown as Record<string, unknown>).mapsUrl = mapsUrl ?? null;
   }
   store.projects[idx].updatedAt = new Date().toISOString();
   res.json(store.projects[idx]);

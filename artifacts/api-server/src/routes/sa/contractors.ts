@@ -38,6 +38,7 @@ router.post("/sa/projects/:id/contractors", async (req, res): Promise<void> => {
     phone: parsed.data.phone ?? null,
     email: parsed.data.email ?? null,
     notes: parsed.data.notes ?? null,
+    rating: null,
     createdAt: new Date().toISOString(),
   };
   store.contractors.push(contractor);

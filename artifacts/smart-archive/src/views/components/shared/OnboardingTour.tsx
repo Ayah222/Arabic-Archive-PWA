@@ -43,6 +43,7 @@ export default function OnboardingTour() {
       const t = setTimeout(() => setVisible(true), 1200);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, []);
 
   const handleClose = () => {

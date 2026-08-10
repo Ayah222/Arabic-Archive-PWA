@@ -1,0 +1,1 @@
+- [Supabase Auth Integration](supabase-auth.md) — requireAuth applied at SA router level; audit headers overwritten from req.authUser to prevent spoofing; role hierarchy enforced server-side.
