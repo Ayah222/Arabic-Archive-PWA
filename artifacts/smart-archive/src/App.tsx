@@ -29,78 +29,24 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Route guard — redirects unauthenticated / inactive / expired users to /login.
- * Checks: (1) localStorage demo token, (2) localStorage cached user, (3) live Supabase session.
+ * Route guard — fully synchronous. No loading flash.
+ * If no demo token exists → renders <Navigate to="/login"> immediately.
+ * Supabase OAuth sessions are handled by the AuthCallback page.
  */
 function RequireAuth({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
-  const [checking, setChecking] = useState(true);
+  const demoToken = localStorage.getItem("sa_demo_token");
 
-  useEffect(() => {
-    let cancelled = false;
+  // Restore user from localStorage if needed
+  if (demoToken && !getCurrentUser()) {
+    try {
+      const cached = localStorage.getItem("sa_user");
+      if (cached) setCurrentUser(JSON.parse(cached));
+    } catch { /* ignore */ }
+  }
 
-    const verify = async () => {
-      // 1. Demo token in localStorage → user already set, allow in
-      const demoToken = localStorage.getItem("sa_demo_token");
-      if (demoToken && getCurrentUser()) {
-        if (!cancelled) setChecking(false);
-        return;
-      }
-
-      // 2. Supabase session
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          // If we already have a cached profile, allow in
-          if (getCurrentUser()) {
-            if (!cancelled) setChecking(false);
-            return;
-          }
-          // Try to refresh profile from API
-          const res = await fetch("/api/sa/auth/me", {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          if (res.ok) {
-            const profile = await res.json() as {
-              id: string; email: string; name: string; role: string;
-              canUpload: boolean; isActive: boolean; jobTitle: string | null; accessExpiresAt: string | null;
-            };
-            setCurrentUser({
-              id: profile.id, email: profile.email, name: profile.name,
-              role: profile.role as "super_admin" | "admin" | "employee",
-              canUpload: profile.canUpload, isActive: profile.isActive,
-              jobTitle: profile.jobTitle, accessExpiresAt: profile.accessExpiresAt,
-            });
-            if (!cancelled) setChecking(false);
-            return;
-          }
-          // Profile fetch failed — sign out and redirect
-          await supabase.auth.signOut();
-        }
-      } catch { /* network error */ }
-
-      // 3. No valid session → redirect to login
-      if (!cancelled) navigate("/login", { replace: true });
-    };
-
-    void verify();
-    return () => { cancelled = true; };
-  }, [navigate]);
-
-  if (checking) {
-    const isDark = document.documentElement.classList.contains("dark");
-    return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ background: isDark ? "#080612" : "#f5f7ff" }}>
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: isDark ? "#00f0ff" : "#6366f1", borderTopColor: "transparent" }} />
-          <p className="text-sm font-medium" style={{ color: isDark ? "rgba(255,255,255,0.50)" : "#9ca3af" }}>
-            جاري التحقق...
-          </p>
-        </div>
-      </div>
-    );
+  // No demo token and no Supabase user → redirect to login immediately, no flash
+  if (!demoToken && !getCurrentUser()) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
