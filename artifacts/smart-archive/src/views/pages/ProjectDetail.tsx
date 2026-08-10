@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, type SAPhoto, type SAAttachment } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -31,15 +31,15 @@ import {
   type LetterDirection,
 } from "../../models/types";
 
-type Tab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos" | "custom_docs";
+type StaticTab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos";
+type Tab = StaticTab | string; // dynamic: "cat_<id>"
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
+const STATIC_TABS: { id: StaticTab; label: string; icon: string }[] = [
   { id: "contracts",   label: "العقود",          icon: "📋" },
   { id: "contractors", label: "المقاولون",        icon: "👷" },
   { id: "documents",   label: "المخططات",         icon: "📐" },
   { id: "meetings",    label: "الاجتماعات",       icon: "🤝" },
   { id: "letters",     label: "الخطابات",         icon: "✉️" },
-  { id: "custom_docs", label: "مستندات أخرى",     icon: "🗂️" },
   { id: "contacts",    label: "جهات الاتصال",     icon: "👤" },
   { id: "photos",      label: "الصور",            icon: "🖼️" },
 ];
@@ -49,6 +49,10 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("contracts");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const { data: categories = [] } = useCategories(id);
+  const { create: createCat, remove: removeCat } = useCategoryActions(id);
 
   const { data: project, isLoading, isError } = useProject(id);
 
@@ -123,7 +127,7 @@ export default function ProjectDetail() {
       {/* Tabs */}
       <div className="px-4 md:px-8 pt-4">
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-          {TABS.map((tab) => (
+          {STATIC_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -137,8 +141,80 @@ export default function ProjectDetail() {
               <span>{tab.label}</span>
             </button>
           ))}
+          {/* Dynamic category tabs */}
+          {categories.map((cat) => (
+            <button
+              key={`cat_${cat.id}`}
+              onClick={() => setActiveTab(`cat_${cat.id}`)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-150 ${
+                activeTab === `cat_${cat.id}`
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+              }`}
+            >
+              <span>🗂️</span>
+              <span>{cat.name}</span>
+            </button>
+          ))}
+          {/* New Category button */}
+          <button
+            onClick={() => setShowNewCategory(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap border border-dashed border-primary/40 text-primary hover:bg-primary/5 transition-all duration-150"
+          >
+            <span>➕</span>
+            <span>فئة جديدة</span>
+          </button>
         </div>
       </div>
+
+      {/* New Category Modal */}
+      {showNewCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => { setShowNewCategory(false); setNewCatName(""); }}>
+          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg">إنشاء فئة جديدة</h3>
+            <p className="text-sm text-muted-foreground">اختر اسماً للفئة مثل: ضمانات، تقارير، عروض أسعار، مواصفات...</p>
+            <input
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newCatName.trim()) {
+                  createCat.mutateAsync(newCatName.trim()).then((cat) => {
+                    setActiveTab(`cat_${cat.id}`);
+                    setShowNewCategory(false);
+                    setNewCatName("");
+                    setToast({ message: `تم إنشاء فئة "${cat.name}"`, type: "success" });
+                  });
+                }
+              }}
+              placeholder="اسم الفئة..."
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              dir="rtl"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!newCatName.trim()) return;
+                  const cat = await createCat.mutateAsync(newCatName.trim());
+                  setActiveTab(`cat_${cat.id}`);
+                  setShowNewCategory(false);
+                  setNewCatName("");
+                  setToast({ message: `تم إنشاء فئة "${cat.name}"`, type: "success" });
+                }}
+                disabled={!newCatName.trim() || createCat.isPending}
+                className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {createCat.isPending ? "جاري..." : "إنشاء الفئة"}
+              </button>
+              <button onClick={() => { setShowNewCategory(false); setNewCatName(""); }}
+                className="px-4 py-2.5 border border-border rounded-xl text-sm hover:bg-muted transition-colors">
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="p-4 md:p-8 pt-4">
@@ -163,9 +239,34 @@ export default function ProjectDetail() {
         {activeTab === "photos" && (
           <PhotosTab projectId={id} setToast={setToast} />
         )}
-        {activeTab === "custom_docs" && (
-          <CustomDocsTab projectId={id} setToast={setToast} />
-        )}
+        {/* Dynamic category tabs */}
+        {activeTab.startsWith("cat_") && (() => {
+          const catId = activeTab.slice(4);
+          const cat = categories.find((c: SACategory) => c.id === catId);
+          if (!cat) return <EmptyState icon="🗂️" title="الفئة غير موجودة" description="ربما تم حذفها" />;
+          return (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="font-bold text-lg">🗂️ {cat.name}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">أرفق أي نوع من الملفات لهذه الفئة</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!confirm(`حذف فئة "${cat.name}" وجميع ملفاتها؟`)) return;
+                    await removeCat.mutateAsync(cat.id);
+                    setActiveTab("contracts");
+                    setToast({ message: `تم حذف فئة "${cat.name}"`, type: "success" });
+                  }}
+                  className="text-xs text-destructive hover:underline"
+                >
+                  🗑️ حذف الفئة
+                </button>
+              </div>
+              <AttachmentsPanel projectId={id} entityType="custom_doc" entityId={catId} />
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -267,6 +368,23 @@ function ContractForm({ data, onChange, onSubmit, loading, submitLabel }: { data
         </select>
       </FormField>
       <FormField label="ملاحظات"><textarea value={data.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
+      <FormField label="إرفاق ملف (اختياري)">
+        <label className="block w-full py-3 border-2 border-dashed border-primary/30 rounded-xl text-center cursor-pointer hover:bg-primary/5 transition-colors text-sm text-muted-foreground">
+          📎 أرفق أي ملف (PDF، Word، Excel، صورة...)
+          <input type="file" className="hidden" onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              onChange({ ...data, _attachFile: { dataUrl: ev.target?.result as string, name: file.name, mimeType: file.type, size: file.size } } as typeof data & { _attachFile?: object });
+            };
+            reader.readAsDataURL(file);
+          }} />
+        </label>
+        {"_attachFile" in data && (data as { _attachFile?: { name: string } })._attachFile && (
+          <p className="text-xs text-primary mt-1">✅ {(data as { _attachFile: { name: string } })._attachFile.name}</p>
+        )}
+      </FormField>
       <button onClick={onSubmit} disabled={loading || !data.title.trim()} className={btnCls}>{loading ? "جاري..." : submitLabel}</button>
     </div>
   );
@@ -642,8 +760,8 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
           </FormField>
           <FormField label="الجهات المستلمة">
             <div className="flex flex-wrap gap-2 mt-1">
-              {(["owner","consultant","contractor","technical_office"] as const).map((r) => {
-                const labels: Record<string, string> = { owner: "مالك", consultant: "استشاري", contractor: "مقاول", technical_office: "مكتب فني" };
+              {(["owner","consultant","contractor","technical_office","other"] as const).map((r) => {
+                const labels: Record<string, string> = { owner: "مالك", consultant: "استشاري", contractor: "مقاول", technical_office: "مكتب فني", other: "أخرى" };
                 const selected = ((form as { recipients?: string[] }).recipients ?? []).includes(r);
                 return (
                   <button key={r} type="button" onClick={() => {

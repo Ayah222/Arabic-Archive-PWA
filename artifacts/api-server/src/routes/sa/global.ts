@@ -62,7 +62,7 @@ router.get("/sa/all/letters", async (req, res): Promise<void> => {
 
 router.get("/sa/search", async (req, res): Promise<void> => {
   const q = (req.query.q as string | undefined)?.toLowerCase() ?? "";
-  if (!q) { res.json({ projects: [], contractors: [], contracts: [], meetings: [], letters: [] }); return; }
+  if (!q) { res.json({ projects: [], contractors: [], contracts: [], meetings: [], letters: [], attachments: [] }); return; }
   res.json({
     projects: store.projects.filter(p =>
       p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q)
@@ -79,6 +79,16 @@ router.get("/sa/search", async (req, res): Promise<void> => {
     letters: store.letters.filter(l =>
       l.subject.toLowerCase().includes(q) || l.from.toLowerCase().includes(q) || l.to.toLowerCase().includes(q)
     ).map(l => ({ ...l, projectName: store.projects.find(p => p.id === l.projectId)?.name ?? "—" })),
+    attachments: store.attachments.filter(a =>
+      a.name.toLowerCase().includes(q) || a.customType.toLowerCase().includes(q)
+    ).map(a => ({
+      ...a,
+      projectName: store.projects.find(p => p.id === a.projectId)?.name ?? "—",
+      categoryName: store.categories.find(c => c.id === a.entityId)?.name,
+    })),
+    documents: store.documents.filter(d =>
+      d.name.toLowerCase().includes(q) || (d.notes ?? "").toLowerCase().includes(q)
+    ).map(d => ({ ...d, projectName: store.projects.find(p => p.id === d.projectId)?.name ?? "—" })),
   });
 });
 

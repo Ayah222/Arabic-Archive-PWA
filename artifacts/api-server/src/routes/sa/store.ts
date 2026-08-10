@@ -64,6 +64,13 @@ export interface SADocumentRevision {
   uploadedAt: string;
 }
 
+export interface SACategory {
+  id: string;
+  projectId: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface SAAttachment {
   id: string;
   projectId: string;
@@ -219,6 +226,7 @@ export const store: {
   auditLogs: SAAuditLog[];
   users: SAUser[];
   attachments: SAAttachment[];
+  categories: SACategory[];
 } = {
   projects: [
     {
@@ -652,6 +660,7 @@ export const store: {
     },
   ],
   attachments: [],
+  categories: [] as SACategory[],
 };
 
 // Initialize counters based on existing data

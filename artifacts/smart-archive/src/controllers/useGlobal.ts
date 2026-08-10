@@ -487,6 +487,40 @@ export function useAttachmentActions(projectId: string) {
   return { add, remove };
 }
 
+/* ─── Categories (named folders per project) ─── */
+export interface SACategory {
+  id: string;
+  projectId: string;
+  name: string;
+  createdAt: string;
+}
+
+export function useCategories(projectId: string) {
+  return useQuery<SACategory[]>({
+    queryKey: ["categories", projectId],
+    queryFn: () => get(`${API}/projects/${projectId}/categories`),
+    enabled: !!projectId,
+  });
+}
+
+export function useCategoryActions(projectId: string) {
+  const qc = useQueryClient();
+  const create = useMutation({
+    mutationFn: (name: string) =>
+      post<SACategory>(`${API}/projects/${projectId}/categories`, { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories", projectId] }),
+  });
+  const remove = useMutation({
+    mutationFn: (cid: string) =>
+      del(`${API}/projects/${projectId}/categories/${cid}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["categories", projectId] });
+      qc.invalidateQueries({ queryKey: ["attachments", projectId] });
+    },
+  });
+  return { create, remove };
+}
+
 /* ─── Update project extra fields (mapsUrl etc.) ─── */
 export function useUpdateProjectExtra(projectId: string) {
   const qc = useQueryClient();
