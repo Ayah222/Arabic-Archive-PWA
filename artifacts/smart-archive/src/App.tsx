@@ -30,18 +30,11 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Route guard — fully synchronous.
- * getCurrentUser() reads from localStorage, so no async restore needed.
+ * Route guard — fully synchronous, uses React Router Navigate (no hard reload).
  */
 function RequireAuth({ children }: { children: ReactNode }) {
   const hasSession = !!localStorage.getItem("sa_demo_token") || !!getCurrentUser();
-
-  if (!hasSession) {
-    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-    window.location.replace(`${base}/login`);
-    return null;
-  }
-
+  if (!hasSession) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
