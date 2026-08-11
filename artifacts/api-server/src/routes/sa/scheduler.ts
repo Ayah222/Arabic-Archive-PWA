@@ -1,7 +1,6 @@
 // Prompt 4 + Prompt 12: Scheduled jobs for automatic reminders
 // Runs every hour to check for overdue documents and pending letters
-import { store } from "./store";
-import { notifyAdmins, wasNotifiedToday } from "./notificationHelper";
+import { store, newId } from "./store";
 
 const REVIEW_DAYS_THRESHOLD = 5; // documents under review for more than N days trigger alert
 
@@ -9,7 +8,7 @@ function daysBetween(a: string, b: string) {
   return Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
 }
 
-async function runScheduledChecks() {
+function runScheduledChecks() {
   const now = new Date();
   const todayStr = now.toISOString();
 
@@ -21,17 +20,25 @@ async function runScheduledChecks() {
     const days = daysBetween(latestRev.uploadedAt, todayStr);
     if (days <= REVIEW_DAYS_THRESHOLD) continue;
 
-    // Dedup: recipient-independent check via wasNotifiedToday (Supabase-durable in Supabase mode)
-    if (await wasNotifiedToday(doc.id)) continue;
+    // Check if we already have a recent notification for this doc
+    const alreadyNotified = store.notifications.some(
+      (n) =>
+        n.projectId === doc.projectId &&
+        n.message.includes(doc.id) &&
+        daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
 
     const project = store.projects.find((p) => p.id === doc.projectId);
-    await notifyAdmins({
+    store.notifications.unshift({
+      id: newId(),
       title: `مستند متأخر: ${doc.name}`,
       message: `مستند "${doc.name}" في مشروع "${project?.name ?? "—"}" قيد المراجعة منذ ${days} يوم — الرجاء المتابعة. [${doc.id}]`,
       type: "warning",
-      priority: "high",
+      scheduledAt: null,
+      read: false,
       projectId: doc.projectId,
-      actionUrl: `/projects/${doc.projectId}/documents`,
+      createdAt: todayStr,
     });
   }
 
@@ -40,18 +47,25 @@ async function runScheduledChecks() {
     if (letter.direction !== "outgoing") continue;
     if (letter.distributionStatus === "received") continue;
     const daysPending = daysBetween(letter.createdAt, todayStr);
-    if (daysPending < 7) continue;
+    if (daysPending < 7) continue; // Only alert after 7 days
 
-    if (await wasNotifiedToday(letter.id)) continue;
+    const alreadyNotified = store.notifications.some(
+      (n) =>
+        n.message.includes(letter.id) &&
+        daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
 
     const project = store.projects.find((p) => p.id === letter.projectId);
-    await notifyAdmins({
+    store.notifications.unshift({
+      id: newId(),
       title: `متابعة مطلوبة: خطاب لم يُؤكد استلامه`,
       message: `خطاب "${letter.subject}" (${letter.autoRef}) في مشروع "${project?.name ?? "—"}" لم يُؤكد استلامه منذ ${daysPending} يوم. [${letter.id}]`,
       type: "warning",
-      priority: "medium",
+      scheduledAt: null,
+      read: false,
       projectId: letter.projectId,
-      actionUrl: `/projects/${letter.projectId}/letters`,
+      createdAt: todayStr,
     });
   }
 
@@ -61,16 +75,23 @@ async function runScheduledChecks() {
     const daysLeft = daysBetween(todayStr, contract.endDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 30) continue;
 
-    if (await wasNotifiedToday(contract.id)) continue;
+    const alreadyNotified = store.notifications.some(
+      (n) =>
+        n.message.includes(contract.id) &&
+        daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
 
     const project = store.projects.find((p) => p.id === contract.projectId);
-    await notifyAdmins({
+    store.notifications.unshift({
+      id: newId(),
       title: `عقد يقترب من انتهائه`,
       message: `عقد "${contract.title}" في مشروع "${project?.name ?? "—"}" ينتهي خلال ${daysLeft} يوم. [${contract.id}]`,
       type: "reminder",
-      priority: daysLeft <= 7 ? "high" : "medium",
+      scheduledAt: null,
+      read: false,
       projectId: contract.projectId,
-      actionUrl: `/projects/${contract.projectId}/contracts`,
+      createdAt: todayStr,
     });
   }
 
@@ -78,24 +99,35 @@ async function runScheduledChecks() {
   for (const record of store.finance) {
     if (!record.reminderDate) continue;
     const daysLeft = daysBetween(todayStr, record.reminderDate + "T00:00:00Z");
-    if (daysLeft < 0 || daysLeft > 3) continue;
+    if (daysLeft < 0 || daysLeft > 3) continue; // Alert 3 days before
 
-    if (await wasNotifiedToday(record.id)) continue;
+    const alreadyNotified = store.notifications.some(
+      (n) =>
+        n.message.includes(record.id) &&
+        daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
 
-    await notifyAdmins({
+    store.notifications.unshift({
+      id: newId(),
       title: `تذكير مالي: ${record.title}`,
       message: `${record.title} — ${daysLeft === 0 ? "اليوم" : `خلال ${daysLeft} أيام`}. المبلغ: ${record.amount.toLocaleString("ar-SA")} ر.س. [${record.id}]`,
       type: "reminder",
-      priority: "medium",
+      scheduledAt: null,
+      read: false,
       projectId: record.projectId,
+      createdAt: todayStr,
     });
   }
+
+  // Trim notifications to max 200
+  if (store.notifications.length > 200) store.notifications.splice(200);
 }
 
 export function startScheduler() {
-  // Run once on startup (fire-and-forget — errors are logged inside)
-  runScheduledChecks().catch(console.error);
+  // Run once on startup
+  runScheduledChecks();
 
   // Then every hour
-  setInterval(() => runScheduledChecks().catch(console.error), 60 * 60 * 1000);
+  setInterval(runScheduledChecks, 60 * 60 * 1000);
 }

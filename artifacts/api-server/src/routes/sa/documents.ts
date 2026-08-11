@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import { store, newId, addAuditLog, nextDocRef, type SADocumentRevision } from "./store";
-import { notifyAdmins } from "./notificationHelper";
 
 const router: IRouter = Router();
 
@@ -50,18 +49,6 @@ router.post("/sa/projects/:id/documents", async (req, res): Promise<void> => {
   const userId = (req.headers["x-user-id"] as string) ?? "system";
   const userLabel = (req.headers["x-user-label"] as string) ?? "مستخدم";
   addAuditLog(userId, userLabel, "create", "document", doc.id, `رفع مستند جديد: ${name} (Rev 0)`);
-
-  // Notify admins — fire and forget (don't block the response)
-  notifyAdmins({
-    title: "📄 مستند جديد بانتظار المراجعة",
-    message: `${userLabel} رفع مستنداً جديداً: «${name}»`,
-    type: "info",
-    priority: "medium",
-    projectId: id,
-    actionUrl: `/projects/${id}/documents`,
-    createdById: userId === "system" ? null : userId,
-    createdByName: userLabel === "مستخدم" ? null : userLabel,
-  }).catch(console.error);
 
   res.status(201).json(doc);
 });

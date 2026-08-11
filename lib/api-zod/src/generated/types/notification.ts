@@ -5,7 +5,6 @@
  * Smart Archive API - أرشيف ذكي
  * OpenAPI spec version: 0.2.0
  */
-import type { NotificationPriority } from './notificationPriority';
 import type { NotificationType } from './notificationType';
 
 export interface Notification {
@@ -13,21 +12,10 @@ export interface Notification {
   title: string;
   message: string;
   type: NotificationType;
-  priority?: NotificationPriority;
   /** @nullable */
   scheduledAt?: string | null;
   read: boolean;
   /** @nullable */
   projectId?: string | null;
-  /**
-     * Frontend path to navigate to when notification is clicked
-     * @nullable
-     */
-  actionUrl?: string | null;
-  /**
-     * Display name of the user who triggered this notification
-     * @nullable
-     */
-  createdByName?: string | null;
   createdAt: string;
 }

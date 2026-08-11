@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
@@ -26,40 +26,25 @@ const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, _file, cb) => {
+    // Accept all file types — engineers & contractors work with unlimited doc types
     cb(null, true);
   },
 });
 
-/** Guard that runs BEFORE multer writes to disk */
-function checkCanUpload(req: Request, res: Response, next: NextFunction): void {
-  if (req.authUser && !req.authUser.canUpload) {
-    res.status(403).json({ error: "ليس لديك صلاحية رفع الملفات" });
-    return;
-  }
-  next();
-}
-
 const router: IRouter = Router();
 
-router.post(
-  "/sa/upload",
-  // Authorization check BEFORE multer writes the file — no file is ever
-  // persisted to disk when the user lacks the can_upload permission.
-  checkCanUpload,
-  upload.single("file"),
-  async (req, res): Promise<void> => {
-    if (!req.file) {
-      res.status(400).json({ error: "لم يتم رفع ملف" });
-      return;
-    }
-    res.json({
-      url: `/api/sa/files/${req.file.filename}`,
-      filename: req.file.filename,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-    });
-  },
-);
+router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void> => {
+  if (!req.file) {
+    res.status(400).json({ error: "لم يتم رفع ملف" });
+    return;
+  }
+  res.json({
+    url: `/api/sa/files/${req.file.filename}`,
+    filename: req.file.filename,
+    size: req.file.size,
+    mimetype: req.file.mimetype,
+  });
+});
 
 router.get("/sa/files/:filename", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;

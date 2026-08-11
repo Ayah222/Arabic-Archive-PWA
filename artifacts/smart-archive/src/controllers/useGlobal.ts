@@ -1,47 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../lib/supabase";
 
 const API = "/api/sa";
 
-/** Get the current auth token for API calls (demo token OR Supabase JWT) */
-async function getAuthToken(): Promise<string | null> {
-  // Demo admin token takes priority (set during username/password demo login)
-  const demoToken = localStorage.getItem("sa_demo_token");
-  if (demoToken) return demoToken;
-  try {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** Build auth headers for API requests */
-async function authHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
-  const token = await getAuthToken();
-  const user = getCurrentUser();
-  const headers: Record<string, string> = {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    // Keep legacy headers for backward compat with audit logging
-    "x-user-id": user?.id ?? "guest",
-    "x-user-label": user?.name ?? "ضيف",
-    ...extra,
-  };
-  return headers;
-}
-
 async function get<T>(path: string): Promise<T> {
-  const headers = await authHeaders();
-  const r = await fetch(path, { headers });
+  const r = await fetch(path);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "POST",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": user?.id ?? "guest",
+      "x-user-label": user?.name ?? "ضيف",
+    },
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(await r.text());
@@ -49,10 +24,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
-  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "PATCH",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": user?.id ?? "guest",
+      "x-user-label": user?.name ?? "ضيف",
+    },
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(await r.text());
@@ -60,10 +39,14 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function put<T>(path: string, body: unknown): Promise<T> {
-  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "PUT",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": user?.id ?? "guest",
+      "x-user-label": user?.name ?? "ضيف",
+    },
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(await r.text());
@@ -71,22 +54,24 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function del(path: string): Promise<void> {
-  const headers = await authHeaders();
-  const r = await fetch(path, { method: "DELETE", headers });
+  const user = getCurrentUser();
+  const r = await fetch(path, {
+    method: "DELETE",
+    headers: {
+      "x-user-id": user?.id ?? "guest",
+      "x-user-label": user?.name ?? "ضيف",
+    },
+  });
   if (!r.ok) throw new Error(await r.text());
 }
 
-/* ─── Auth helpers (localStorage for profile cache) ─── */
+/* ─── Auth helpers (localStorage) ─── */
 
 export interface CurrentUser {
   id: string;
-  email: string;
+  username: string;
   name: string;
-  role: "super_admin" | "admin" | "employee";
-  canUpload: boolean;
-  isActive: boolean;
-  jobTitle: string | null;
-  accessExpiresAt: string | null;
+  role: "admin" | "data_entry" | "viewer";
 }
 
 export function getCurrentUser(): CurrentUser | null {
@@ -302,19 +287,14 @@ export function useAuditLog(entity?: string, limit = 100) {
   });
 }
 
-/* ─── Users (Supabase-backed) ─── */
+/* ─── Users (Prompt 7 + 8) ─── */
 
 export interface UserRecord {
   id: string;
-  email: string;
-  full_name: string | null;
-  job_title: string | null;
-  role: string;
-  can_upload: boolean;
-  is_active: boolean;
-  access_expires_at: string | null;
-  invited_by: string | null;
-  created_at: string;
+  username: string;
+  name: string;
+  role: "admin" | "data_entry" | "viewer";
+  createdAt: string;
 }
 
 export function useUsers() {
@@ -327,63 +307,36 @@ export function useUsers() {
 export function useAuthActions() {
   const qc = useQueryClient();
 
-  const logout = async () => {
-    localStorage.removeItem("sa_demo_token");
+  const login = useMutation({
+    mutationFn: (data: { username: string; password: string }) =>
+      post<CurrentUser>(`${API}/auth/login`, data),
+    onSuccess: (user) => {
+      setCurrentUser(user);
+      qc.invalidateQueries({ queryKey: ["current-user"] });
+    },
+  });
+
+  const register = useMutation({
+    mutationFn: (data: { username: string; password: string; name: string }) =>
+      post<CurrentUser>(`${API}/auth/register`, data),
+    onSuccess: (user) => {
+      setCurrentUser(user);
+      qc.invalidateQueries({ queryKey: ["current-user"] });
+    },
+  });
+
+  const logout = () => {
     setCurrentUser(null);
-    await supabase.auth.signOut();
-    qc.clear();
+    qc.invalidateQueries({ queryKey: ["current-user"] });
   };
 
-  return { logout };
-}
-
-/* ─── Language preference ─── */
-export type AppLang = "ar" | "en";
-
-export function getAppLang(): AppLang {
-  return (localStorage.getItem("sa_lang") as AppLang) ?? "ar";
-}
-
-export function setAppLang(lang: AppLang) {
-  localStorage.setItem("sa_lang", lang);
-}
-
-export interface InviteInput {
-  email: string;
-  full_name?: string;
-  job_title?: string;
-  role?: string;
-  can_upload?: boolean;
-  access_expires_at?: string | null;
-}
-
-export function useUserActions() {
-  const qc = useQueryClient();
-  const refetch = () => qc.invalidateQueries({ queryKey: ["users"] });
-
-  const invite = useMutation({
-    mutationFn: (data: InviteInput) =>
-      post<UserRecord>(`${API}/users/invite`, data),
-    onSuccess: refetch,
+  const changeRole = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) =>
+      patch<{ id: string; role: string }>(`${API}/users/${id}/role`, { role }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
-  const updateUser = useMutation({
-    mutationFn: ({
-      uid,
-      data,
-    }: {
-      uid: string;
-      data: Partial<UserRecord> & { access_expires_at?: string | null };
-    }) => patch<UserRecord>(`${API}/users/${uid}`, data),
-    onSuccess: refetch,
-  });
-
-  const deleteUser = useMutation({
-    mutationFn: (uid: string) => del(`${API}/users/${uid}`),
-    onSuccess: refetch,
-  });
-
-  return { invite, updateUser, deleteUser };
+  return { login, register, logout, changeRole };
 }
 
 /* ─── Letter distribution status update ─── */
@@ -473,7 +426,7 @@ export interface SAPhoto {
 export function useProjectPhotos(projectId: string) {
   return useQuery<SAPhoto[]>({
     queryKey: ["photos", projectId],
-    queryFn: () => get(`${API}/projects/${projectId}/photos`),
+    queryFn: () => fetch(`${API}/projects/${projectId}/photos`).then(r => r.json()),
     enabled: !!projectId,
   });
 }
@@ -487,7 +440,7 @@ export function usePhotoActions(projectId: string) {
   });
   const remove = useMutation({
     mutationFn: (photoId: string) =>
-      del(`${API}/projects/${projectId}/photos/${photoId}`),
+      fetch(`${API}/projects/${projectId}/photos/${photoId}`, { method: "DELETE" }).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", projectId] }),
   });
   return { add, remove };

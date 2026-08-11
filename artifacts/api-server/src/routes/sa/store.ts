@@ -133,21 +133,12 @@ export interface SALetter {
 
 export interface SANotification {
   id: string;
-  /**
-   * ID of the intended recipient.
-   * null = system notification visible to all authenticated users (scheduler / voice reminders).
-   * A UUID string = scoped to that specific user only.
-   */
-  recipientId: string | null;
   title: string;
   message: string;
   type: "reminder" | "info" | "warning" | "success";
-  priority: "high" | "medium" | "low" | null;
   scheduledAt: string | null;
   read: boolean;
   projectId: string | null;
-  actionUrl: string | null;
-  createdByName: string | null;
   createdAt: string;
 }
 
@@ -494,30 +485,22 @@ export const store: {
   notifications: [
     {
       id: randomUUID(),
-      recipientId: null,  // system notification — visible to all
       title: "تنبيه: مستند قيد المراجعة",
       message: "مخططات التنسيق في مجمع الواحة السكني قيد المراجعة منذ أكثر من 5 أيام",
       type: "warning",
-      priority: "high" as const,
       scheduledAt: null,
       read: false,
       projectId: p2,
-      actionUrl: null,
-      createdByName: null,
       createdAt: new Date(Date.now() - 86400000).toISOString(),
     },
     {
       id: randomUUID(),
-      recipientId: null,  // system notification — visible to all
       title: "عقد يقترب من انتهائه",
       message: "عقد الأنظمة الكهربائية في برج الأعمال المركزي ينتهي خلال 60 يوم",
       type: "reminder",
-      priority: "medium" as const,
       scheduledAt: null,
       read: false,
       projectId: p1,
-      actionUrl: null,
-      createdByName: null,
       createdAt: new Date(Date.now() - 172800000).toISOString(),
     },
   ],

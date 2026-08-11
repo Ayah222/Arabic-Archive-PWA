@@ -66,36 +66,16 @@ export const NotificationType = {
   success: 'success',
 } as const;
 
-export type NotificationPriority = typeof NotificationPriority[keyof typeof NotificationPriority];
-
-
-export const NotificationPriority = {
-  high: 'high',
-  medium: 'medium',
-  low: 'low',
-} as const;
-
 export interface Notification {
   id: string;
   title: string;
   message: string;
   type: NotificationType;
-  priority?: NotificationPriority;
   /** @nullable */
   scheduledAt?: string | null;
   read: boolean;
   /** @nullable */
   projectId?: string | null;
-  /**
-     * Frontend path to navigate to when notification is clicked
-     * @nullable
-     */
-  actionUrl?: string | null;
-  /**
-     * Display name of the user who triggered this notification
-     * @nullable
-     */
-  createdByName?: string | null;
   createdAt: string;
 }
 
@@ -480,10 +460,6 @@ export interface VoiceResult {
   message: string;
   data: VoiceResultData;
 }
-
-export type MarkAllNotificationsRead200 = {
-  marked: number;
-};
 
 export type ListProjectsParams = {
 q?: string;

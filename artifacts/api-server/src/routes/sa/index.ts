@@ -1,5 +1,4 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { requireAuth } from "../../middleware/auth";
+import { Router, type IRouter } from "express";
 import projectsRouter from "./projects";
 import contractsRouter from "./contracts";
 import contractorsRouter from "./contractors";
@@ -21,19 +20,6 @@ import attachmentsRouter from "./attachments";
 import categoriesRouter from "./categories";
 
 const router: IRouter = Router();
-
-// ── Global auth guard: every /api/sa/* route requires a valid Supabase JWT ──
-router.use(requireAuth);
-
-// ── After auth succeeds, overwrite the spoofable audit headers with the
-//    verified identity from the JWT so existing route handlers stay unchanged ──
-router.use((req: Request, _res: Response, next: NextFunction) => {
-  if (req.authUser) {
-    req.headers["x-user-id"] = req.authUser.id;
-    req.headers["x-user-label"] = req.authUser.name;
-  }
-  next();
-});
 
 router.use(dashboardRouter);
 router.use(notificationsRouter);

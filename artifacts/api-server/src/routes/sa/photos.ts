@@ -25,11 +25,11 @@ router.get("/sa/projects/:id/photos", (req, res) => {
 
 // POST /sa/projects/:id/photos   body: { dataUrl, name, description }
 router.post("/sa/projects/:id/photos", (req, res) => {
-  const { dataUrl, name, description = "" } = req.body as { dataUrl?: string; name?: string; description?: string };
-  if (!dataUrl || !name) { res.status(400).json({ error: "dataUrl and name required" }); return; }
+  const { dataUrl, name, description = "" } = req.body;
+  if (!dataUrl || !name) return res.status(400).json({ error: "dataUrl and name required" });
   const photo: SAPhoto = {
     id: randomUUID(),
-    projectId: String(req.params.id),
+    projectId: req.params.id,
     dataUrl,
     name,
     description,
@@ -42,8 +42,8 @@ router.post("/sa/projects/:id/photos", (req, res) => {
 // DELETE /sa/projects/:id/photos/:pid
 router.delete("/sa/projects/:id/photos/:pid", (req, res) => {
   const arr = photos();
-  const idx = arr.findIndex(p => p.id === String(req.params.pid) && p.projectId === String(req.params.id));
-  if (idx === -1) { res.status(404).json({ error: "not found" }); return; }
+  const idx = arr.findIndex(p => p.id === req.params.pid && p.projectId === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "not found" });
   arr.splice(idx, 1);
   res.json({ ok: true });
 });

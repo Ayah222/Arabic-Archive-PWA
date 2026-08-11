@@ -34,11 +34,3 @@ externalPort = 3002
 [[ports]]
 localPort = 18625
 externalPort = 3000
-
-[userenv]
-
-[userenv.shared]
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6ZnBleGNzem5mZ3Zkb2VsdnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzQxMjYsImV4cCI6MjEwMTkxMDEyNn0.aCLfNuu898Zgdp_fQF8JkyvvVnTimhjBsHd2AxYaT1c"
-SUPABASE_URL = "https://wzfpexcsznfgvdoelvpn.supabase.co"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6ZnBleGNzem5mZ3Zkb2VsdnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzQxMjYsImV4cCI6MjEwMTkxMDEyNn0.aCLfNuu898Zgdp_fQF8JkyvvVnTimhjBsHd2AxYaT1c"
-VITE_SUPABASE_URL = "https://wzfpexcsznfgvdoelvpn.supabase.co"

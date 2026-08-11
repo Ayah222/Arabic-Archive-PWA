@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { supabase } from "../../../lib/supabase";
 
 interface FileUploadProps {
   onUpload: (result: { url: string; filename: string; size: number; mimetype: string }) => void;
@@ -35,14 +34,7 @@ export default function FileUpload({
       form.append("file", file);
       form.append("projectId", projectId);
       form.append("section", section);
-      // Attach auth token — demo token takes priority over Supabase JWT
-      // Do NOT set Content-Type for FormData (browser sets it with boundary)
-      const demoToken = localStorage.getItem("sa_demo_token");
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = demoToken ?? sessionData.session?.access_token;
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/sa/upload", { method: "POST", headers, body: form });
+      const res = await fetch("/api/sa/upload", { method: "POST", body: form });
       if (!res.ok) throw new Error("فشل في رفع الملف");
       const data = (await res.json()) as { url: string; filename: string; size: number; mimetype: string };
       onUpload(data);
