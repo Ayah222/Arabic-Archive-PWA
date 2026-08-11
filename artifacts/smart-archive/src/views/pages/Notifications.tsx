@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../controllers/useNotifications";
 import EmptyState from "../components/shared/EmptyState";
 
@@ -35,7 +36,13 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const { notifications, markRead, unreadCount, markAllRead } = useNotifications();
+
+  function handleClick(id: string, actionUrl?: string | null) {
+    markRead(id);
+    if (actionUrl) navigate(actionUrl);
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-6">
@@ -73,55 +80,81 @@ export default function Notifications() {
         />
       ) : (
         <div className="space-y-3">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              onClick={() => { if (!n.read) markRead(n.id); }}
-              className="liquid-glass-card rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:opacity-90"
-              style={{
-                opacity: n.read ? 0.60 : 1,
-                borderLeft: n.read ? undefined : "3px solid rgba(0,240,255,0.60)",
-              }}
-            >
-              <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div className="text-2xl mt-0.5 shrink-0">
-                  {TYPE_ICON[n.type] ?? "🔔"}
-                </div>
+          {notifications.map((n) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const extra = n as any;
+            const actionUrl: string | null | undefined = extra.actionUrl;
+            const createdByName: string | null | undefined = extra.createdByName;
+            const isClickable = !n.read || !!actionUrl;
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-sm font-bold text-foreground truncate">{n.title}</p>
-                    {!n.read && (
-                      <span className="w-2 h-2 rounded-full shrink-0"
-                        style={{ background: "#00f0ff", boxShadow: "0 0 6px #00f0ff" }} />
-                    )}
+            return (
+              <div
+                key={n.id}
+                onClick={() => handleClick(n.id, actionUrl)}
+                className="liquid-glass-card rounded-2xl p-4 transition-all duration-200 hover:opacity-90"
+                style={{
+                  opacity: n.read ? 0.60 : 1,
+                  borderLeft: n.read ? undefined : "3px solid rgba(0,240,255,0.60)",
+                  cursor: isClickable ? "pointer" : "default",
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Icon */}
+                  <div className="text-2xl mt-0.5 shrink-0">
+                    {TYPE_ICON[n.type] ?? "🔔"}
                   </div>
-                  <p className="text-sm text-muted-foreground">{n.message}</p>
 
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 rounded-full border font-medium"
-                      style={{
-                        color: "rgba(255,255,255,0.65)",
-                        background: "rgba(255,255,255,0.06)",
-                        borderColor: "rgba(255,255,255,0.10)",
-                      }}>
-                      {TYPE_LABEL[n.type] ?? n.type}
-                    </span>
-                    {n.priority && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PRIORITY_COLOR[n.priority] ?? "text-muted-foreground"}`}>
-                        {n.priority === "high" ? "عالي" : n.priority === "medium" ? "متوسط" : "منخفض"}
-                      </span>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="text-sm font-bold text-foreground truncate">{n.title}</p>
+                      {!n.read && (
+                        <span className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: "#00f0ff", boxShadow: "0 0 6px #00f0ff" }} />
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{n.message}</p>
+
+                    {/* Sender name */}
+                    {createdByName && (
+                      <p className="text-xs text-muted-foreground mt-1 opacity-70">
+                        👤 {createdByName}
+                      </p>
                     )}
-                    <span className="text-xs text-muted-foreground">
-                      {timeAgo(n.createdAt)}
-                    </span>
+
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-xs px-2 py-0.5 rounded-full border font-medium"
+                        style={{
+                          color: "rgba(255,255,255,0.65)",
+                          background: "rgba(255,255,255,0.06)",
+                          borderColor: "rgba(255,255,255,0.10)",
+                        }}>
+                        {TYPE_LABEL[n.type] ?? n.type}
+                      </span>
+                      {n.priority && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PRIORITY_COLOR[n.priority] ?? "text-muted-foreground"}`}>
+                          {n.priority === "high" ? "عالي" : n.priority === "medium" ? "متوسط" : "منخفض"}
+                        </span>
+                      )}
+                      {actionUrl && (
+                        <span className="text-xs px-2 py-0.5 rounded-full border font-medium"
+                          style={{
+                            color: "rgba(0,240,255,0.80)",
+                            background: "rgba(0,240,255,0.06)",
+                            borderColor: "rgba(0,240,255,0.20)",
+                          }}>
+                          انقر للانتقال ↗
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {timeAgo(n.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

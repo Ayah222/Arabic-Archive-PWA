@@ -60,12 +60,23 @@ export const ListNotificationsResponseItem = zod.object({
   "title": zod.string(),
   "message": zod.string(),
   "type": zod.enum(['reminder', 'info', 'warning', 'success']),
+  "priority": zod.enum(['high', 'medium', 'low']).optional(),
   "scheduledAt": zod.string().nullish(),
   "read": zod.boolean(),
   "projectId": zod.string().nullish(),
+  "actionUrl": zod.string().nullish().describe('Frontend path to navigate to when notification is clicked'),
+  "createdByName": zod.string().nullish().describe('Display name of the user who triggered this notification'),
   "createdAt": zod.string()
 })
 export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "marked": zod.number()
+})
 
 
 /**
@@ -84,9 +95,12 @@ export const MarkNotificationReadResponse = zod.object({
   "title": zod.string(),
   "message": zod.string(),
   "type": zod.enum(['reminder', 'info', 'warning', 'success']),
+  "priority": zod.enum(['high', 'medium', 'low']).optional(),
   "scheduledAt": zod.string().nullish(),
   "read": zod.boolean(),
   "projectId": zod.string().nullish(),
+  "actionUrl": zod.string().nullish().describe('Frontend path to navigate to when notification is clicked'),
+  "createdByName": zod.string().nullish().describe('Display name of the user who triggered this notification'),
   "createdAt": zod.string()
 })
 

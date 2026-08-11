@@ -61,6 +61,23 @@ paths:
                 items:
                   $ref: "#/components/schemas/Notification"
 
+  /sa/notifications/read-all:
+    patch:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: Number of notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marked:
+                    type: number
+                required: [marked]
+
   /sa/notifications/{nid}/read:
     patch:
       operationId: markNotificationRead
@@ -682,12 +699,21 @@ components:
         type:
           type: string
           enum: [reminder, info, warning, success]
+        priority:
+          type: string
+          enum: [high, medium, low]
         scheduledAt:
           type: ["string", "null"]
         read:
           type: boolean
         projectId:
           type: ["string", "null"]
+        actionUrl:
+          type: ["string", "null"]
+          description: Frontend path to navigate to when notification is clicked
+        createdByName:
+          type: ["string", "null"]
+          description: Display name of the user who triggered this notification
         createdAt:
           type: string
       required: [id, title, message, type, read, createdAt]

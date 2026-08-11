@@ -81,7 +81,57 @@ CREATE POLICY "admin_select_all" ON public.profiles
 
 ---
 
-## 2. تفعيل Google OAuth في Supabase
+## 2. إنشاء جدول الإشعارات (notifications)
+
+افتح **Supabase Dashboard → SQL Editor** وشغّل هذا الكود:
+
+```sql
+-- ===================================================
+-- جدول الإشعارات الفورية بين أعضاء الفريق
+-- ===================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title            TEXT NOT NULL,
+  message          TEXT NOT NULL,
+  type             TEXT NOT NULL DEFAULT 'info'
+                   CHECK (type IN ('reminder', 'info', 'warning', 'success')),
+  priority         TEXT CHECK (priority IN ('high', 'medium', 'low')),
+  read             BOOLEAN NOT NULL DEFAULT false,
+  project_id       UUID NULL,
+  action_url       TEXT NULL,
+  created_by       UUID NULL REFERENCES auth.users(id),
+  created_by_name  TEXT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ===================================================
+-- Row Level Security
+-- ===================================================
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- المستخدم يرى إشعاراته الخاصة فقط
+CREATE POLICY "users_read_own_notifications" ON public.notifications
+  FOR SELECT TO authenticated USING (auth.uid() = recipient_id);
+
+-- المستخدم يمكنه تحديث إشعاراته (mark as read)
+CREATE POLICY "users_update_own_notifications" ON public.notifications
+  FOR UPDATE TO authenticated USING (auth.uid() = recipient_id);
+
+-- ملاحظة: INSERT يتم فقط من خادم API بمفتاح service_role (يتجاوز RLS تلقائياً)
+
+-- ===================================================
+-- تفعيل Realtime للإشعارات الفورية
+-- ===================================================
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+```
+
+> **ملاحظة**: بعد تشغيل هذا الكود تصبح الإشعارات فورية بين المستخدمين عبر Supabase Realtime.
+> بدون هذا الجدول يعمل النظام في وضع في الذاكرة (in-memory) بدون مزامنة بين المتصفحات.
+
+---
+
+## 3. تفعيل Google OAuth في Supabase
 
 1. افتح **Supabase Dashboard → Authentication → Providers → Google**
 2. فعّل Google Provider

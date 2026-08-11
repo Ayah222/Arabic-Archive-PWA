@@ -320,9 +320,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     ) : notifications.slice(0, 10).map(n => {
                       const Icon = n.priority === "high" ? ShieldAlert : n.priority === "medium" ? AlertTriangle : Info;
                       const color = isDark ? "#00f0ff" : "#6366f1";
+                      const actionUrl = n.actionUrl;
+                      const createdByName = n.createdByName;
                       return (
                         <div key={n.id}
-                          onClick={() => { markRead(n.id); setBellOpen(false); navigate("/notifications"); }}
+                          onClick={() => { markRead(n.id); setBellOpen(false); navigate(actionUrl ?? "/notifications"); }}
                           className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150 hover:opacity-80"
                           style={{ borderBottom: isDark ? "1px solid rgba(255,255,255,0.04)" : "1px solid rgba(99,102,241,0.06)" }}>
                           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
@@ -337,6 +339,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
                               {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color, boxShadow: isDark ? `0 0 5px ${color}` : "none" }} />}
                             </div>
                             <p className="text-[11px] mt-0.5 truncate" style={{ color: isDark ? "rgba(255,255,255,0.40)" : "#6b7280" }}>{n.message}</p>
+                            {createdByName && (
+                              <p className="text-[10px] mt-0.5 truncate opacity-60" style={{ color: isDark ? "rgba(255,255,255,0.35)" : "#9ca3af" }}>
+                                👤 {createdByName}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );

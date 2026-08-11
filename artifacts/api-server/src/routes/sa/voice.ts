@@ -3,6 +3,7 @@
 // Claude API can be plugged in via ANTHROPIC_API_KEY env var
 import { Router, type IRouter } from "express";
 import { store, newId } from "./store";
+import { notifyUser } from "./notificationHelper";
 
 const router: IRouter = Router();
 
@@ -110,21 +111,48 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
   }
 
   if (action === "reminder") {
-    const notification = {
-      id: newId(),
-      title: "تذكير جديد من الميكروفون",
-      message: params.text ?? text,
-      type: "reminder" as const,
-      scheduledAt: new Date(Date.now() + 3600000).toISOString(),
-      read: false,
-      projectId: projectId ?? null,
-      createdAt: new Date().toISOString(),
-    };
-    store.notifications.unshift(notification);
+    // Voice reminders are personal — scope to the requesting user
+    const voiceUserId = req.authUser?.id ?? (req.headers["x-user-id"] as string | undefined) ?? null;
+    const notificationId = newId();
+    const notificationCreatedAt = new Date().toISOString();
+
+    let created: { id: string; createdAt: string };
+    if (voiceUserId) {
+      // Route through notifyUser — returns the authoritative id/createdAt
+      created = await notifyUser(voiceUserId, {
+        title: "تذكير جديد من الميكروفون",
+        message: params.text ?? text,
+        type: "reminder",
+        priority: "medium",
+        projectId: projectId ?? null,
+      }).catch((err) => {
+        console.error("[voice reminder]", err);
+        // Synthesise a fallback identity so the route still responds
+        return { id: notificationId, createdAt: notificationCreatedAt };
+      });
+    } else {
+      // No known recipient — write directly to in-memory as a last resort
+      store.notifications.unshift({
+        id: notificationId,
+        recipientId: null,
+        title: "تذكير جديد من الميكروفون",
+        message: params.text ?? text,
+        type: "reminder",
+        priority: "medium",
+        scheduledAt: new Date(Date.now() + 3600000).toISOString(),
+        read: false,
+        projectId: projectId ?? null,
+        actionUrl: null,
+        createdByName: null,
+        createdAt: notificationCreatedAt,
+      });
+      created = { id: notificationId, createdAt: notificationCreatedAt };
+    }
+
     return res.json({
       action: "reminder",
       message: `تم إنشاء تذكير: "${text}"`,
-      data: { notification },
+      data: { id: created.id, createdAt: created.createdAt },
     }) as unknown as void;
   }
 
