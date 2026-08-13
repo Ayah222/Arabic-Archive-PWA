@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useNotifications } from "../../controllers/useNotifications";
+import { useAuthActions, getCurrentUser } from "../../controllers/useGlobal";
 import MicrophoneButton from "../components/shared/MicrophoneButton";
 import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert, HardHat, FileSignature,
-  CalendarCheck, Mail, Search, Wallet, BarChart2, HelpCircle, Users, Plus,
+  CalendarCheck, Mail, Search, Wallet, BarChart2, HelpCircle, Users, Plus, LogOut,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -48,10 +49,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const navigate  = useNavigate();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const { logout } = useAuthActions();
+  const currentUser = getCurrentUser();
   const [isDark, setIsDark]       = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bellOpen, setBellOpen]   = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   const bellRef = useRef<HTMLDivElement>(null);
 
@@ -280,6 +288,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {/* Theme toggle */}
             <button onClick={() => setIsDark(d => !d)} className="rounded-xl w-9 h-9 md:w-10 md:h-10 flex items-center justify-center" style={btnStyle}>
               {isDark ? <Sun className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              title={currentUser ? `خروج (${currentUser.name ?? currentUser.username})` : "خروج"}
+              className="rounded-xl w-9 h-9 md:w-10 md:h-10 flex items-center justify-center transition-all hover:scale-105"
+              style={{ color: isDark ? "rgba(255,80,80,0.80)" : "#dc2626", background: isDark ? "rgba(255,60,60,0.08)" : "rgba(220,38,38,0.06)", border: isDark ? "1px solid rgba(255,60,60,0.18)" : "1px solid rgba(220,38,38,0.14)" }}>
+              <LogOut className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
         </header>
