@@ -117,7 +117,7 @@ export default function LoginPage() {
             <input
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
-              placeholder={tab === "admin" ? "admin" : "اسم المستخدم"}
+              placeholder={tab === "admin" ? "admin" : "البريد الإلكتروني"}
               className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
               style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,240,255,0.25)" }}
               dir="ltr"
