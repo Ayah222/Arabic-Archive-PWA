@@ -14,8 +14,8 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-user-id": user?.id ?? "guest",
-      "x-user-label": user?.name ?? "ضيف",
+      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
+      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
     },
     body: JSON.stringify(body),
   });
@@ -29,8 +29,8 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      "x-user-id": user?.id ?? "guest",
-      "x-user-label": user?.name ?? "ضيف",
+      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
+      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
     },
     body: JSON.stringify(body),
   });
@@ -44,8 +44,8 @@ async function put<T>(path: string, body: unknown): Promise<T> {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "x-user-id": user?.id ?? "guest",
-      "x-user-label": user?.name ?? "ضيف",
+      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
+      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
     },
     body: JSON.stringify(body),
   });
@@ -58,8 +58,8 @@ async function del(path: string): Promise<void> {
   const r = await fetch(path, {
     method: "DELETE",
     headers: {
-      "x-user-id": user?.id ?? "guest",
-      "x-user-label": user?.name ?? "ضيف",
+      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
+      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
     },
   });
   if (!r.ok) throw new Error(await r.text());
