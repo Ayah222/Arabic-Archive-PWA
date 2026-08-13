@@ -1,0 +1,1 @@
+- [Protected files — never edit](protected-files.md) — vite.config, tailwind.config, package.json, postcss.config are off-limits always.

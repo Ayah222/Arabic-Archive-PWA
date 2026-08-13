@@ -1,6 +1,6 @@
-# [Project name]
+# أرشيف ذكي — Smart Archive PWA
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+نظام إدارة الأرشيف المعماري: مشاريع، عقود، مستندات، اجتماعات، خطابات.
 
 ## Run & Operate
 
@@ -26,7 +26,17 @@ _Populate as you build — short repo map plus pointers to the source-of-truth f
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- البيانات تُخزَّن في ذاكرة مؤقتة (in-memory store) — تُمسح عند إعادة التشغيل، لا قاعدة بيانات حقيقية حالياً.
+- الصور والملفات تُخزَّن كـ base64 في الذاكرة.
+- كل طلبات الواجهة تمر عبر `/api/sa/*` على API Server الداخلي.
+
+## User preferences — MUST follow always
+
+🚫 **لا تلمس هذه الملفات أبداً بأي تعديل أو إعادة كتابة:**
+- `vite.config.ts` / `vite.config.js`
+- `tailwind.config.js`
+- `package.json` (في أي مكان في المشروع)
+- `postcss.config.js`
 
 ## Product
 
