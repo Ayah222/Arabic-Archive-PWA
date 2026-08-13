@@ -65,7 +65,7 @@ async function del(path: string): Promise<void> {
   if (!r.ok) throw new Error(await r.text());
 }
 
-/* ─── Auth helpers (localStorage) ─── */
+/* ─── Auth helpers (sessionStorage — clears on tab/browser close) ─── */
 
 export interface CurrentUser {
   id: string;
@@ -76,7 +76,7 @@ export interface CurrentUser {
 
 export function getCurrentUser(): CurrentUser | null {
   try {
-    const raw = localStorage.getItem("sa_user");
+    const raw = sessionStorage.getItem("sa_user");
     if (!raw) return null;
     return JSON.parse(raw) as CurrentUser;
   } catch {
@@ -85,8 +85,8 @@ export function getCurrentUser(): CurrentUser | null {
 }
 
 export function setCurrentUser(user: CurrentUser | null) {
-  if (user) localStorage.setItem("sa_user", JSON.stringify(user));
-  else localStorage.removeItem("sa_user");
+  if (user) sessionStorage.setItem("sa_user", JSON.stringify(user));
+  else sessionStorage.removeItem("sa_user");
 }
 
 export function useCurrentUser() {

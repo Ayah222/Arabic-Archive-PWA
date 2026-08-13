@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { getCurrentUser } from "./controllers/useGlobal";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
 import Projects from "./views/pages/Projects";
@@ -24,16 +25,26 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
 });
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const user = getCurrentUser();
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
         <Routes>
+          {/* Default → login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           {/* Login page — no layout */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* All other pages — with MainLayout */}
+          {/* All other pages — protected */}
           <Route path="/*" element={
+            <RequireAuth>
             <MainLayout>
               <OnboardingTour />
               <Routes>
@@ -53,6 +64,7 @@ export default function App() {
                 <Route path="*"              element={<NotFound />} />
               </Routes>
             </MainLayout>
+            </RequireAuth>
           } />
         </Routes>
       </BrowserRouter>

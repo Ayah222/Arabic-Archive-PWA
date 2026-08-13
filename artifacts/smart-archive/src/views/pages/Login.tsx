@@ -87,12 +87,12 @@ export default function LoginPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 p-1 rounded-xl" style={{ background:"rgba(255,255,255,0.06)" }}>
-            <button className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors"
-              style={{ color:"rgba(255,255,255,0.35)" }} disabled>
-              Google OAuth
-            </button>
             <button className="flex-1 py-2 rounded-lg text-sm font-bold"
               style={{ background:"linear-gradient(135deg,rgba(0,240,255,0.18),rgba(112,0,255,0.18))", color:"#00f0ff", border:"1px solid rgba(0,240,255,0.30)", boxShadow:"0 0 16px rgba(0,240,255,0.15)" }}>
+              تسجيل الدخول
+            </button>
+            <button className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{ color:"rgba(255,255,255,0.35)" }} disabled>
               مدير / موظف
             </button>
           </div>
