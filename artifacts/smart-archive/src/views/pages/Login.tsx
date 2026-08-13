@@ -73,6 +73,7 @@ export default function LoginPage() {
           <div>
             <h1 className="text-2xl font-black text-white">مرحباً بك</h1>
             <p className="text-sm mt-0.5" style={{ color:"rgba(0,240,255,0.65)" }}>نظام الأرشيف الذكي</p>
+            <p className="text-base font-bold mt-1 text-white/80">تسجيل الدخول</p>
           </div>
         </div>
 
@@ -92,7 +93,7 @@ export default function LoginPage() {
               onClick={() => switchTab("admin")}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
               style={tab === "admin" ? activeTabStyle : inactiveTabStyle}>
-              مدير / سوبر أدمن
+              إداري
             </button>
           </div>
 
