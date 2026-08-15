@@ -1,12 +1,10 @@
 /**
- * Google Translate–powered language toggle — no page reload.
+ * Google Translate language toggle.
  *
- * AR → EN : sets the hidden GT combo select to 'en' and fires 'change'.
- * EN → AR : sets the combo back to '' (blank = show original) and fires 'change'.
- *
- * dir (rtl/ltr) is applied immediately; GT translates the text asynchronously.
+ * AR → EN : manipulates GT combo select — instant, no reload.
+ * EN → AR : page reload — the only 100% reliable way to restore GT original.
  */
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 export type Lang = "ar" | "en";
 
@@ -18,54 +16,38 @@ interface LangCtx {
 
 const Ctx = createContext<LangCtx>({ lang: "ar", dir: "rtl", toggle: () => {} });
 
-/** Wait up to 8 s for Google Translate to inject its hidden combo select. */
+/** Retry until the GT combo select is injected (up to ~8 s). */
 function waitForCombo(cb: (el: HTMLSelectElement) => void) {
   const start = Date.now();
   const id = setInterval(() => {
     const el = document.querySelector(".goog-te-combo") as HTMLSelectElement | null;
     if (el) { clearInterval(id); cb(el); return; }
     if (Date.now() - start > 8000) clearInterval(id);
-  }, 120);
-}
-
-/** Fire a real 'change' event so Google Translate picks it up. */
-function triggerChange(el: HTMLSelectElement) {
-  el.dispatchEvent(new Event("change"));
+  }, 150);
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Lang>("ar");
   const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
 
-  // Keep <html> dir in sync instantly (layout flips before GT finishes translating)
   useEffect(() => {
     document.documentElement.setAttribute("dir", dir);
     document.documentElement.setAttribute("lang", lang);
   }, [lang, dir]);
 
-  const toggle = () => {
+  const toggle = useCallback(() => {
     if (lang === "ar") {
-      // ── Translate to English ──────────────────────────────────────────────
+      // ── Arabic → English : no reload ─────────────────────────────────
       setLang("en");
       waitForCombo((combo) => {
         combo.value = "en";
-        triggerChange(combo);
+        combo.dispatchEvent(new Event("change"));
       });
     } else {
-      // ── Restore to Arabic (original) ─────────────────────────────────────
-      // Setting value to '' and firing 'change' tells GT to show the original.
-      setLang("ar");
-      waitForCombo((combo) => {
-        combo.value = "";
-        triggerChange(combo);
-        // GT sometimes needs a second nudge after clearing
-        setTimeout(() => {
-          combo.selectedIndex = 0;
-          triggerChange(combo);
-        }, 80);
-      });
+      // ── English → Arabic : reload (only guaranteed restore for GT) ───
+      window.location.reload();
     }
-  };
+  }, [lang]);
 
   return <Ctx.Provider value={{ lang, dir, toggle }}>{children}</Ctx.Provider>;
 }
