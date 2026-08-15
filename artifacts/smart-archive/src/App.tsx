@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getCurrentUser } from "./controllers/useGlobal";
+import { LanguageProvider } from "./contexts/LanguageContext";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
 import Projects from "./views/pages/Projects";
@@ -33,6 +34,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <LanguageProvider>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
         <Routes>
@@ -66,5 +68,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
+    </LanguageProvider>
   );
 }

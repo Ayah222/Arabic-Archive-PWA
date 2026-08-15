@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthActions } from "../../controllers/useGlobal";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { FolderOpen } from "lucide-react";
 
 const Aurora = () => (
@@ -16,6 +17,7 @@ type Tab = "user" | "admin";
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuthActions();
+  const { lang, dir, toggle } = useLanguage();
   const [tab, setTab] = useState<Tab>("user");
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +60,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" dir="rtl"
+    <div className="min-h-screen flex items-center justify-center p-4 relative" dir={dir}
       style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(18,10,40,1) 0%, rgba(5,4,18,1) 60%)" }}>
       <Aurora />
+
+      {/* Language toggle — top corner */}
+      <button
+        onClick={toggle}
+        className="fixed top-4 left-4 z-50 rounded-xl px-3 h-9 text-xs font-black tracking-wide transition-all hover:scale-105"
+        style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", color:"rgba(255,255,255,0.70)" }}>
+        {lang === "ar" ? "EN" : "ع"}
+      </button>
 
       <div className="w-full max-w-sm relative z-10 space-y-5">
 
