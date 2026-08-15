@@ -60,7 +60,7 @@ export default function LoginPage() {
         onClick={toggle}
         className="fixed top-4 left-4 z-50 rounded-xl px-3 h-9 text-xs font-black tracking-wide transition-all hover:scale-105"
         style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", color:"rgba(255,255,255,0.70)" }}>
-        {lang === "ar" ? "EN" : "ع"}
+        {lang === "ar" ? "EN" : "العربية"}
       </button>
 
       <div className="w-full max-w-sm relative z-10 space-y-5">
