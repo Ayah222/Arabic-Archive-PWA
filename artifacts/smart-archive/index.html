@@ -15,9 +15,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
-  </head>
+  <style>
+    /* Hide GT toolbar & badge */
+    .goog-te-banner-frame, .goog-te-ftab-float, #goog-gt-tt,
+    .skiptranslate > iframe, body > .skiptranslate { display:none !important; }
+    body { top: 0 !important; }
+  </style>
+</head>
   <body>
+    <div id="google_translate_element" style="display:none;position:absolute;"></div>
     <div id="root"></div>
+    <script>
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'ar',
+          includedLanguages: 'en,ar',
+          autoDisplay: false
+        }, 'google_translate_element');
+      }
+      window.__gtSwitchLang = function(lang) {
+        var sel = document.querySelector('.goog-te-combo');
+        if (!sel) return;
+        sel.value = lang;
+        sel.dispatchEvent(new Event('change'));
+      };
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

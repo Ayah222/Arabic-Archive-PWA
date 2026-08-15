@@ -472,7 +472,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback((k: TKey): string => T[lang][k], [lang]);
 
   const toggle = useCallback(() => {
-    setLang(l => l === "ar" ? "en" : "ar");
+    setLang(l => {
+      const next = l === "ar" ? "en" : "ar";
+      // Trigger Google Translate for dynamic content
+      setTimeout(() => {
+        (window as any).__gtSwitchLang?.(next);
+      }, 100);
+      return next;
+    });
   }, []);
 
   return <Ctx.Provider value={{ lang, dir, t, toggle }}>{children}</Ctx.Provider>;
