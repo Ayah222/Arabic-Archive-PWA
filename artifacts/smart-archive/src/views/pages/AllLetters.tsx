@@ -3,12 +3,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAllLetters, useGlobalCreateLetter } from "../../controllers/useGlobal";
 import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { Mail, ArrowUpRight, ArrowDownLeft, ExternalLink, Plus, X } from "lucide-react";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const btnPrimary = "w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 mt-2";
 
 function AddLetterModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
   const { data: projects } = useProjects();
   const create = useGlobalCreateLetter();
   const [form, setForm] = useState({ projectId: "", subject: "", direction: "outgoing", from: "", to: "", date: "", reference: "", notes: "" });
@@ -26,45 +28,45 @@ function AddLetterModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
       <div className="w-full max-w-md rounded-2xl border border-border p-6 relative max-h-[90vh] overflow-y-auto" style={{ background: "rgba(12,10,25,0.97)" }}>
         <button onClick={onClose} className="absolute left-4 top-4 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
-        <h2 className="font-bold text-lg mb-4 text-center">إضافة خطاب</h2>
+        <h2 className="font-bold text-lg mb-4 text-center">{t("addLetter")}</h2>
         <div className="space-y-3">
-          <div><label className="block text-sm font-medium mb-1">المشروع *</label>
-            <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} className={inputCls} dir="rtl">
-              <option value="">اختر المشروع</option>
+          <div><label className="block text-sm font-medium mb-1">{t("projectField")}</label>
+            <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} className={inputCls}>
+              <option value="">{t("chooseProject")}</option>
               {projects?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div><label className="block text-sm font-medium mb-1">الموضوع *</label>
-            <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="موضوع الخطاب" className={inputCls} dir="rtl" />
+          <div><label className="block text-sm font-medium mb-1">{t("letterSubject")}</label>
+            <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder={t("letterSubjectPh")} className={inputCls} />
           </div>
-          <div><label className="block text-sm font-medium mb-1">الاتجاه</label>
-            <select value={form.direction} onChange={e => setForm(f => ({ ...f, direction: e.target.value }))} className={inputCls} dir="rtl">
-              <option value="outgoing">⬆️ صادر</option>
-              <option value="incoming">⬇️ وارد</option>
+          <div><label className="block text-sm font-medium mb-1">{t("direction")}</label>
+            <select value={form.direction} onChange={e => setForm(f => ({ ...f, direction: e.target.value }))} className={inputCls}>
+              <option value="outgoing">⬆️ {t("outgoing")}</option>
+              <option value="incoming">⬇️ {t("incoming")}</option>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium mb-1">من *</label>
-              <input value={form.from} onChange={e => setForm(f => ({ ...f, from: e.target.value }))} placeholder="المرسل" className={inputCls} dir="rtl" />
+            <div><label className="block text-sm font-medium mb-1">{t("from")}</label>
+              <input value={form.from} onChange={e => setForm(f => ({ ...f, from: e.target.value }))} placeholder={t("fromPh")} className={inputCls} />
             </div>
-            <div><label className="block text-sm font-medium mb-1">إلى *</label>
-              <input value={form.to} onChange={e => setForm(f => ({ ...f, to: e.target.value }))} placeholder="المستلم" className={inputCls} dir="rtl" />
+            <div><label className="block text-sm font-medium mb-1">{t("to")}</label>
+              <input value={form.to} onChange={e => setForm(f => ({ ...f, to: e.target.value }))} placeholder={t("toPh")} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium mb-1">التاريخ *</label>
+            <div><label className="block text-sm font-medium mb-1">{t("meetingDate")}</label>
               <input type="date" dir="ltr" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
             </div>
-            <div><label className="block text-sm font-medium mb-1">رقم المرجع</label>
+            <div><label className="block text-sm font-medium mb-1">{t("refNum")}</label>
               <input value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} placeholder="SA-001" className={inputCls} dir="ltr" />
             </div>
           </div>
-          <div><label className="block text-sm font-medium mb-1">ملاحظات</label>
-            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} dir="rtl" />
+          <div><label className="block text-sm font-medium mb-1">{t("notes")}</label>
+            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
           </div>
-          <p className="text-xs text-muted-foreground">سيتم توليد رقم مرجعي تلقائي عند الحفظ</p>
+          <p className="text-xs text-muted-foreground">{t("autoRefNote")}</p>
           <button onClick={handleSubmit} disabled={create.isPending || !form.projectId || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnPrimary}>
-            {create.isPending ? "جاري الإضافة..." : "إضافة الخطاب"}
+            {create.isPending ? t("letterAdding") : t("addLetterBtn")}
           </button>
         </div>
       </div>
@@ -73,6 +75,7 @@ function AddLetterModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function AllLetters() {
+  const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -89,24 +92,23 @@ export default function AllLetters() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">الخطابات والمراسلات</h1>
-          <p className="text-sm text-muted-foreground mt-1">جميع الخطابات الصادرة والواردة</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("letters")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("lettersSub")}</p>
         </div>
         <button onClick={() => setShowAdd(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
-          <Plus className="w-4 h-4" /> إضافة
+          <Plus className="w-4 h-4" /> {t("addBtn")}
         </button>
       </div>
 
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث عن خطاب..."
-        className="w-full md:w-80 px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-        dir="rtl" />
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("searchLetter")}
+        className="w-full md:w-80 px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
 
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-24 rounded-2xl animate-pulse bg-muted" />)}</div>
       ) : !data?.length ? (
-        <EmptyState icon="✉️" title="لا توجد خطابات" description="أضف أول خطاب بالضغط على الزر أعلاه" />
+        <EmptyState icon="✉️" title={t("noLetters")} description={t("noLettersSub")} />
       ) : (
         <div className="space-y-3">
           {data.map(l => {
@@ -130,7 +132,7 @@ export default function AllLetters() {
                       <h3 className="font-bold text-foreground truncate">{l.subject}</h3>
                       {l.autoRef && <span className="text-xs font-mono text-muted-foreground shrink-0">{l.autoRef}</span>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">من: {l.from} ← {l.to}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t("from").replace(" *","")}: {l.from} ← {l.to}</p>
                     <div className="flex items-center gap-3 mt-1 text-xs">
                       <span className="text-muted-foreground" style={{ color: isOut ? "#ff0080" : "#00f0ff" }}>{l.date}</span>
                       <span className={`px-1.5 py-0.5 rounded-full font-medium ${
@@ -138,7 +140,7 @@ export default function AllLetters() {
                         l.distributionStatus === "sent" ? "bg-blue-500/15 text-blue-400" :
                         "bg-gray-500/15 text-gray-400"
                       }`}>
-                        {l.distributionStatus === "received" ? "تم الاستلام" : l.distributionStatus === "sent" ? "تم الإرسال" : "لم يُرسل"}
+                        {l.distributionStatus === "received" ? t("received") : l.distributionStatus === "sent" ? t("sent") : t("notSent")}
                       </span>
                     </div>
                     <Link to={`/projects/${l.projectId}`} className="text-xs mt-1 flex items-center gap-1 hover:opacity-80 transition-opacity" style={{ color: isOut ? "#ff0080" : "#00f0ff" }}>

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAllContracts, useGlobalCreateContract } from "../../controllers/useGlobal";
 import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { FileSignature, ExternalLink, Calendar, DollarSign, Plus, X } from "lucide-react";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
@@ -12,17 +13,21 @@ const addBtnStyle = {
   boxShadow: "0 0 20px rgba(0,240,255,0.30)",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  active: "نشط", completed: "مكتمل", pending: "قيد الانتظار", cancelled: "ملغي"
+const STATUS_LABEL: Record<string, { ar: string; en: string }> = {
+  active:    { ar: "نشط",            en: "Active" },
+  completed: { ar: "مكتمل",          en: "Completed" },
+  pending:   { ar: "قيد الانتظار",   en: "Pending" },
+  cancelled: { ar: "ملغي",           en: "Cancelled" },
 };
 const STATUS_COLOR: Record<string, string> = {
-  active: "text-cyan-400 bg-cyan-400/10 border-cyan-400/25",
+  active:    "text-cyan-400 bg-cyan-400/10 border-cyan-400/25",
   completed: "text-emerald-400 bg-emerald-400/10 border-emerald-400/25",
-  pending: "text-yellow-400 bg-yellow-400/10 border-yellow-400/25",
+  pending:   "text-yellow-400 bg-yellow-400/10 border-yellow-400/25",
   cancelled: "text-red-400 bg-red-400/10 border-red-400/25",
 };
 
 function AddContractModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
   const { data: projects } = useProjects();
   const create = useGlobalCreateContract();
   const [form, setForm] = useState({
@@ -52,57 +57,57 @@ function AddContractModal({ onClose }: { onClose: () => void }) {
         <button onClick={onClose} className="absolute left-4 top-4 text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
-        <h2 className="font-bold text-lg mb-4 text-center">إضافة عقد</h2>
+        <h2 className="font-bold text-lg mb-4 text-center">{t("addContract")}</h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium mb-1">المشروع *</label>
-            <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} className={inputCls} dir="rtl">
-              <option value="">اختر المشروع</option>
+            <label className="block text-sm font-medium mb-1">{t("projectField")}</label>
+            <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} className={inputCls}>
+              <option value="">{t("chooseProject")}</option>
               {projects?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">عنوان العقد *</label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="عنوان العقد" className={inputCls} dir="rtl" />
+            <label className="block text-sm font-medium mb-1">{t("contractTitle")}</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder={t("contractTitlePlaceholder")} className={inputCls} />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">الطرف الآخر *</label>
-            <input value={form.party} onChange={e => setForm(f => ({ ...f, party: e.target.value }))} placeholder="اسم الشركة أو المقاول" className={inputCls} dir="rtl" />
+            <label className="block text-sm font-medium mb-1">{t("contractParty")}</label>
+            <input value={form.party} onChange={e => setForm(f => ({ ...f, party: e.target.value }))} placeholder={t("contractPartyPlaceholder")} className={inputCls} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">قيمة العقد (ر.س)</label>
+              <label className="block text-sm font-medium mb-1">{t("contractValue")}</label>
               <input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} placeholder="0" className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">الحالة</label>
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls} dir="rtl">
-                <option value="active">نشط</option>
-                <option value="pending">قيد الانتظار</option>
-                <option value="completed">مكتمل</option>
-                <option value="cancelled">ملغي</option>
+              <label className="block text-sm font-medium mb-1">{t("statusLabel")}</label>
+              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls}>
+                <option value="active">{t("active")}</option>
+                <option value="pending">{t("statusLabel")}</option>
+                <option value="completed">{t("completedProjects")}</option>
+                <option value="cancelled">{t("cancelBtn")}</option>
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">تاريخ البداية *</label>
+              <label className="block text-sm font-medium mb-1">{t("startDateLabel")}</label>
               <input type="date" dir="ltr" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">تاريخ النهاية *</label>
+              <label className="block text-sm font-medium mb-1">{t("endDateLabel")}</label>
               <input type="date" dir="ltr" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={inputCls} />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">ملاحظات</label>
-            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} dir="rtl" />
+            <label className="block text-sm font-medium mb-1">{t("notes")}</label>
+            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
           </div>
           <button onClick={handleSubmit}
             disabled={create.isPending || !form.projectId || !form.title.trim() || !form.party.trim() || !form.startDate || !form.endDate}
             className="w-full py-3 rounded-xl text-sm font-semibold transition-all mt-2 disabled:opacity-50"
             style={addBtnStyle}>
-            {create.isPending ? "جاري الإضافة..." : "إضافة العقد"}
+            {create.isPending ? t("contractAdding") : t("addContractBtn")}
           </button>
         </div>
       </div>
@@ -111,6 +116,7 @@ function AddContractModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function AllContracts() {
+  const { t, lang } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -127,24 +133,23 @@ export default function AllContracts() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">العقود</h1>
-          <p className="text-sm text-muted-foreground mt-1">جميع العقود عبر المشاريع</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("contracts")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("contractsSub")}</p>
         </div>
         <button onClick={() => setShowAdd(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={addBtnStyle}>
-          <Plus className="w-4 h-4" /> إضافة
+          <Plus className="w-4 h-4" /> {t("addBtn")}
         </button>
       </div>
 
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث عن عقد..."
-        className="w-full md:w-80 px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-        dir="rtl" />
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("searchContract")}
+        className="w-full md:w-80 px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
 
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl animate-pulse bg-muted" />)}</div>
       ) : !data?.length ? (
-        <EmptyState icon="📋" title="لا توجد عقود" description="أضف أول عقد بالضغط على الزر أعلاه" />
+        <EmptyState icon="📋" title={t("noContracts")} description={t("noContractsSub")} />
       ) : (
         <div className="space-y-3">
           {data.map(c => (
@@ -164,7 +169,7 @@ export default function AllContracts() {
                   </div>
                 </div>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border shrink-0 ${STATUS_COLOR[c.status] ?? "text-muted-foreground bg-muted"}`}>
-                  {STATUS_LABEL[c.status] ?? c.status}
+                  {STATUS_LABEL[c.status]?.[lang] ?? c.status}
                 </span>
               </div>
               <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">

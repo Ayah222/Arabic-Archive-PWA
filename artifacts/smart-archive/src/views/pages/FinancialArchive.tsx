@@ -4,15 +4,11 @@ import Modal from "../components/shared/Modal";
 import ConfirmDialog from "../components/shared/ConfirmDialog";
 import Toast from "../components/shared/Toast";
 import EmptyState from "../components/shared/EmptyState";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { TrendingUp, TrendingDown, Wallet, Bell, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
 
-const CATEGORIES = ["دفعات المشاريع", "رواتب", "رسوم حكومية", "مواد ومستلزمات", "ضرائب", "مصاريف إدارية", "أخرى"];
-
-const empty: FinanceInput = {
-  title: "", amount: 0, type: "income", category: CATEGORIES[0],
-  date: new Date().toISOString().split("T")[0],
-  reminderDate: null, notes: null, projectId: null,
-};
+const CATEGORIES_AR = ["دفعات المشاريع", "رواتب", "رسوم حكومية", "مواد ومستلزمات", "ضرائب", "مصاريف إدارية", "أخرى"];
+const CATEGORIES_EN = ["Project Payments", "Salaries", "Government Fees", "Materials & Supplies", "Taxes", "Admin Expenses", "Other"];
 
 function NeonStat({ label, value, icon: Icon, color, sub }: { label: string; value: string; icon: React.ElementType; color: string; sub?: string }) {
   return (
@@ -31,8 +27,15 @@ function NeonStat({ label, value, icon: Icon, color, sub }: { label: string; val
 }
 
 export default function FinancialArchive() {
+  const { t, lang } = useLanguage();
   const { data, isLoading } = useFinance();
   const { create, update, remove } = useFinanceActions();
+  const CATEGORIES = lang === "ar" ? CATEGORIES_AR : CATEGORIES_EN;
+  const empty: FinanceInput = {
+    title: "", amount: 0, type: "income", category: CATEGORIES[0],
+    date: new Date().toISOString().split("T")[0],
+    reminderDate: null, notes: null, projectId: null,
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: FinanceInput } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -52,7 +55,6 @@ export default function FinancialArchive() {
   }) ?? [];
 
   const filtered = data?.filter(r => filterType === "all" || r.type === filterType) ?? [];
-
   const fmt = (n: number) => n.toLocaleString("ar-SA") + " ر.س";
 
   const handleCreate = async () => {
@@ -60,8 +62,8 @@ export default function FinancialArchive() {
     try {
       await create.mutateAsync(form);
       setShowAdd(false); setForm(empty);
-      setToast({ message: "تم إضافة السجل المالي", type: "success" });
-    } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
+      setToast({ message: t("financeAdded"), type: "success" });
+    } catch { setToast({ message: t("financeAddFail"), type: "error" }); }
   };
 
   const handleUpdate = async () => {
@@ -69,8 +71,8 @@ export default function FinancialArchive() {
     try {
       await update.mutateAsync({ id: editItem.id, data: editItem.data });
       setEditItem(null);
-      setToast({ message: "تم تحديث السجل", type: "success" });
-    } catch { setToast({ message: "فشل في التحديث", type: "error" }); }
+      setToast({ message: t("financeUpdated"), type: "success" });
+    } catch { setToast({ message: t("financeUpdateFail"), type: "error" }); }
   };
 
   const handleDelete = async () => {
@@ -78,8 +80,8 @@ export default function FinancialArchive() {
     try {
       await remove.mutateAsync(deleteId);
       setDeleteId(null);
-      setToast({ message: "تم حذف السجل", type: "success" });
-    } catch { setToast({ message: "فشل في الحذف", type: "error" }); }
+      setToast({ message: t("financeDeleted"), type: "success" });
+    } catch { setToast({ message: t("financeDeleteFail"), type: "error" }); }
   };
 
   return (
@@ -88,31 +90,28 @@ export default function FinancialArchive() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">الأرشيف المالي</h1>
-          <p className="text-sm text-muted-foreground mt-1">سجل الإيرادات والمصروفات والتذكيرات المالية</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("finance")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("financeSub")}</p>
         </div>
         <button onClick={() => { setForm(empty); setShowAdd(true); }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
-          style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff",
-            boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
-          <Plus className="w-4 h-4" /> إضافة
+          style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
+          <Plus className="w-4 h-4" /> {t("addBtn")}
         </button>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <NeonStat label="إجمالي الإيرادات" value={fmt(totalIncome)} icon={TrendingUp} color="#00f0ff" />
-        <NeonStat label="إجمالي المصروفات" value={fmt(totalExpense)} icon={TrendingDown} color="#ff0080" />
-        <NeonStat label="الرصيد الصافي" value={fmt(balance)} icon={Wallet} color={balance >= 0 ? "#00ff88" : "#ff4444"}
-          sub={balance >= 0 ? "فائض" : "عجز"} />
+        <NeonStat label={t("totalIncome")} value={fmt(totalIncome)} icon={TrendingUp} color="#00f0ff" />
+        <NeonStat label={t("totalExpense")} value={fmt(totalExpense)} icon={TrendingDown} color="#ff0080" />
+        <NeonStat label={t("netBalance")} value={fmt(balance)} icon={Wallet} color={balance >= 0 ? "#00ff88" : "#ff4444"}
+          sub={balance >= 0 ? t("surplus") : t("deficit")} />
       </div>
 
-      {/* Upcoming Reminders */}
       {upcoming.length > 0 && (
         <div className="liquid-glass-card rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-5 h-5" style={{ color: "#f0a500" }} />
-            <h3 className="font-bold text-foreground">تذكيرات خلال 30 يوماً ({upcoming.length})</h3>
+            <h3 className="font-bold text-foreground">{t("reminders30")} ({upcoming.length})</h3>
           </div>
           <div className="space-y-2">
             {upcoming.map(r => (
@@ -132,24 +131,22 @@ export default function FinancialArchive() {
         </div>
       )}
 
-      {/* Filter Tabs */}
       <div className="flex gap-2">
-        {(["all", "income", "expense"] as const).map(t => (
-          <button key={t} onClick={() => setFilterType(t)}
+        {(["all", "income", "expense"] as const).map(type => (
+          <button key={type} onClick={() => setFilterType(type)}
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-            style={filterType === t
+            style={filterType === type
               ? { background: "rgba(0,240,255,0.10)", border: "1px solid rgba(0,240,255,0.50)", color: "#00f0ff" }
               : { background: "transparent", border: "1px solid transparent", color: "rgba(255,255,255,0.45)" }}>
-            {t === "all" ? "الكل" : t === "income" ? "الإيرادات" : "المصروفات"}
+            {type === "all" ? t("all") : type === "income" ? t("income") : t("expense")}
           </button>
         ))}
       </div>
 
-      {/* Records List */}
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-20 rounded-2xl animate-pulse bg-muted" />)}</div>
       ) : !filtered.length ? (
-        <EmptyState icon="💰" title="لا توجد سجلات" description="أضف أول سجل مالي" />
+        <EmptyState icon="💰" title={t("noFinance")} description={t("noFinanceSub")} />
       ) : (
         <div className="space-y-3">
           {filtered.map(r => {
@@ -169,7 +166,7 @@ export default function FinancialArchive() {
                       <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)" }}>{r.category}</span>
                       {r.reminderDate && (
                         <span className="flex items-center gap-1" style={{ color: "#f0a500" }}>
-                          <Bell className="w-3 h-3" />تذكير {r.reminderDate}
+                          <Bell className="w-3 h-3" />{t("reminder")} {r.reminderDate}
                         </span>
                       )}
                     </div>
@@ -197,21 +194,20 @@ export default function FinancialArchive() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
       <Modal isOpen={showAdd || !!editItem} onClose={() => { setShowAdd(false); setEditItem(null); }}
-        title={editItem ? "تعديل السجل المالي" : "إضافة سجل مالي"} size="lg">
+        title={editItem ? t("editFinance") : t("addFinance")} size="lg">
         <FinanceForm
           data={editItem?.data ?? form}
           onChange={editItem ? (d) => setEditItem(e => e ? { ...e, data: d } : null) : setForm}
           onSubmit={editItem ? handleUpdate : handleCreate}
           loading={create.isPending || update.isPending}
-          submitLabel={editItem ? "حفظ التعديلات" : "إضافة السجل"}
+          submitLabel={editItem ? t("saveEdits") : t("addFinanceBtn")}
         />
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete}
-        title="حذف السجل المالي" message="هل أنت متأكد من حذف هذا السجل المالي؟"
-        confirmLabel="حذف" danger loading={remove.isPending} />
+        title={t("deleteFinance")} message={t("deleteFinanceMsg")}
+        confirmLabel={t("delete")} danger loading={remove.isPending} />
     </div>
   );
 }
@@ -220,6 +216,8 @@ function FinanceForm({ data, onChange, onSubmit, loading, submitLabel }: {
   data: FinanceInput; onChange: (d: FinanceInput) => void;
   onSubmit: () => void; loading: boolean; submitLabel: string;
 }) {
+  const { t, lang } = useLanguage();
+  const CATEGORIES = lang === "ar" ? CATEGORIES_AR : CATEGORIES_EN;
   const set = <K extends keyof FinanceInput>(k: K, v: FinanceInput[K]) => onChange({ ...data, [k]: v });
   return (
     <div className="space-y-4">
@@ -229,57 +227,56 @@ function FinanceForm({ data, onChange, onSubmit, loading, submitLabel }: {
           style={data.type === "income"
             ? { background: "rgba(0,240,255,0.12)", border: "1px solid rgba(0,240,255,0.50)", color: "#00f0ff" }
             : { background: "transparent", border: "1px solid var(--color-border)", color: "var(--color-muted-foreground)" }}>
-          إيراد +
+          {t("incomeBtn")}
         </button>
         <button onClick={() => set("type", "expense")}
           className="py-3 rounded-xl text-sm font-bold transition-all"
           style={data.type === "expense"
             ? { background: "rgba(255,0,128,0.12)", border: "1px solid rgba(255,0,128,0.50)", color: "#ff0080" }
             : { background: "transparent", border: "1px solid var(--color-border)", color: "var(--color-muted-foreground)" }}>
-          مصروف −
+          {t("expenseBtn")}
         </button>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">العنوان *</label>
-        <input value={data.title} onChange={e => set("title", e.target.value)} placeholder="مثال: دفعة مشروع برج الأعمال"
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" dir="rtl" />
+        <label className="block text-sm font-medium mb-1.5">{t("financeTitle")}</label>
+        <input value={data.title} onChange={e => set("title", e.target.value)} placeholder={t("financeTitlePh")}
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1.5">المبلغ (ر.س) *</label>
+          <label className="block text-sm font-medium mb-1.5">{t("amount")}</label>
           <input type="number" value={data.amount || ""} onChange={e => set("amount", Number(e.target.value))} placeholder="0"
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" dir="rtl" />
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">الفئة</label>
+          <label className="block text-sm font-medium mb-1.5">{t("category")}</label>
           <select value={data.category} onChange={e => set("category", e.target.value)}
-            className="w-full px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" dir="rtl">
+            className="w-full px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm">
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1.5">التاريخ *</label>
+          <label className="block text-sm font-medium mb-1.5">{t("startDateLabel")}</label>
           <input type="date" dir="ltr" value={data.date} onChange={e => set("date", e.target.value)}
             className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">تذكير بتاريخ</label>
+          <label className="block text-sm font-medium mb-1.5">{t("reminderDate")}</label>
           <input type="date" dir="ltr" value={data.reminderDate ?? ""} onChange={e => set("reminderDate", e.target.value || null)}
             className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">ملاحظات</label>
+        <label className="block text-sm font-medium mb-1.5">{t("notes")}</label>
         <textarea value={data.notes ?? ""} onChange={e => set("notes", e.target.value || null)} rows={2}
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none" dir="rtl" />
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none" />
       </div>
       <button onClick={onSubmit} disabled={loading || !data.title || !data.amount}
         className="w-full py-3.5 rounded-xl font-bold transition-all disabled:opacity-50"
-        style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff",
-          boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
-        {loading ? "جاري الحفظ..." : submitLabel}
+        style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
+        {loading ? t("saving") : submitLabel}
       </button>
     </div>
   );

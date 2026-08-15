@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useGetDashboard } from "@workspace/api-client-react";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
+import { useLanguage } from "../../contexts/LanguageContext";
 import {
   FolderOpen, RefreshCcw, CheckCircle2, PauseCircle,
   FileSignature, FileText, CalendarCheck, Mail,
@@ -40,7 +41,8 @@ function NeonStat({ value, label, Icon, gradient, glow, border, textColor }: Neo
 }
 
 export default function Dashboard() {
-  const { data, isLoading, isError } = useGetDashboard();
+  const { t } = useLanguage();
+  const { data, isLoading } = useGetDashboard();
 
   if (isLoading) {
     return (
@@ -66,41 +68,37 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-5xl mx-auto">
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-black text-foreground">لوحة التحكم</h1>
-        <p className="text-muted-foreground text-sm mt-1">نظرة عامة على جميع مشاريعك</p>
+        <h1 className="text-2xl font-black text-foreground">{t("dashboard")}</h1>
+        <p className="text-muted-foreground text-sm mt-1">{t("dashboardSub")}</p>
       </div>
 
-      {/* Primary Stats — Projects */}
       <div>
-        <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">المشاريع</h2>
+        <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">{t("projects")}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <NeonStat value={display.totalProjects}     label="إجمالي المشاريع"   Icon={FolderOpen}   gradient="linear-gradient(135deg,#00f0ff,#7000ff)" glow="rgba(0,240,255,0.35)" border="rgba(0,240,255,0.40)" textColor="#00f0ff" />
-          <NeonStat value={display.activeProjects}    label="مشاريع نشطة"       Icon={RefreshCcw}   gradient="linear-gradient(135deg,#00ff88,#00b8ff)" glow="rgba(0,255,136,0.30)" border="rgba(0,255,136,0.35)" textColor="#00ff88" />
-          <NeonStat value={display.completedProjects} label="مشاريع مكتملة"     Icon={CheckCircle2} gradient="linear-gradient(135deg,#6366f1,#a855f7)"  glow="rgba(99,102,241,0.35)" border="rgba(99,102,241,0.40)" textColor="#a78bfa" />
-          <NeonStat value={display.onHoldProjects}    label="متوقفة"            Icon={PauseCircle}  gradient="linear-gradient(135deg,#f59e0b,#ef4444)"  glow="rgba(245,158,11,0.30)" border="rgba(245,158,11,0.35)" textColor="#fbbf24" />
+          <NeonStat value={display.totalProjects}     label={t("totalProjects")}     Icon={FolderOpen}   gradient="linear-gradient(135deg,#00f0ff,#7000ff)" glow="rgba(0,240,255,0.35)" border="rgba(0,240,255,0.40)" textColor="#00f0ff" />
+          <NeonStat value={display.activeProjects}    label={t("activeProjects")}    Icon={RefreshCcw}   gradient="linear-gradient(135deg,#00ff88,#00b8ff)" glow="rgba(0,255,136,0.30)" border="rgba(0,255,136,0.35)" textColor="#00ff88" />
+          <NeonStat value={display.completedProjects} label={t("completedProjects")} Icon={CheckCircle2} gradient="linear-gradient(135deg,#6366f1,#a855f7)"  glow="rgba(99,102,241,0.35)" border="rgba(99,102,241,0.40)" textColor="#a78bfa" />
+          <NeonStat value={display.onHoldProjects}    label={t("onHoldProjects")}    Icon={PauseCircle}  gradient="linear-gradient(135deg,#f59e0b,#ef4444)"  glow="rgba(245,158,11,0.30)" border="rgba(245,158,11,0.35)" textColor="#fbbf24" />
         </div>
       </div>
 
-      {/* Secondary Stats — Documents */}
       <div>
-        <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">الوثائق والسجلات</h2>
+        <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-1">{t("docsAndRecords")}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <NeonStat value={display.totalContracts}  label="العقود"         Icon={FileSignature} gradient="linear-gradient(135deg,#ec4899,#7000ff)"  glow="rgba(236,72,153,0.30)" border="rgba(236,72,153,0.35)" textColor="#f472b6" />
-          <NeonStat value={display.totalDocuments}  label="المستندات"      Icon={FileText}      gradient="linear-gradient(135deg,#0ea5e9,#6366f1)"  glow="rgba(14,165,233,0.30)" border="rgba(14,165,233,0.35)" textColor="#38bdf8" />
-          <NeonStat value={display.totalMeetings}   label="الاجتماعات"     Icon={CalendarCheck} gradient="linear-gradient(135deg,#00e5ff,#0070ff)"  glow="rgba(0,229,255,0.30)" border="rgba(0,229,255,0.35)" textColor="#00e5ff" />
-          <NeonStat value={display.totalLetters}    label="الخطابات"       Icon={Mail}          gradient="linear-gradient(135deg,#ff6b6b,#ff0080)"  glow="rgba(255,0,128,0.30)" border="rgba(255,0,128,0.35)" textColor="#ff80b5" />
+          <NeonStat value={display.totalContracts}  label={t("totalContracts")}  Icon={FileSignature} gradient="linear-gradient(135deg,#ec4899,#7000ff)"  glow="rgba(236,72,153,0.30)" border="rgba(236,72,153,0.35)" textColor="#f472b6" />
+          <NeonStat value={display.totalDocuments}  label={t("totalDocuments")}  Icon={FileText}      gradient="linear-gradient(135deg,#0ea5e9,#6366f1)"  glow="rgba(14,165,233,0.30)" border="rgba(14,165,233,0.35)" textColor="#38bdf8" />
+          <NeonStat value={display.totalMeetings}   label={t("totalMeetings")}   Icon={CalendarCheck} gradient="linear-gradient(135deg,#00e5ff,#0070ff)"  glow="rgba(0,229,255,0.30)" border="rgba(0,229,255,0.35)" textColor="#00e5ff" />
+          <NeonStat value={display.totalLetters}    label={t("totalLetters")}    Icon={Mail}          gradient="linear-gradient(135deg,#ff6b6b,#ff0080)"  glow="rgba(255,0,128,0.30)" border="rgba(255,0,128,0.35)" textColor="#ff80b5" />
         </div>
       </div>
 
-      {/* Recent Projects */}
       {display.recentProjects.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-foreground">آخر المشاريع</h2>
+            <h2 className="text-lg font-bold text-foreground">{t("recentProjects")}</h2>
             <Link to="/projects" className="text-sm font-medium transition-opacity hover:opacity-70" style={{ color:"#00f0ff" }}>
-              عرض الكل
+              {t("viewAll")}
             </Link>
           </div>
           <div className="space-y-3">

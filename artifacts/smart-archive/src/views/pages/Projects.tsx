@@ -7,6 +7,7 @@ import Modal from "../components/shared/Modal";
 import ConfirmDialog from "../components/shared/ConfirmDialog";
 import EmptyState from "../components/shared/EmptyState";
 import Toast from "../components/shared/Toast";
+import { useLanguage } from "../../contexts/LanguageContext";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
@@ -43,6 +44,7 @@ const defaultForm: ProjectFormData = {
 };
 
 export default function Projects() {
+  const { t, lang } = useLanguage();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -62,35 +64,26 @@ export default function Projects() {
   const handleCreate = async () => {
     if (!form.name.trim() || !form.client.trim()) return;
     const input: ProjectInput = {
-      name: form.name,
-      description: form.description,
-      client: form.client,
-      status: form.status,
-      progress: form.progress,
-      startDate: form.startDate,
-      endDate: form.endDate || null,
-      budget: form.budget ? Number(form.budget) : null,
+      name: form.name, description: form.description, client: form.client,
+      status: form.status, progress: form.progress, startDate: form.startDate,
+      endDate: form.endDate || null, budget: form.budget ? Number(form.budget) : null,
       location: form.location || null,
     };
     try {
       await createProject.mutateAsync({ data: input });
-      setShowCreate(false);
-      setForm(defaultForm);
-      setToast({ message: "تم إنشاء المشروع بنجاح", type: "success" });
+      setShowCreate(false); setForm(defaultForm);
+      setToast({ message: t("projectCreated"), type: "success" });
     } catch {
-      setToast({ message: "فشل في إنشاء المشروع", type: "error" });
+      setToast({ message: t("projectCreateFail"), type: "error" });
     }
   };
 
   const handleUpdate = async () => {
     if (!editProject) return;
     const update: ProjectUpdate = {
-      name: editProject.data.name,
-      description: editProject.data.description,
-      client: editProject.data.client,
-      status: editProject.data.status,
-      progress: editProject.data.progress,
-      startDate: editProject.data.startDate,
+      name: editProject.data.name, description: editProject.data.description,
+      client: editProject.data.client, status: editProject.data.status,
+      progress: editProject.data.progress, startDate: editProject.data.startDate,
       endDate: editProject.data.endDate || null,
       budget: editProject.data.budget ? Number(editProject.data.budget) : null,
       location: editProject.data.location || null,
@@ -98,9 +91,9 @@ export default function Projects() {
     try {
       await updateProject.mutateAsync({ id: editProject.id, data: update });
       setEditProject(null);
-      setToast({ message: "تم تحديث المشروع", type: "success" });
+      setToast({ message: t("projectUpdated"), type: "success" });
     } catch {
-      setToast({ message: "فشل في التحديث", type: "error" });
+      setToast({ message: t("projectUpdateFail"), type: "error" });
     }
   };
 
@@ -109,9 +102,9 @@ export default function Projects() {
     try {
       await deleteProject.mutateAsync({ id: deleteId });
       setDeleteId(null);
-      setToast({ message: "تم حذف المشروع", type: "success" });
+      setToast({ message: t("projectDeleted"), type: "success" });
     } catch {
-      setToast({ message: "فشل في الحذف", type: "error" });
+      setToast({ message: t("projectDeleteFail"), type: "error" });
     }
   };
 
@@ -119,45 +112,40 @@ export default function Projects() {
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">المشاريع</h1>
+          <h1 className="text-2xl font-bold">{t("projects")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {projects?.length ?? 0} مشروع
+            {projects?.length ?? 0} {lang === "ar" ? "مشروع" : "project(s)"}
           </p>
         </div>
         <button
           onClick={() => { setForm(defaultForm); setShowCreate(true); }}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors shadow-sm"
         >
-          <span>+</span> مشروع جديد
+          <span>+</span> {t("newProject")}
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="بحث عن مشروع..."
+          placeholder={t("searchProject")}
           className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          dir="rtl"
         />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          dir="rtl"
         >
-          <option value="">كل الحالات</option>
+          <option value="">{t("allStatuses")}</option>
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
           ))}
         </select>
       </div>
 
-      {/* List */}
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
@@ -167,14 +155,14 @@ export default function Projects() {
       ) : !projects?.length ? (
         <EmptyState
           icon="📁"
-          title="لا توجد مشاريع"
-          description="ابدأ بإضافة مشروعك الأول"
+          title={t("noProjects")}
+          description={t("noProjectsSub")}
           action={
             <button
               onClick={() => { setForm(defaultForm); setShowCreate(true); }}
               className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
             >
-              إضافة مشروع
+              {t("addProject")}
             </button>
           }
         />
@@ -201,9 +189,7 @@ export default function Projects() {
                 <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground">
                   {project.location && <span>📍 {project.location}</span>}
                   <span>📅 {formatDate(project.startDate)}</span>
-                  {project.budget && (
-                    <span>💰 {formatCurrency(project.budget)}</span>
-                  )}
+                  {project.budget && <span>💰 {formatCurrency(project.budget)}</span>}
                 </div>
               </Link>
               <div className="flex border-t border-border">
@@ -211,27 +197,23 @@ export default function Projects() {
                   onClick={() => setEditProject({
                     id: project.id,
                     data: {
-                      name: project.name,
-                      description: project.description,
-                      client: project.client,
-                      status: project.status as ProjectStatus,
-                      progress: project.progress,
-                      startDate: project.startDate,
-                      endDate: project.endDate ?? "",
-                      budget: project.budget?.toString() ?? "",
+                      name: project.name, description: project.description,
+                      client: project.client, status: project.status as ProjectStatus,
+                      progress: project.progress, startDate: project.startDate,
+                      endDate: project.endDate ?? "", budget: project.budget?.toString() ?? "",
                       location: project.location ?? "",
                     },
                   })}
                   className="flex-1 py-3 text-sm text-primary hover:bg-accent transition-colors rounded-bl-2xl font-medium"
                 >
-                  تعديل
+                  {t("edit")}
                 </button>
                 <div className="w-px bg-border" />
                 <button
                   onClick={() => setDeleteId(project.id)}
                   className="flex-1 py-3 text-sm text-destructive hover:bg-red-50 transition-colors rounded-br-2xl font-medium"
                 >
-                  حذف
+                  {t("delete")}
                 </button>
               </div>
             </div>
@@ -239,38 +221,35 @@ export default function Projects() {
         </div>
       )}
 
-      {/* Create Modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="مشروع جديد" size="lg">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title={t("newProject")} size="lg">
         <ProjectForm
           data={form}
           onChange={setForm}
           onSubmit={handleCreate}
           loading={createProject.isPending}
-          submitLabel="إنشاء المشروع"
+          submitLabel={t("createProjectBtn")}
         />
       </Modal>
 
-      {/* Edit Modal */}
       {editProject && (
-        <Modal isOpen onClose={() => setEditProject(null)} title="تعديل المشروع" size="lg">
+        <Modal isOpen onClose={() => setEditProject(null)} title={t("edit")} size="lg">
           <ProjectForm
             data={editProject.data}
             onChange={(d) => setEditProject({ ...editProject, data: d })}
             onSubmit={handleUpdate}
             loading={updateProject.isPending}
-            submitLabel="حفظ التعديلات"
+            submitLabel={t("saveEdits")}
           />
         </Modal>
       )}
 
-      {/* Delete Confirm */}
       <ConfirmDialog
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
-        title="حذف المشروع"
-        message="هل أنت متأكد من حذف هذا المشروع؟ سيتم حذف جميع البيانات المرتبطة به."
-        confirmLabel="حذف"
+        title={t("deleteProject")}
+        message={t("deleteProjectMsg")}
+        confirmLabel={t("delete")}
         danger
         loading={deleteProject.isPending}
       />
@@ -279,11 +258,7 @@ export default function Projects() {
 }
 
 function ProjectForm({
-  data,
-  onChange,
-  onSubmit,
-  loading,
-  submitLabel,
+  data, onChange, onSubmit, loading, submitLabel,
 }: {
   data: ProjectFormData;
   onChange: (d: ProjectFormData) => void;
@@ -291,130 +266,87 @@ function ProjectForm({
   loading: boolean;
   submitLabel: string;
 }) {
+  const { t } = useLanguage();
   const set = (k: keyof ProjectFormData, v: string | number) =>
     onChange({ ...data, [k]: v });
 
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium mb-1.5">اسم المشروع *</label>
-        <input
-          value={data.name}
-          onChange={(e) => set("name", e.target.value)}
-          placeholder="مثال: برج الأعمال المركزي"
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          dir="rtl"
-        />
+        <label className="block text-sm font-medium mb-1.5">{t("projectNameLabel")}</label>
+        <input value={data.name} onChange={(e) => set("name", e.target.value)}
+          placeholder={t("projectNamePlaceholder")}
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">وصف المشروع</label>
-        <textarea
-          value={data.description}
-          onChange={(e) => set("description", e.target.value)}
-          placeholder="وصف مختصر للمشروع..."
-          rows={3}
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
-          dir="rtl"
-        />
+        <label className="block text-sm font-medium mb-1.5">{t("descLabel")}</label>
+        <textarea value={data.description} onChange={(e) => set("description", e.target.value)}
+          placeholder={t("descPlaceholder")} rows={3}
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none" />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">العميل *</label>
-        <input
-          value={data.client}
-          onChange={(e) => set("client", e.target.value)}
-          placeholder="اسم العميل أو الجهة"
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          dir="rtl"
-        />
+        <label className="block text-sm font-medium mb-1.5">{t("clientLabel")}</label>
+        <input value={data.client} onChange={(e) => set("client", e.target.value)}
+          placeholder={t("clientPlaceholder")}
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1.5">الحالة</label>
-          <select
-            value={data.status}
-            onChange={(e) => set("status", e.target.value)}
-            className="w-full px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-            dir="rtl"
-          >
+          <label className="block text-sm font-medium mb-1.5">{t("statusLabel")}</label>
+          <select value={data.status} onChange={(e) => set("status", e.target.value)}
+            className="w-full px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm">
             {(["active", "completed", "on_hold", "cancelled"] as ProjectStatus[]).map((s) => (
               <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">نسبة الإنجاز ({data.progress}%)</label>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={data.progress}
+          <label className="block text-sm font-medium mb-1.5">{t("progressLabel")} ({data.progress}%)</label>
+          <input type="range" min={0} max={100} value={data.progress}
             onChange={(e) => set("progress", parseInt(e.target.value))}
-            className="w-full mt-2 accent-primary"
-          />
+            className="w-full mt-2 accent-primary" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1.5">تاريخ البداية *</label>
-          <input
-            type="date"
-            dir="ltr"
-            value={data.startDate}
+          <label className="block text-sm font-medium mb-1.5">{t("startDateLabel")}</label>
+          <input type="date" dir="ltr" value={data.startDate}
             onChange={(e) => set("startDate", e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          />
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">تاريخ الانتهاء</label>
-          <input
-            type="date"
-            dir="ltr"
-            value={data.endDate}
+          <label className="block text-sm font-medium mb-1.5">{t("endDateLabel")}</label>
+          <input type="date" dir="ltr" value={data.endDate}
             onChange={(e) => set("endDate", e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          />
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1.5">الميزانية (ريال)</label>
-          <input
-            type="number"
-            value={data.budget}
-            onChange={(e) => set("budget", e.target.value)}
+          <label className="block text-sm font-medium mb-1.5">{t("budgetLabel")}</label>
+          <input type="number" value={data.budget} onChange={(e) => set("budget", e.target.value)}
             placeholder="0"
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-            dir="rtl"
-          />
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">الموقع</label>
-          <input
-            value={data.location}
-            onChange={(e) => set("location", e.target.value)}
-            placeholder="المدينة، الحي"
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-            dir="rtl"
-          />
+          <label className="block text-sm font-medium mb-1.5">{t("locationLabel")}</label>
+          <input value={data.location} onChange={(e) => set("location", e.target.value)}
+            placeholder={t("locationPlaceholder")}
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">رابط الموقع في خرائط جوجل</label>
+        <label className="block text-sm font-medium mb-1.5">{t("mapsLabel")}</label>
         <input
           value={(data as { mapsUrl?: string }).mapsUrl ?? ""}
           onChange={(e) => onChange({ ...data, mapsUrl: e.target.value } as typeof data & { mapsUrl: string })}
           placeholder="https://maps.google.com/..."
           className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          dir="ltr"
-          type="url"
-        />
+          dir="ltr" type="url" />
       </div>
-      <button
-        onClick={onSubmit}
-        disabled={loading || !data.name.trim() || !data.client.trim()}
-        className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 mt-2"
-      >
-        {loading ? "جاري الحفظ..." : submitLabel}
+      <button onClick={onSubmit} disabled={loading || !data.name.trim() || !data.client.trim()}
+        className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 mt-2">
+        {loading ? t("saving") : submitLabel}
       </button>
     </div>
   );

@@ -1,23 +1,23 @@
-// Prompt 7: User management (admin only) + Audit log
 import { useState } from "react";
 import { useUsers, useAuthActions, useAuditLog, getCurrentUser } from "../../controllers/useGlobal";
+import { useLanguage } from "../../contexts/LanguageContext";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "مدير",
-  data_entry: "موظف إدخال",
-  viewer: "عرض فقط",
+const ROLE_LABELS: Record<string, { ar: string; en: string }> = {
+  admin:      { ar: "مدير",           en: "Admin" },
+  data_entry: { ar: "موظف إدخال",     en: "Data Entry" },
+  viewer:     { ar: "عرض فقط",        en: "Viewer" },
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: "text-cyan-400 bg-cyan-400/10 border-cyan-400/25",
+  admin:      "text-cyan-400 bg-cyan-400/10 border-cyan-400/25",
   data_entry: "text-purple-400 bg-purple-400/10 border-purple-400/25",
-  viewer: "text-muted-foreground bg-muted border-border",
+  viewer:     "text-muted-foreground bg-muted border-border",
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  create: "إضافة",
-  update: "تعديل",
-  delete: "حذف",
+const ACTION_LABELS: Record<string, { ar: string; en: string }> = {
+  create: { ar: "إضافة", en: "Create" },
+  update: { ar: "تعديل", en: "Update" },
+  delete: { ar: "حذف",   en: "Delete" },
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -27,6 +27,7 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const { t, lang } = useLanguage();
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === "admin";
 
@@ -42,40 +43,33 @@ export default function UsersPage() {
     try {
       await changeRole.mutateAsync({ id: userId, role: newRole });
       setEditingId(null);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   if (!isAdmin) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center h-64 text-muted-foreground" dir="rtl">
+      <div className="p-8 flex flex-col items-center justify-center h-64 text-muted-foreground">
         <p className="text-4xl mb-3">🔒</p>
-        <p>هذه الصفحة مخصصة للمدير فقط</p>
+        <p>{t("adminOnly")}</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6" dir="rtl">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">إدارة المستخدمين والصلاحيات</h1>
-        <p className="text-sm text-muted-foreground mt-1">إدارة الحسابات والصلاحيات وسجل التدقيق</p>
+        <h1 className="text-2xl font-bold text-foreground">{t("users")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("usersSub")}</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2">
-        <button
-          onClick={() => setTab("users")}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === "users" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
-        >
-          المستخدمون
+        <button onClick={() => setTab("users")}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === "users" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>
+          {t("usersTab")}
         </button>
-        <button
-          onClick={() => setTab("audit")}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === "audit" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
-        >
-          سجل التدقيق
+        <button onClick={() => setTab("audit")}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === "audit" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>
+          {t("auditTab")}
         </button>
       </div>
 
@@ -98,30 +92,24 @@ export default function UsersPage() {
                 <div className="flex items-center gap-2">
                   {editingId === user.id ? (
                     <div className="flex items-center gap-2">
-                      <select
-                        value={newRole}
-                        onChange={(e) => setNewRole(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        dir="rtl"
-                      >
-                        <option value="admin">مدير</option>
-                        <option value="data_entry">موظف إدخال</option>
-                        <option value="viewer">عرض فقط</option>
+                      <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="admin">{ROLE_LABELS.admin[lang]}</option>
+                        <option value="data_entry">{ROLE_LABELS.data_entry[lang]}</option>
+                        <option value="viewer">{ROLE_LABELS.viewer[lang]}</option>
                       </select>
-                      <button onClick={() => handleSaveRole(user.id)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">حفظ</button>
-                      <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-secondary rounded-lg text-xs">إلغاء</button>
+                      <button onClick={() => handleSaveRole(user.id)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">{t("save")}</button>
+                      <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-secondary rounded-lg text-xs">{t("cancelBtn")}</button>
                     </div>
                   ) : (
                     <>
                       <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${ROLE_COLORS[user.role] ?? ""}`}>
-                        {ROLE_LABELS[user.role] ?? user.role}
+                        {ROLE_LABELS[user.role]?.[lang] ?? user.role}
                       </span>
                       {user.id !== currentUser?.id && (
-                        <button
-                          onClick={() => { setEditingId(user.id); setNewRole(user.role); }}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          تغيير
+                        <button onClick={() => { setEditingId(user.id); setNewRole(user.role); }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                          {t("changeRole")}
                         </button>
                       )}
                     </>
@@ -138,17 +126,17 @@ export default function UsersPage() {
           {auditLoading ? (
             [...Array(5)].map((_, i) => <div key={i} className="h-14 rounded-xl animate-pulse bg-muted" />)
           ) : !auditLogs?.length ? (
-            <p className="text-sm text-muted-foreground">لا توجد سجلات تدقيق بعد</p>
+            <p className="text-sm text-muted-foreground">{t("noAudit")}</p>
           ) : (
             auditLogs.map((log) => (
               <div key={log.id} className="flex items-center gap-3 rounded-xl p-3 bg-card border border-border text-sm">
                 <span className={`font-bold shrink-0 ${ACTION_COLORS[log.action] ?? ""}`}>
-                  {ACTION_LABELS[log.action] ?? log.action}
+                  {ACTION_LABELS[log.action]?.[lang] ?? log.action}
                 </span>
                 <span className="flex-1 truncate text-foreground">{log.description}</span>
                 <span className="text-xs text-muted-foreground shrink-0">{log.userLabel}</span>
                 <span className="text-xs text-muted-foreground shrink-0 font-mono">
-                  {new Date(log.timestamp).toLocaleDateString("ar-SA")}
+                  {new Date(log.timestamp).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
                 </span>
               </div>
             ))
