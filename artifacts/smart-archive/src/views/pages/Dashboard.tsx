@@ -8,7 +8,7 @@ import {
   FileSignature, FileText, CalendarCheck, Mail,
 } from "lucide-react";
 import {
-  PROJECT_STATUS_LABELS,
+  getProjectStatusLabel,
   PROJECT_STATUS_COLORS,
   formatCurrency,
   formatRelativeDate,
@@ -41,7 +41,7 @@ function NeonStat({ value, label, Icon, gradient, glow, border, textColor }: Neo
 }
 
 export default function Dashboard() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { data, isLoading } = useGetDashboard();
 
   if (isLoading) {
@@ -111,7 +111,7 @@ export default function Dashboard() {
                     <p className="text-sm text-muted-foreground truncate">{project.client}</p>
                   </div>
                   <StatusBadge
-                    label={PROJECT_STATUS_LABELS[project.status as ProjectStatus]}
+                    label={getProjectStatusLabel(project.status as ProjectStatus, lang)}
                     colorClass={PROJECT_STATUS_COLORS[project.status as ProjectStatus]}
                   />
                 </div>

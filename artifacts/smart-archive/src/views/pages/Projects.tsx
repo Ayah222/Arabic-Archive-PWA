@@ -9,6 +9,7 @@ import EmptyState from "../components/shared/EmptyState";
 import Toast from "../components/shared/Toast";
 import { useLanguage } from "../../contexts/LanguageContext";
 import {
+  getProjectStatusLabel,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
   formatCurrency,
@@ -45,6 +46,7 @@ const defaultForm: ProjectFormData = {
 
 export default function Projects() {
   const { t, lang } = useLanguage();
+  const statusLabel = (s: ProjectStatus) => getProjectStatusLabel(s, lang);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -141,7 +143,7 @@ export default function Projects() {
         >
           <option value="">{t("allStatuses")}</option>
           {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
+            <option key={s} value={s}>{statusLabel(s)}</option>
           ))}
         </select>
       </div>
@@ -180,7 +182,7 @@ export default function Projects() {
                     <p className="text-sm text-muted-foreground truncate mt-0.5">{project.client}</p>
                   </div>
                   <StatusBadge
-                    label={PROJECT_STATUS_LABELS[project.status as ProjectStatus]}
+                    label={statusLabel(project.status as ProjectStatus)}
                     colorClass={PROJECT_STATUS_COLORS[project.status as ProjectStatus]}
                   />
                 </div>
@@ -296,7 +298,7 @@ function ProjectForm({
           <select value={data.status} onChange={(e) => set("status", e.target.value)}
             className="w-full px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm">
             {(["active", "completed", "on_hold", "cancelled"] as ProjectStatus[]).map((s) => (
-              <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
+              <option key={s} value={s}>{statusLabel(s)}</option>
             ))}
           </select>
         </div>

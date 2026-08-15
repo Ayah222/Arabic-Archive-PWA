@@ -38,7 +38,7 @@ export default function ProgressBar({
       </div>
       {showLabel && (
         <div className="flex justify-between mt-1">
-          <span className="text-xs text-muted-foreground">التقدم</span>
+          <span className="text-xs text-muted-foreground">{typeof window !== "undefined" && document.documentElement.lang === "en" ? "Progress" : "التقدم"}</span>
           <span className="text-xs font-semibold text-foreground">{pct}%</span>
         </div>
       )}

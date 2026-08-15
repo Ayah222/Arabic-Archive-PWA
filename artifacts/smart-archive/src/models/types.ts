@@ -13,6 +13,17 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   cancelled: "ملغي",
 };
 
+export const PROJECT_STATUS_LABELS_EN: Record<ProjectStatus, string> = {
+  active: "Active",
+  completed: "Completed",
+  on_hold: "On Hold",
+  cancelled: "Cancelled",
+};
+
+export function getProjectStatusLabel(status: ProjectStatus, lang: string): string {
+  return lang === "en" ? PROJECT_STATUS_LABELS_EN[status] : PROJECT_STATUS_LABELS[status];
+}
+
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   active: "bg-blue-100 text-blue-800",
   completed: "bg-green-100 text-green-800",
