@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/smart-archive/"
+previewPath = "/"
 title = "أرشيف ذكي - Smart Archive PWA"
 version = "1.0.0"
 id = "artifacts/smart-archive"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/smart-archive/" ]
+paths = [ "/" ]
 localPort = 23813
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "23813"
-BASE_PATH = "/smart-archive/"
+BASE_PATH = "/"

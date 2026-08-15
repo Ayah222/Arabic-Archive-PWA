@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/"
+previewPath = "/arch-archive/"
 title = "نظام إدارة الأرشيف المعماري"
 version = "1.0.0"
 id = "artifacts/arch-archive"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/" ]
+paths = [ "/arch-archive/" ]
 localPort = 18625
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "18625"
-BASE_PATH = "/"
+BASE_PATH = "/arch-archive/"
