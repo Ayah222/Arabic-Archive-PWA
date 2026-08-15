@@ -17,29 +17,26 @@ type Tab = "user" | "admin";
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuthActions();
-  const { lang, toggle } = useLanguage();
+  const { lang, dir, t, toggle } = useLanguage();
   const [tab, setTab] = useState<Tab>("user");
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState<string | null>(null);
 
-  const switchTab = (t: Tab) => {
-    setTab(t);
+  const switchTab = (newTab: Tab) => {
+    setTab(newTab);
     setError(null);
-    if (t === "admin") setForm({ username: "admin", password: "admin123" });
+    if (newTab === "admin") setForm({ username: "admin", password: "admin123" });
     else setForm({ username: "", password: "" });
   };
 
   const handleSubmit = async () => {
     setError(null);
-    if (!form.username.trim() || !form.password.trim()) {
-      setError("يرجى ملء جميع الحقول");
-      return;
-    }
+    if (!form.username.trim() || !form.password.trim()) { setError(t("fillFields")); return; }
     try {
       await login.mutateAsync({ username: form.username, password: form.password });
       navigate("/");
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "حدث خطأ، يرجى المحاولة مجدداً";
+      const msg = e instanceof Error ? e.message : t("errorOccurred");
       try { setError(JSON.parse(msg).error ?? msg); } catch { setError(msg); }
     }
   };
@@ -51,16 +48,15 @@ export default function LoginPage() {
   const inactiveTabStyle: React.CSSProperties = { color: "rgba(255,255,255,0.40)", border: "1px solid transparent" };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" dir="rtl"
+    <div className="min-h-screen flex items-center justify-center p-4 relative" dir={dir}
       style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(18,10,40,1) 0%, rgba(5,4,18,1) 60%)" }}>
       <Aurora />
 
-      {/* Language toggle — Google Translate */}
-      <button
-        onClick={toggle}
+      {/* Language toggle */}
+      <button onClick={toggle}
         className="fixed top-4 left-4 z-50 rounded-xl px-3 h-9 text-xs font-black tracking-wide transition-all hover:scale-105"
         style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", color:"rgba(255,255,255,0.70)" }}>
-        {lang === "ar" ? "EN" : "ع"}
+        {lang === "ar" ? "EN" : "العربية"}
       </button>
 
       <div className="w-full max-w-sm relative z-10 space-y-5">
@@ -71,9 +67,9 @@ export default function LoginPage() {
             <FolderOpen className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">مرحباً بك</h1>
-            <p className="text-sm mt-0.5" style={{ color:"rgba(0,240,255,0.65)" }}>نظام الأرشيف الذكي</p>
-            <p className="text-base font-bold mt-1 text-white/80">تسجيل الدخول</p>
+            <h1 className="text-2xl font-black text-white">{t("welcome")}</h1>
+            <p className="text-sm mt-0.5" style={{ color:"rgba(0,240,255,0.65)" }}>{t("smartSystem")}</p>
+            <p className="text-base font-bold mt-1 text-white/80">{t("loginTitle")}</p>
           </div>
         </div>
 
@@ -86,12 +82,12 @@ export default function LoginPage() {
             <button onClick={() => switchTab("user")}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
               style={tab === "user" ? activeTabStyle : inactiveTabStyle}>
-              موظف
+              {t("employee")}
             </button>
             <button onClick={() => switchTab("admin")}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
               style={tab === "admin" ? activeTabStyle : inactiveTabStyle}>
-              إداري
+              {t("admin")}
             </button>
           </div>
 
@@ -100,8 +96,8 @@ export default function LoginPage() {
             <div className="rounded-xl px-4 py-3 flex items-center justify-between"
               style={{ background:"rgba(0,240,255,0.06)", border:"1px solid rgba(0,240,255,0.18)" }}>
               <div className="text-xs" style={{ color:"rgba(255,255,255,0.50)" }}>
-                <p>اسم المستخدم: <span className="font-mono font-bold text-white">admin</span></p>
-                <p>كلمة المرور: <span className="font-mono font-bold text-white">admin123</span></p>
+                <p>{t("adminUsername")}: <span className="font-mono font-bold text-white">admin</span></p>
+                <p>{t("adminPassword")}: <span className="font-mono font-bold text-white">admin123</span></p>
               </div>
               <span className="text-[10px] font-black px-2 py-1 rounded-full"
                 style={{ background:"rgba(0,240,255,0.12)", color:"#00f0ff", border:"1px solid rgba(0,240,255,0.25)" }}>
@@ -113,14 +109,14 @@ export default function LoginPage() {
           {/* Fields */}
           <div className="space-y-3">
             <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
-              placeholder={tab === "admin" ? "admin" : "البريد الإلكتروني"}
+              placeholder={tab === "admin" ? "admin" : t("emailField")}
               className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
               style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,240,255,0.25)" }}
               dir="ltr"
               onFocus={e => e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.20)"}
               onBlur={e => e.currentTarget.style.boxShadow="none"} />
             <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="كلمة المرور"
+              placeholder={t("passwordField")}
               className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
               style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}
               dir="ltr"
@@ -138,7 +134,7 @@ export default function LoginPage() {
           <button onClick={handleSubmit} disabled={login.isPending}
             className="w-full py-3.5 rounded-xl font-black text-base transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             style={{ background:"linear-gradient(135deg,#00f0ff 0%,#7000ff 100%)", color:"#fff", boxShadow:"0 0 30px rgba(0,240,255,0.35), inset 0 1px 1px rgba(255,255,255,0.20)" }}>
-            {login.isPending ? "جاري الدخول..." : "تسجيل الدخول"}
+            {login.isPending ? t("loggingIn") : t("loginBtn")}
           </button>
         </div>
       </div>
