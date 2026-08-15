@@ -293,7 +293,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               title={lang === "ar" ? "Switch to English" : "التبديل للعربية"}
               className="rounded-xl h-9 md:h-10 px-2.5 flex items-center justify-center text-xs font-black tracking-wide transition-all hover:scale-105"
               style={btnStyle}>
-              {lang === "ar" ? "EN" : "العربية"}
+              {lang === "ar" ? "EN" : "ع"}
             </button>
 
             {/* Theme toggle */}
