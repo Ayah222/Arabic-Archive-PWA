@@ -17,7 +17,7 @@ type Tab = "user" | "admin";
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuthActions();
-  const { lang, dir, toggle } = useLanguage();
+  const { lang, toggle } = useLanguage();
   const [tab, setTab] = useState<Tab>("user");
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState<string | null>(null);
@@ -25,11 +25,8 @@ export default function LoginPage() {
   const switchTab = (t: Tab) => {
     setTab(t);
     setError(null);
-    if (t === "admin") {
-      setForm({ username: "admin", password: "admin123" });
-    } else {
-      setForm({ username: "", password: "" });
-    }
+    if (t === "admin") setForm({ username: "admin", password: "admin123" });
+    else setForm({ username: "", password: "" });
   };
 
   const handleSubmit = async () => {
@@ -49,22 +46,16 @@ export default function LoginPage() {
 
   const activeTabStyle: React.CSSProperties = {
     background: "linear-gradient(135deg,rgba(0,240,255,0.18),rgba(112,0,255,0.18))",
-    color: "#00f0ff",
-    border: "1px solid rgba(0,240,255,0.30)",
-    boxShadow: "0 0 16px rgba(0,240,255,0.15)",
+    color: "#00f0ff", border: "1px solid rgba(0,240,255,0.30)", boxShadow: "0 0 16px rgba(0,240,255,0.15)",
   };
-
-  const inactiveTabStyle: React.CSSProperties = {
-    color: "rgba(255,255,255,0.40)",
-    border: "1px solid transparent",
-  };
+  const inactiveTabStyle: React.CSSProperties = { color: "rgba(255,255,255,0.40)", border: "1px solid transparent" };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" dir={dir}
+    <div className="min-h-screen flex items-center justify-center p-4 relative" dir="rtl"
       style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(18,10,40,1) 0%, rgba(5,4,18,1) 60%)" }}>
       <Aurora />
 
-      {/* Language toggle — top corner */}
+      {/* Language toggle — Google Translate */}
       <button
         onClick={toggle}
         className="fixed top-4 left-4 z-50 rounded-xl px-3 h-9 text-xs font-black tracking-wide transition-all hover:scale-105"
@@ -73,7 +64,6 @@ export default function LoginPage() {
       </button>
 
       <div className="w-full max-w-sm relative z-10 space-y-5">
-
         {/* Brand */}
         <div className="text-center space-y-3">
           <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center"
@@ -93,14 +83,12 @@ export default function LoginPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 p-1 rounded-xl" style={{ background:"rgba(255,255,255,0.06)" }}>
-            <button
-              onClick={() => switchTab("user")}
+            <button onClick={() => switchTab("user")}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
               style={tab === "user" ? activeTabStyle : inactiveTabStyle}>
               موظف
             </button>
-            <button
-              onClick={() => switchTab("admin")}
+            <button onClick={() => switchTab("admin")}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
               style={tab === "admin" ? activeTabStyle : inactiveTabStyle}>
               إداري
@@ -124,28 +112,21 @@ export default function LoginPage() {
 
           {/* Fields */}
           <div className="space-y-3">
-            <input
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
               placeholder={tab === "admin" ? "admin" : "البريد الإلكتروني"}
               className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
               style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,240,255,0.25)" }}
               dir="ltr"
               onFocus={e => e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.20)"}
-              onBlur={e => e.currentTarget.style.boxShadow="none"}
-            />
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onBlur={e => e.currentTarget.style.boxShadow="none"} />
+            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="كلمة المرور"
               className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
               style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}
               dir="ltr"
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               onFocus={e => { e.currentTarget.style.border="1px solid rgba(0,240,255,0.30)"; e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.15)"; }}
-              onBlur={e => { e.currentTarget.style.border="1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow="none"; }}
-            />
+              onBlur={e => { e.currentTarget.style.border="1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow="none"; }} />
           </div>
 
           {error && (
@@ -154,9 +135,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
-            onClick={handleSubmit}
-            disabled={login.isPending}
+          <button onClick={handleSubmit} disabled={login.isPending}
             className="w-full py-3.5 rounded-xl font-black text-base transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             style={{ background:"linear-gradient(135deg,#00f0ff 0%,#7000ff 100%)", color:"#fff", boxShadow:"0 0 30px rgba(0,240,255,0.35), inset 0 1px 1px rgba(255,255,255,0.20)" }}>
             {login.isPending ? "جاري الدخول..." : "تسجيل الدخول"}

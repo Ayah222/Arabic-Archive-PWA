@@ -1,94 +1,54 @@
+/**
+ * Google Translate–powered language toggle.
+ * No manual translations needed — GT handles everything automatically.
+ */
 import { createContext, useContext, useState, useEffect } from "react";
 
 export type Lang = "ar" | "en";
 
-const translations = {
-  ar: {
-    // Nav
-    dashboard: "لوحة التحكم",
-    projects: "المشاريع",
-    contracts: "العقود",
-    contractors: "المقاولون",
-    meetings: "الاجتماعات",
-    letters: "الخطابات والمراسلات",
-    finance: "الأرشيف المالي",
-    search: "البحث الموحد",
-    notifications: "الإشعارات",
-    reports: "التقارير",
-    faq: "الأسئلة الشائعة",
-    users: "المستخدمون",
-    system: "النظام",
-    // Header
-    alerts: "التنبيهات",
-    showAll: "إظهار جميع الإشعارات",
-    markAllRead: "تحديد الكل",
-    noNotifications: "لا توجد إشعارات",
-    addNew: "إضافة جديد",
-    logout: "خروج",
-    // Sidebar
-    appName: "أرشيف ذكي",
-    appSub: "إدارة المشاريع",
-  },
-  en: {
-    // Nav
-    dashboard: "Dashboard",
-    projects: "Projects",
-    contracts: "Contracts",
-    contractors: "Contractors",
-    meetings: "Meetings",
-    letters: "Letters & Correspondence",
-    finance: "Financial Archive",
-    search: "Unified Search",
-    notifications: "Notifications",
-    reports: "Reports",
-    faq: "FAQ",
-    users: "Users",
-    system: "System",
-    // Header
-    alerts: "Notifications",
-    showAll: "Show all notifications",
-    markAllRead: "Mark all read",
-    noNotifications: "No notifications",
-    addNew: "Add new",
-    logout: "Logout",
-    // Sidebar
-    appName: "Smart Archive",
-    appSub: "Project Management",
-  },
-} as const;
-
-type Keys = keyof typeof translations.ar;
-
 interface LangCtx {
   lang: Lang;
   dir: "rtl" | "ltr";
-  t: (k: Keys) => string;
   toggle: () => void;
 }
 
-const Ctx = createContext<LangCtx>({
-  lang: "ar", dir: "rtl",
-  t: (k) => translations.ar[k],
-  toggle: () => {},
-});
+const Ctx = createContext<LangCtx>({ lang: "ar", dir: "rtl", toggle: () => {} });
+
+function getCurrentLang(): Lang {
+  // Google Translate sets a cookie like: googtrans=/ar/en
+  return document.cookie.includes("googtrans=/ar/en") ? "en" : "ar";
+}
+
+function setGoogCookie(value: string) {
+  document.cookie = `googtrans=${value}; path=/`;
+  document.cookie = `googtrans=${value}; path=/; domain=.${location.hostname}`;
+}
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() =>
-    (sessionStorage.getItem("lang") as Lang) ?? "ar"
-  );
+  const [lang, setLang] = useState<Lang>(getCurrentLang);
+  const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
 
-  const dir = lang === "ar" ? "rtl" : "ltr";
-
+  // Keep html dir in sync
   useEffect(() => {
-    sessionStorage.setItem("lang", lang);
     document.documentElement.setAttribute("dir", dir);
     document.documentElement.setAttribute("lang", lang);
   }, [lang, dir]);
 
-  const toggle = () => setLang(l => l === "ar" ? "en" : "ar");
-  const t = (k: Keys) => translations[lang][k];
+  const toggle = () => {
+    if (lang === "ar") {
+      // Translate to English
+      setGoogCookie("/ar/en");
+      window.location.reload();
+    } else {
+      // Restore to Arabic
+      const past = new Date(0).toUTCString();
+      document.cookie = `googtrans=; path=/; expires=${past}`;
+      document.cookie = `googtrans=; path=/; domain=.${location.hostname}; expires=${past}`;
+      window.location.reload();
+    }
+  };
 
-  return <Ctx.Provider value={{ lang, dir, t, toggle }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ lang, dir, toggle }}>{children}</Ctx.Provider>;
 }
 
 export const useLanguage = () => useContext(Ctx);

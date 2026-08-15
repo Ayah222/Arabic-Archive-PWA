@@ -29,19 +29,19 @@ const LightAurora = () => (
   </div>
 );
 
-const NAV_KEYS = [
-  { to: "/",              key: "dashboard"     as const, Icon: LayoutDashboard },
-  { to: "/projects",      key: "projects"      as const, Icon: FolderOpen       },
-  { to: "/contracts",     key: "contracts"     as const, Icon: FileSignature    },
-  { to: "/contractors",   key: "contractors"   as const, Icon: HardHat          },
-  { to: "/meetings",      key: "meetings"      as const, Icon: CalendarCheck    },
-  { to: "/letters",       key: "letters"       as const, Icon: Mail             },
-  { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
-  { to: "/search",        key: "search"        as const, Icon: Search           },
-  { to: "/notifications", key: "notifications" as const, Icon: Bell             },
-  { to: "/reports",       key: "reports"       as const, Icon: BarChart2        },
-  { to: "/faq",           key: "faq"           as const, Icon: HelpCircle       },
-  { to: "/users",         key: "users"         as const, Icon: Users            },
+const navItems = [
+  { to: "/",              label: "لوحة التحكم",         Icon: LayoutDashboard },
+  { to: "/projects",      label: "المشاريع",             Icon: FolderOpen       },
+  { to: "/contracts",     label: "العقود",               Icon: FileSignature    },
+  { to: "/contractors",   label: "المقاولون",            Icon: HardHat          },
+  { to: "/meetings",      label: "الاجتماعات",           Icon: CalendarCheck    },
+  { to: "/letters",       label: "الخطابات والمراسلات",  Icon: Mail             },
+  { to: "/finance",       label: "الأرشيف المالي",       Icon: Wallet           },
+  { to: "/search",        label: "البحث الموحد",         Icon: Search           },
+  { to: "/notifications", label: "الإشعارات",           Icon: Bell             },
+  { to: "/reports",       label: "التقارير",             Icon: BarChart2        },
+  { to: "/faq",           label: "الأسئلة الشائعة",     Icon: HelpCircle       },
+  { to: "/users",         label: "المستخدمون",           Icon: Users            },
 ];
 
 interface MainLayoutProps { children: React.ReactNode; }
@@ -52,8 +52,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const { logout } = useAuthActions();
   const currentUser = getCurrentUser();
-  const { lang, dir, t, toggle } = useLanguage();
-  const navItems = NAV_KEYS.map(n => ({ ...n, label: t(n.key) }));
+  const { lang, dir, toggle } = useLanguage();
   const [isDark, setIsDark]       = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bellOpen, setBellOpen]   = useState(false);
@@ -99,7 +98,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)",
   };
 
-  const currentLabel = navItems.find(i => isActive(i.to))?.label ?? t("system");
+  const currentLabel = navItems.find(i => isActive(i.to))?.label ?? "النظام";
 
   return (
     <div className="min-h-screen text-foreground flex rtl relative" dir={dir}>
@@ -134,8 +133,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <FolderOpen className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-sm leading-tight whitespace-nowrap overflow-hidden" style={{ color: isDark ? "#ffffff" : "#1e1b4b" }}>{t("appName")}</h1>
-            <p className="text-[10px] mt-0.5 font-medium" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "rgba(99,102,241,0.70)" }}>{t("appSub")}</p>
+            <h1 className="font-bold text-sm leading-tight whitespace-nowrap overflow-hidden" style={{ color: isDark ? "#ffffff" : "#1e1b4b" }}>أرشيف ذكي</h1>
+            <p className="text-[10px] mt-0.5 font-medium" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "rgba(99,102,241,0.70)" }}>نظام إدارة الأرشيف</p>
           </div>
           <button className="md:hidden p-1 rounded-lg" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "#6b7280" }} onClick={() => setSidebarOpen(false)}>
             <X className="w-4 h-4" />
@@ -232,7 +231,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     style={{ borderBottom: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(99,102,241,0.09)" }}>
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4" style={{ color: isDark ? "#ff4da6" : "#be185d" }} />
-                      <span className="text-sm font-bold" style={{ color: isDark ? "#fff" : "#1e1b4b" }}>{t("alerts")}</span>
+                      <span className="text-sm font-bold" style={{ color: isDark ? "#fff" : "#1e1b4b" }}>الإشعارات</span>
                       {unreadCount > 0 && (
                         <span className="text-xs font-black px-1.5 py-0.5 rounded-full"
                           style={{ background: isDark ? "rgba(255,0,128,0.14)" : "rgba(236,72,153,0.10)", color: isDark ? "#ff4da6" : "#be185d", border: isDark ? "1px solid rgba(255,0,128,0.25)" : "1px solid rgba(236,72,153,0.22)" }}>
@@ -242,7 +241,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     </div>
                     {unreadCount > 0 && (
                       <button onClick={markAllRead} className="flex items-center gap-1 text-xs font-bold transition-opacity hover:opacity-70" style={{ color: isDark ? "#00f0ff" : "#6366f1" }}>
-                        <CheckCheck className="w-3.5 h-3.5" />{t("markAllRead")}
+                        <CheckCheck className="w-3.5 h-3.5" />تحديد الكل مقروء
                       </button>
                     )}
                   </div>
@@ -250,7 +249,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     {notifications.length === 0 ? (
                       <div className="py-12 text-center">
                         <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: isDark ? "#00f0ff" : "#6366f1" }} />
-                        <p className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.35)" : "#9ca3af" }}>{t("noNotifications")}</p>
+                        <p className="text-xs" style={{ color: isDark ? "rgba(255,255,255,0.35)" : "#9ca3af" }}>لا توجد إشعارات</p>
                       </div>
                     ) : notifications.slice(0, 10).map(n => {
                       const Icon = n.priority === "high" ? ShieldAlert : n.priority === "medium" ? AlertTriangle : Info;
@@ -281,7 +280,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     <Link to="/notifications" onClick={() => setBellOpen(false)}
                       className="flex items-center justify-center gap-1.5 text-xs font-bold py-1.5 rounded-xl w-full transition-all hover:opacity-80"
                       style={{ color: isDark ? "#00f0ff" : "#6366f1", background: isDark ? "rgba(0,240,255,0.06)" : "rgba(99,102,241,0.06)", border: isDark ? "1px solid rgba(0,240,255,0.15)" : "1px solid rgba(99,102,241,0.15)" }}>
-                      {t("showAll")}
+                      عرض الكل
                     </Link>
                   </div>
                 </div>
