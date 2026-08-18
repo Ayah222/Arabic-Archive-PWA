@@ -18,6 +18,7 @@ import ReportsPage from "./views/pages/Reports";
 import FAQPage from "./views/pages/FAQ";
 import LoginPage from "./views/pages/Login";
 import UsersPage from "./views/pages/Users";
+import AcceptInvite from "./views/pages/AcceptInvite";
 import OnboardingTour from "./views/components/shared/OnboardingTour";
 
 const BASE = import.meta.env.BASE_URL;
@@ -38,8 +39,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
         <Routes>
-          {/* Login page — no layout */}
+          {/* Public pages — no layout, no auth */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
 
           {/* All other pages — protected */}
           <Route path="/*" element={
