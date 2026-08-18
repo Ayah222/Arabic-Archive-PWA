@@ -294,6 +294,11 @@
   filter: saturate(0.45) brightness(0.88) !important;
 }
 
+/* أرقام البطاقات الإحصائية */
+.liquid-glass-card p[style] {
+  filter: saturate(0.45) brightness(0.82) !important;
+}
+
 /* شريط التقدم */
 .dark .bg-green-500  { background-color: #2e7a50 !important; }
 .dark .bg-yellow-500 { background-color: #8a6d1a !important; }
