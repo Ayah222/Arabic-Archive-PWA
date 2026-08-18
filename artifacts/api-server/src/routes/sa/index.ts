@@ -19,6 +19,7 @@ import photosRouter from "./photos";
 import attachmentsRouter from "./attachments";
 import categoriesRouter from "./categories";
 import inviteRouter from "./invite";
+import profilesRouter from "./profiles";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(photosRouter);
 router.use(attachmentsRouter);
 router.use(categoriesRouter);
 router.use(inviteRouter);
+router.use(profilesRouter);
 
 export default router;

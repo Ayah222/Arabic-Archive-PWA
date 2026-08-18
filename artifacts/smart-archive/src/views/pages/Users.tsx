@@ -1,19 +1,30 @@
-import { useState } from "react";
-import { useUsers, useAuthActions, useAuditLog, getCurrentUser } from "../../controllers/useGlobal";
+import { useState, useEffect, useCallback } from "react";
+import { useAuditLog, getCurrentUser } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api/sa";
 
+interface Profile {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
 const ROLE_LABELS: Record<string, { ar: string; en: string }> = {
-  admin:      { ar: "مدير",           en: "Admin" },
-  data_entry: { ar: "موظف إدخال",     en: "Data Entry" },
-  viewer:     { ar: "عرض فقط",        en: "Viewer" },
+  super_admin: { ar: "سوبر أدمن",    en: "Super Admin" },
+  admin:       { ar: "مدير",          en: "Admin" },
+  employee:    { ar: "موظف",          en: "Employee" },
 };
 
-const ROLE_COLORS: Record<string, string> = {
-  admin:      "text-cyan-400 bg-cyan-400/10 border-cyan-400/25",
-  data_entry: "text-purple-400 bg-purple-400/10 border-purple-400/25",
-  viewer:     "text-muted-foreground bg-muted border-border",
+const STATUS_COLORS: Record<string, string> = {
+  active:  "text-green-600 bg-green-500/10 border-green-500/25",
+  pending: "text-yellow-600 bg-yellow-500/10 border-yellow-500/25",
+};
+
+const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
+  active:  { ar: "نشط",              en: "Active" },
+  pending: { ar: "بانتظار الموافقة", en: "Pending" },
 };
 
 const ACTION_LABELS: Record<string, { ar: string; en: string }> = {
@@ -29,18 +40,30 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
-  const { t, lang } = useLanguage();
+  const { lang } = useLanguage();
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === "admin";
 
-  const { data: users, isLoading: usersLoading } = useUsers();
   const { data: auditLogs, isLoading: auditLoading } = useAuditLog(undefined, 100);
-  const { changeRole } = useAuthActions();
   const [tab, setTab] = useState<"users" | "audit">("users");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newRole, setNewRole] = useState<string>("");
 
-  // Invite modal state
+  // Profiles from Supabase
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
+
+  const fetchProfiles = useCallback(async () => {
+    setProfilesLoading(true);
+    try {
+      const res = await fetch(`${API}/profiles`);
+      const data = await res.json();
+      setProfiles(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+    setProfilesLoading(false);
+  }, []);
+
+  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+
+  // Invite modal
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("employee");
@@ -69,25 +92,40 @@ export default function UsersPage() {
     }
   };
 
-  const handleSaveRole = async (userId: string) => {
+  // Update profile (role or status)
+  const updateProfile = async (id: string, updates: Partial<Pick<Profile, "role" | "status">>) => {
+    const res = await fetch(`${API}/profiles/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      const updated: Profile = await res.json();
+      setProfiles(prev => prev.map(p => p.id === id ? updated : p));
+    }
+  };
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newRole, setNewRole] = useState("");
+
+  const handleSaveRole = async (id: string) => {
     if (!newRole) return;
-    try {
-      await changeRole.mutateAsync({ id: userId, role: newRole });
-      setEditingId(null);
-    } catch { /* ignore */ }
+    await updateProfile(id, { role: newRole });
+    setEditingId(null);
   };
 
   if (!isAdmin) {
     return (
       <div className="p-8 flex flex-col items-center justify-center h-64 text-muted-foreground">
         <p className="text-4xl mb-3">🔒</p>
-        <p>{t("adminOnly")}</p>
+        <p>هذه الصفحة للمسؤولين فقط</p>
       </div>
     );
   }
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
+
       {/* Invite Modal */}
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setInviteOpen(false)}>
@@ -124,68 +162,88 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("users")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t("usersSub")}</p>
+          <h1 className="text-2xl font-bold text-foreground">إدارة المستخدمين</h1>
+          <p className="text-sm text-muted-foreground mt-1">تفعيل الحسابات وضبط الصلاحيات</p>
         </div>
         <button onClick={() => setInviteOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
-          <span>+</span> دعوة مستخدم
+          + دعوة مستخدم
         </button>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-2">
         <button onClick={() => setTab("users")}
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === "users" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>
-          {t("usersTab")}
+          المستخدمون
         </button>
         <button onClick={() => setTab("audit")}
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === "audit" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>
-          {t("auditTab")}
+          سجل النشاط
         </button>
       </div>
 
+      {/* Users Table */}
       {tab === "users" && (
         <div className="space-y-3">
-          {usersLoading ? (
+          {profilesLoading ? (
             [...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-2xl animate-pulse bg-muted" />)
+          ) : profiles.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">لا يوجد مستخدمون حتى الآن</p>
           ) : (
-            users?.map((user) => (
-              <div key={user.id} className="liquid-glass-card rounded-2xl p-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-secondary">
-                    {user.name.charAt(0)}
+            profiles.map((profile) => (
+              <div key={profile.id} className="liquid-glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+                {/* Info */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-secondary shrink-0">
+                    {profile.email.charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <p className="font-semibold text-sm">{user.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{user.username}</p>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{profile.email}</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border mt-0.5 inline-block ${STATUS_COLORS[profile.status] ?? "bg-muted text-muted-foreground border-border"}`}>
+                      {STATUS_LABELS[profile.status]?.[lang] ?? profile.status}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {editingId === user.id ? (
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Role */}
+                  {editingId === profile.id ? (
                     <div className="flex items-center gap-2">
                       <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
                         className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="employee">{ROLE_LABELS.employee[lang]}</option>
                         <option value="admin">{ROLE_LABELS.admin[lang]}</option>
-                        <option value="data_entry">{ROLE_LABELS.data_entry[lang]}</option>
-                        <option value="viewer">{ROLE_LABELS.viewer[lang]}</option>
+                        <option value="super_admin">{ROLE_LABELS.super_admin[lang]}</option>
                       </select>
-                      <button onClick={() => handleSaveRole(user.id)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">{t("save")}</button>
-                      <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-secondary rounded-lg text-xs">{t("cancelBtn")}</button>
+                      <button onClick={() => handleSaveRole(profile.id)}
+                        className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">حفظ</button>
+                      <button onClick={() => setEditingId(null)}
+                        className="px-3 py-1.5 bg-secondary rounded-lg text-xs">إلغاء</button>
                     </div>
                   ) : (
-                    <>
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${ROLE_COLORS[user.role] ?? ""}`}>
-                        {ROLE_LABELS[user.role]?.[lang] ?? user.role}
-                      </span>
-                      {user.id !== currentUser?.id && (
-                        <button onClick={() => { setEditingId(user.id); setNewRole(user.role); }}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          {t("changeRole")}
-                        </button>
-                      )}
-                    </>
+                    <button onClick={() => { setEditingId(profile.id); setNewRole(profile.role); }}
+                      className="text-xs px-2.5 py-1 rounded-full border font-semibold text-muted-foreground border-border hover:text-foreground transition-colors">
+                      {ROLE_LABELS[profile.role]?.[lang] ?? profile.role} ✏️
+                    </button>
+                  )}
+
+                  {/* Approve / Suspend */}
+                  {profile.status === "pending" && (
+                    <button onClick={() => updateProfile(profile.id, { status: "active" })}
+                      className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors">
+                      ✅ تفعيل
+                    </button>
+                  )}
+                  {profile.status === "active" && (
+                    <button onClick={() => updateProfile(profile.id, { status: "pending" })}
+                      className="px-3 py-1.5 bg-yellow-500/20 text-yellow-600 border border-yellow-500/30 rounded-lg text-xs font-semibold hover:bg-yellow-500/30 transition-colors">
+                      🧊 تجميد
+                    </button>
                   )}
                 </div>
               </div>
@@ -194,12 +252,13 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Audit Log */}
       {tab === "audit" && (
         <div className="space-y-2">
           {auditLoading ? (
             [...Array(5)].map((_, i) => <div key={i} className="h-14 rounded-xl animate-pulse bg-muted" />)
           ) : !auditLogs?.length ? (
-            <p className="text-sm text-muted-foreground">{t("noAudit")}</p>
+            <p className="text-sm text-muted-foreground">لا يوجد سجل نشاط</p>
           ) : (
             auditLogs.map((log) => (
               <div key={log.id} className="flex items-center gap-3 rounded-xl p-3 bg-card border border-border text-sm">
