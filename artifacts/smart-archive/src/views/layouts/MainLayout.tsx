@@ -89,8 +89,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const isActive = (to: string) => to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
 
   const activeStyle: React.CSSProperties = isDark
-    ? { background:"rgba(0,240,255,0.06)", border:"1px solid rgba(0,240,255,0.70)", boxShadow:"0 0 0 1px rgba(0,240,255,0.12), 0 0 20px rgba(0,240,255,0.28), inset 0 1px 1px rgba(0,240,255,0.10)", color:"#00f0ff" }
-    : { background:"rgba(99,102,241,0.10)", border:"1px solid rgba(99,102,241,0.55)", boxShadow:"0 0 0 1px rgba(99,102,241,0.12), 0 4px 16px rgba(99,102,241,0.22), inset 0 1px 2px rgba(255,255,255,0.50)", color:"#4338ca" };
+    ? { background:"rgba(0,200,220,0.05)", border:"1px solid rgba(0,200,220,0.35)", boxShadow:"0 0 0 1px rgba(0,200,220,0.07), 0 0 10px rgba(0,200,220,0.12), inset 0 1px 1px rgba(0,200,220,0.05)", color:"rgba(0,210,230,0.72)" }
+    : { background:"rgba(99,102,241,0.08)", border:"1px solid rgba(99,102,241,0.38)", boxShadow:"0 0 0 1px rgba(99,102,241,0.07), 0 4px 10px rgba(99,102,241,0.12), inset 0 1px 2px rgba(255,255,255,0.35)", color:"#5b5fba" };
 
   const btnStyle: React.CSSProperties = {
     color: isDark ? "rgba(255,255,255,0.70)" : "#6b7280",
@@ -160,7 +160,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   <span className="whitespace-nowrap relative z-10 text-sm font-bold flex-1">{label}</span>
                   {to === "/notifications" && unreadCount > 0 && (
                     <span className="text-xs font-black px-1.5 py-0.5 rounded-full shrink-0 relative z-10"
-                      style={{ background: isDark ? "rgba(255,0,128,0.14)" : "rgba(236,72,153,0.10)", color: isDark ? "#ff4da6" : "#be185d", border: isDark ? "1px solid rgba(255,0,128,0.25)" : "1px solid rgba(236,72,153,0.22)" }}>
+                      style={{ background: isDark ? "rgba(200,80,130,0.12)" : "rgba(200,80,130,0.09)", color: isDark ? "rgba(210,100,150,0.85)" : "#9d3f6e", border: isDark ? "1px solid rgba(200,80,130,0.22)" : "1px solid rgba(200,80,130,0.18)" }}>
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
@@ -171,7 +171,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     onClick={() => { setSidebarOpen(false); navigate(`${to}?add=1`); }}
                     title={`إضافة جديد`}
                     className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 opacity-0 group-hover/row:opacity-100 transition-all duration-200 hover:scale-110"
-                    style={{ background: isDark ? "rgba(0,240,255,0.12)" : "rgba(99,102,241,0.12)", color: isDark ? "#00f0ff" : "#6366f1", border: isDark ? "1px solid rgba(0,240,255,0.25)" : "1px solid rgba(99,102,241,0.25)" }}>
+                    style={{ background: isDark ? "rgba(0,200,220,0.08)" : "rgba(99,102,241,0.08)", color: isDark ? "rgba(0,210,230,0.70)" : "#6366f1", border: isDark ? "1px solid rgba(0,200,220,0.18)" : "1px solid rgba(99,102,241,0.18)" }}>
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 )}
