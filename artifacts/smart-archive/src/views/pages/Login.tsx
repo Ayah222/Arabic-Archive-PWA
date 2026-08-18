@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthActions } from "../../controllers/useGlobal";
+import { useAuthActions, setCurrentUser } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { supabase } from "../../lib/supabase";
 import { FolderOpen } from "lucide-react";
 
 const Aurora = () => (
@@ -21,25 +22,74 @@ export default function LoginPage() {
   const [tab, setTab] = useState<Tab>("user");
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [pendingBlocked, setPendingBlocked] = useState(false);
 
   const switchTab = (newTab: Tab) => {
     setTab(newTab);
     setError(null);
-    if (newTab === "admin") setForm({ username: "admin", password: "admin123" });
-    else setForm({ username: "", password: "" });
+    setPendingBlocked(false);
+    setForm({ username: "", password: "" });
   };
 
   const handleSubmit = async () => {
     setError(null);
+    setPendingBlocked(false);
     if (!form.username.trim() || !form.password.trim()) { setError(t("fillFields")); return; }
+
+    // ── Admin side: local API ──
+    if (tab === "admin") {
+      try {
+        await login.mutateAsync({ username: form.username, password: form.password });
+        navigate("/");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : t("errorOccurred");
+        try { setError(JSON.parse(msg).error ?? msg); } catch { setError(msg); }
+      }
+      return;
+    }
+
+    // ── Employee side: Supabase Auth ──
+    setLoading(true);
     try {
-      await login.mutateAsync({ username: form.username, password: form.password });
+      const { data, error: authErr } = await supabase.auth.signInWithPassword({
+        email: form.username.trim(),
+        password: form.password,
+      });
+      if (authErr) throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+
+      // Fetch profile to check status & role
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("id, email, role, status")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profileErr || !profile) throw new Error("تعذّر تحميل بيانات الحساب");
+
+      if (profile.status === "pending") {
+        await supabase.auth.signOut();
+        setPendingBlocked(true);
+        setLoading(false);
+        return;
+      }
+
+      // Store user in session and navigate
+      setCurrentUser({
+        id: profile.id,
+        username: profile.email,
+        name: profile.email.split("@")[0],
+        role: profile.role as any,
+      });
       navigate("/");
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t("errorOccurred");
-      try { setError(JSON.parse(msg).error ?? msg); } catch { setError(msg); }
+      setError(e instanceof Error ? e.message : t("errorOccurred"));
+    } finally {
+      setLoading(false);
     }
   };
+
+  const isLoading = tab === "admin" ? login.isPending : loading;
 
   const activeTabStyle: React.CSSProperties = {
     background: "linear-gradient(135deg,rgba(0,240,255,0.18),rgba(112,0,255,0.18))",
@@ -91,18 +141,13 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Admin hint */}
-          {tab === "admin" && (
-            <div className="rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ background:"rgba(0,240,255,0.06)", border:"1px solid rgba(0,240,255,0.18)" }}>
-              <div className="text-xs" style={{ color:"rgba(255,255,255,0.50)" }}>
-                <p>{t("adminUsername")}: <span className="font-mono font-bold text-white">admin</span></p>
-                <p>{t("adminPassword")}: <span className="font-mono font-bold text-white">admin123</span></p>
-              </div>
-              <span className="text-[10px] font-black px-2 py-1 rounded-full"
-                style={{ background:"rgba(0,240,255,0.12)", color:"#00f0ff", border:"1px solid rgba(0,240,255,0.25)" }}>
-                Super Admin
-              </span>
+          {/* Pending blocked */}
+          {pendingBlocked && (
+            <div className="rounded-xl px-4 py-4 text-center space-y-1"
+              style={{ background:"rgba(255,200,0,0.07)", border:"1px solid rgba(255,200,0,0.25)" }}>
+              <p className="text-2xl">🧊</p>
+              <p className="text-sm font-bold" style={{ color:"#f5c518" }}>حسابك بانتظار موافقة المدير</p>
+              <p className="text-xs" style={{ color:"rgba(255,255,255,0.45)" }}>سيتم إشعارك فور التفعيل</p>
             </div>
           )}
 
@@ -131,10 +176,10 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button onClick={handleSubmit} disabled={login.isPending}
+          <button onClick={handleSubmit} disabled={isLoading}
             className="w-full py-3.5 rounded-xl font-black text-base transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             style={{ background:"linear-gradient(135deg,#00f0ff 0%,#7000ff 100%)", color:"#fff", boxShadow:"0 0 30px rgba(0,240,255,0.35), inset 0 1px 1px rgba(255,255,255,0.20)" }}>
-            {login.isPending ? t("loggingIn") : t("loginBtn")}
+            {isLoading ? t("loggingIn") : t("loginBtn")}
           </button>
         </div>
       </div>
