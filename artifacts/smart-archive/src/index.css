@@ -290,6 +290,9 @@
 .dark .liquid-glass-card .shrink-0[style] {
   filter: saturate(0.55) brightness(0.80) !important;
 }
+.liquid-glass-card .shrink-0[style] {
+  filter: saturate(0.45) brightness(0.88) !important;
+}
 
 /* شريط التقدم */
 .dark .bg-green-500  { background-color: #2e7a50 !important; }
