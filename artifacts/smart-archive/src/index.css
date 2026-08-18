@@ -301,10 +301,11 @@
 
 /* شريط التقدم */
 .dark .bg-green-500  { background-color: #2e7a50 !important; }
-.dark .bg-yellow-500 { background-color: #8a6d1a !important; }
+.dark .bg-yellow-500 { background-color: #9a9820 !important; }
 .dark .bg-red-500    { background-color: #7a2929 !important; }
-.dark .bg-primary    { background-color: hsl(187 60% 38%) !important; }
+.dark .bg-primary    { background-color: #8a6ec8 !important; }
 
 .bg-green-500  { background-color: #4a9e6e !important; }
-.bg-yellow-500 { background-color: #b08a30 !important; }
+.bg-yellow-500 { background-color: #c4c230 !important; }
 .bg-red-500    { background-color: #9e4040 !important; }
+.bg-primary    { background-color: #a889d8 !important; }
