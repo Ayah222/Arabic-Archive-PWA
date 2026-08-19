@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-router.post("/invite", async (req, res) => {
+router.post("/sa/invite", async (req, res) => {
   const { email, role } = req.body as { email: string; role: string };
 
   if (!email) return res.status(400).json({ error: "email required" });
