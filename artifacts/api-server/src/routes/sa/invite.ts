@@ -25,9 +25,11 @@ router.post("/sa/invite", async (req, res) => {
   const forwardedProto = Array.isArray(req.headers["x-forwarded-proto"])
     ? req.headers["x-forwarded-proto"][0]
     : req.headers["x-forwarded-proto"];
-  const appOrigin = forwardedHost
-    ? `${forwardedProto ?? "https"}://${forwardedHost}`
-    : req.headers.origin;
+  const replitOrigin = process.env["REPLIT_DEV_DOMAIN"]
+    ? `https://${process.env["REPLIT_DEV_DOMAIN"]}`
+    : undefined;
+  const appOrigin = replitOrigin
+    ?? (forwardedHost ? `${forwardedProto ?? "https"}://${forwardedHost}` : req.headers.origin);
   const redirectTo = appOrigin
     ? `${appOrigin}/accept-invite`
     : undefined;
