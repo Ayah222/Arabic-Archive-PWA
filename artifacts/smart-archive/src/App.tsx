@@ -61,7 +61,7 @@ export default function App() {
                 <Route path="/notifications"  element={<Notifications />} />
                 <Route path="/reports"        element={<ReportsPage />} />
                 <Route path="/faq"            element={<FAQPage />} />
-                <Route path="/users"          element={<UsersPage />} />
+                <Route path="/users"          element={getCurrentUser()?.role === "admin" ? <UsersPage /> : <Navigate to="/" replace />} />
                 <Route path="*"              element={<NotFound />} />
               </Routes>
             </MainLayout>

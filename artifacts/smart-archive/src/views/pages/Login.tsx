@@ -65,9 +65,14 @@ export default function LoginPage() {
         .eq("id", data.user.id)
         .single();
 
-      if (profileErr || !profile) throw new Error("تعذّر تحميل بيانات الحساب");
+      let accountProfile = profile;
+      if (profileErr || !profile) {
+        const fallbackResponse = await fetch(`/api/sa/profiles/${data.user.id}`);
+        accountProfile = fallbackResponse.ok ? await fallbackResponse.json() : null;
+      }
+      if (!accountProfile) throw new Error("تعذّر تحميل بيانات الحساب");
 
-      if (profile.status === "pending") {
+      if (accountProfile.status === "pending") {
         await supabase.auth.signOut();
         setPendingBlocked(true);
         setLoading(false);
@@ -76,10 +81,10 @@ export default function LoginPage() {
 
       // Store user in session and navigate
       setCurrentUser({
-        id: profile.id,
-        username: profile.email,
-        name: profile.email.split("@")[0],
-        role: profile.role as any,
+        id: accountProfile.id,
+        username: accountProfile.email,
+        name: accountProfile.email.split("@")[0],
+        role: accountProfile.role as any,
       });
       navigate("/");
     } catch (e: unknown) {

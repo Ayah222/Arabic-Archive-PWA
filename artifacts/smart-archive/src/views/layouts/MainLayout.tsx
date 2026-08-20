@@ -98,7 +98,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
     border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)",
   };
 
-  const navItems = NAV_KEYS.map(n => ({ ...n, label: t(n.key) }));
+  const navItems = NAV_KEYS
+    .filter(n => n.to !== "/users" || currentUser?.role === "admin")
+    .map(n => ({ ...n, label: t(n.key) }));
   const currentLabel = navItems.find(i => isActive(i.to))?.label ?? t("system");
 
   return (

@@ -22,6 +22,17 @@ router.get("/sa/profiles", async (_req, res) => {
   res.json(data);
 });
 
+// Fallback profile lookup used after a Supabase employee login.
+router.get("/sa/profiles/:id", async (req, res) => {
+  const { data, error } = await adminClient()
+    .from("profiles")
+    .select("id,email,role,status")
+    .eq("id", req.params.id)
+    .single();
+  if (error || !data) return res.status(404).json({ error: "Profile not found" });
+  res.json(data.role === "super_admin" ? { ...data, role: "admin" } : data);
+});
+
 // PATCH /api/sa/profiles/:id  — update role and/or status
 router.patch("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
