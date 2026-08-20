@@ -34,6 +34,21 @@ router.post("/sa/invite", async (req, res) => {
     ? `${appOrigin}/accept-invite`
     : undefined;
 
+  // Re-send a setup link for an existing account that is still awaiting approval.
+  // Recovery links are handled by the same AcceptInvite page and avoid deleting
+  // the existing auth/profile record.
+  const { data: existingProfile } = await admin
+    .from("profiles")
+    .select("id,status")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (existingProfile?.status === "pending") {
+    const { error } = await admin.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json({ success: true, resent: true });
+  }
+
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
     data: { role: role ?? "employee" },
