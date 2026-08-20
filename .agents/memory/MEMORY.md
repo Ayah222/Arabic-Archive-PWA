@@ -1,2 +1,3 @@
 - [Protected files — never edit](protected-files.md) — vite.config, tailwind.config, package.json, postcss.config are off-limits always.
 - [Auth & Login Flow](auth-login-flow.md) — employee uses Supabase email/password; the sole manager uses username/password admin/admin123.
+- [Notification audiences](notification-audiences.md) — administrative approval alerts belong to managers only; employee notifications remain a separate future stream.

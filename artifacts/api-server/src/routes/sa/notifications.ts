@@ -25,6 +25,7 @@ async function syncPendingUserNotifications() {
       title: "طلب تفعيل مستخدم جديد",
       message: `المستخدم ${profile.email} بانتظار الموافقة أو الرفض. ${marker}`,
       type: "warning",
+      audience: "admin",
       scheduledAt: null,
       read: false,
       projectId: null,

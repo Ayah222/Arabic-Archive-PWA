@@ -136,6 +136,7 @@ export interface SANotification {
   title: string;
   message: string;
   type: "reminder" | "info" | "warning" | "success";
+  audience?: "all" | "admin" | "employee";
   scheduledAt: string | null;
   read: boolean;
   projectId: string | null;

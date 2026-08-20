@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useProject } from "../../controllers/useProjects";
 import {
   useContracts,
@@ -47,7 +47,8 @@ const STATIC_TABS: { id: StaticTab; label: string; icon: string }[] = [
 export default function ProjectDetail() {
   const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("contracts");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get("tab") || "contracts");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
