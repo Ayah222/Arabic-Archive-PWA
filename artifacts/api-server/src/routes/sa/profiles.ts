@@ -4,13 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 const router = Router();
 
 function adminClient() {
-  const url = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "";
+  const url = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"] ?? "";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
 // GET /api/sa/profiles  — all profiles
-router.get("/profiles", async (_req, res) => {
+router.get("/sa/profiles", async (_req, res) => {
   const { data, error } = await adminClient()
     .from("profiles")
     .select("*")
@@ -20,7 +20,7 @@ router.get("/profiles", async (_req, res) => {
 });
 
 // PATCH /api/sa/profiles/:id  — update role and/or status
-router.patch("/profiles/:id", async (req, res) => {
+router.patch("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
   const { role, status } = req.body as { role?: string; status?: string };
   const updates: Record<string, string> = {};

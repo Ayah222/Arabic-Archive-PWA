@@ -19,8 +19,17 @@ router.post("/sa/invite", async (req, res) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const redirectTo = req.headers.origin
-    ? `${req.headers.origin}/accept-invite`
+  const forwardedHost = Array.isArray(req.headers["x-forwarded-host"])
+    ? req.headers["x-forwarded-host"][0]
+    : req.headers["x-forwarded-host"];
+  const forwardedProto = Array.isArray(req.headers["x-forwarded-proto"])
+    ? req.headers["x-forwarded-proto"][0]
+    : req.headers["x-forwarded-proto"];
+  const appOrigin = forwardedHost
+    ? `${forwardedProto ?? "https"}://${forwardedHost}`
+    : req.headers.origin;
+  const redirectTo = appOrigin
+    ? `${appOrigin}/accept-invite`
     : undefined;
 
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
