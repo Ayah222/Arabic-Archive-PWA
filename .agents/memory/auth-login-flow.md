@@ -1,6 +1,6 @@
 ---
 name: Auth & Login Flow
-description: How login works for employees vs admin/super-admin in Smart Archive
+description: How employee and manager login works in Smart Archive
 ---
 
 ## Login — Two Sides
@@ -10,18 +10,19 @@ description: How login works for employees vs admin/super-admin in Smart Archive
 - Uses Supabase Auth
 - After login: if `status = pending` → blocked, sees waiting screen. If `status = active` → enters system.
 
-### Admin / Super Admin Side ("جهة داري")
+### Manager Side ("جهة داري")
 - Separate login using **username + password** (not email)
-- Current test credentials: username `Admin`, password `shAdmin123` — **do not change**
-- Super Admin has full control: invite users, approve pending accounts, assign roles
+- Manager credentials: username `admin`, password `admin123`
+- The manager has full control: invite users, approve or reject pending accounts, and assign Manager/Employee roles.
+**Why:** The product uses one clear administrator role; the separate super-admin role is intentionally removed.
 
 ## User Flow (full)
-Invite (by super admin) → Employee receives magic link → `/accept-invite` page → sets password → status = `pending` → Super Admin approves in Users panel → status = `active` → employee can login
+Invite (by manager) → Employee receives magic link → `/accept-invite` page → sets password → status = `pending` → Manager approves or rejects in Users panel → status = `active` → employee can login
 
 ## Profiles Table
 - `id` (ref auth.users), `email`, `role`, `status`
 - Trigger auto-inserts into profiles on new auth.users row with status=`pending`
-- Roles: `super_admin`, `admin`, `employee`
+- Roles: `admin`, `employee`
 
 ## Supabase
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`

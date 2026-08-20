@@ -1,2 +1,2 @@
 - [Protected files — never edit](protected-files.md) — vite.config, tailwind.config, package.json, postcss.config are off-limits always.
-- [Auth & Login Flow](auth-login-flow.md) — two login sides: employee (email+password via Supabase) vs admin (username+password, creds: Admin/shAdmin123 don't change).
+- [Auth & Login Flow](auth-login-flow.md) — employee uses Supabase email/password; the sole manager uses username/password admin/admin123.

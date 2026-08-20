@@ -1,9 +1,40 @@
 import { Router, type IRouter } from "express";
-import { store } from "./store";
+import { createClient } from "@supabase/supabase-js";
+import { newId, store } from "./store";
 
 const router: IRouter = Router();
 
+function adminClient() {
+  const url = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"] ?? "";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+async function syncPendingUserNotifications() {
+  const { data: pendingProfiles } = await adminClient()
+    .from("profiles")
+    .select("id,email")
+    .eq("status", "pending");
+
+  for (const profile of pendingProfiles ?? []) {
+    const marker = `[pending-user:${profile.id}]`;
+    if (store.notifications.some((notification) => notification.message.includes(marker))) continue;
+
+    store.notifications.unshift({
+      id: newId(),
+      title: "طلب تفعيل مستخدم جديد",
+      message: `المستخدم ${profile.email} بانتظار الموافقة أو الرفض. ${marker}`,
+      type: "warning",
+      scheduledAt: null,
+      read: false,
+      projectId: null,
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
+
 router.get("/sa/notifications", async (_req, res): Promise<void> => {
+  await syncPendingUserNotifications();
   res.json(
     [...store.notifications].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

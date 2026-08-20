@@ -12,7 +12,6 @@ interface Profile {
 }
 
 const ROLE_LABELS: Record<string, { ar: string; en: string }> = {
-  super_admin: { ar: "سوبر أدمن",    en: "Super Admin" },
   admin:       { ar: "مدير",          en: "Admin" },
   employee:    { ar: "موظف",          en: "Employee" },
 };
@@ -112,6 +111,13 @@ export default function UsersPage() {
     if (!newRole) return;
     await updateProfile(id, { role: newRole });
     setEditingId(null);
+  };
+
+  const rejectInvitation = async (profile: Profile) => {
+    if (!window.confirm(`سيتم حذف طلب الدعوة وحساب ${profile.email} نهائيًا. هل تريد المتابعة؟`)) return;
+    const res = await fetch(`${API}/profiles/${profile.id}`, { method: "DELETE" });
+    if (!res.ok) return;
+    setProfiles((current) => current.filter((item) => item.id !== profile.id));
   };
 
   if (!isAdmin) {
@@ -218,7 +224,6 @@ export default function UsersPage() {
                         className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="employee">{ROLE_LABELS.employee[lang]}</option>
                         <option value="admin">{ROLE_LABELS.admin[lang]}</option>
-                        <option value="super_admin">{ROLE_LABELS.super_admin[lang]}</option>
                       </select>
                       <button onClick={() => handleSaveRole(profile.id)}
                         className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">حفظ</button>
@@ -234,10 +239,16 @@ export default function UsersPage() {
 
                   {/* Approve / Suspend */}
                   {profile.status === "pending" && (
-                    <button onClick={() => updateProfile(profile.id, { status: "active" })}
-                      className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors">
-                      ✅ تفعيل
-                    </button>
+                    <>
+                      <button onClick={() => updateProfile(profile.id, { status: "active" })}
+                        className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors">
+                        ✅ تفعيل
+                      </button>
+                      <button onClick={() => rejectInvitation(profile)}
+                        className="px-3 py-1.5 bg-red-500/15 text-red-600 border border-red-500/25 rounded-lg text-xs font-semibold hover:bg-red-500/25 transition-colors">
+                        ✖ رفض
+                      </button>
+                    </>
                   )}
                   {profile.status === "active" && (
                     <button onClick={() => updateProfile(profile.id, { status: "pending" })}

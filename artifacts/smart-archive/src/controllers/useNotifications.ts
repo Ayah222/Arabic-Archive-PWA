@@ -7,7 +7,7 @@ import {
 
 export function useNotifications() {
   const qc = useQueryClient();
-  const list = useListNotifications();
+  const list = useListNotifications({ query: { refetchInterval: 15000, refetchOnWindowFocus: true } });
   const markReadMutation = useMarkNotificationRead({
     mutation: {
       onSuccess: () => qc.invalidateQueries({ queryKey: getListNotificationsQueryKey() }),

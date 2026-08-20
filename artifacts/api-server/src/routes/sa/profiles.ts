@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { store } from "./store";
 
 const router = Router();
 
@@ -11,6 +12,8 @@ function adminClient() {
 
 // GET /api/sa/profiles  — all profiles
 router.get("/sa/profiles", async (_req, res) => {
+  await adminClient().from("profiles").update({ role: "admin" }).eq("role", "super_admin");
+
   const { data, error } = await adminClient()
     .from("profiles")
     .select("*")
@@ -23,6 +26,9 @@ router.get("/sa/profiles", async (_req, res) => {
 router.patch("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
   const { role, status } = req.body as { role?: string; status?: string };
+  if (role && !["admin", "employee"].includes(role)) {
+    return res.status(400).json({ error: "role must be admin or employee" });
+  }
   const updates: Record<string, string> = {};
   if (role)   updates.role   = role;
   if (status) updates.status = status;
@@ -34,7 +40,37 @@ router.patch("/sa/profiles/:id", async (req, res) => {
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
+  if (status === "active") {
+    store.notifications = store.notifications.filter(
+      (notification) => !notification.message.includes(`[pending-user:${id}]`),
+    );
+  }
   res.json(data);
+});
+
+// Reject a pending invitation and completely remove the auth account/profile.
+router.delete("/sa/profiles/:id", async (req, res) => {
+  const { id } = req.params;
+  const admin = adminClient();
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id,status")
+    .eq("id", id)
+    .single();
+
+  if (profileError || !profile) return res.status(404).json({ error: "Profile not found" });
+  if (profile.status !== "pending") {
+    return res.status(409).json({ error: "Only pending invitations can be rejected" });
+  }
+
+  const { error: authError } = await admin.auth.admin.deleteUser(id);
+  if (authError) return res.status(400).json({ error: authError.message });
+
+  await admin.from("profiles").delete().eq("id", id);
+  store.notifications = store.notifications.filter(
+    (notification) => !notification.message.includes(`[pending-user:${id}]`),
+  );
+  res.json({ id });
 });
 
 export default router;
