@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useNotifications } from "../../controllers/useNotifications";
+import { getNotificationTarget, useNotifications } from "../../controllers/useNotifications";
 import { useAuthActions, getCurrentUser } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
 import MicrophoneButton from "../components/shared/MicrophoneButton";
@@ -259,7 +259,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       const color = isDark ? "#00f0ff" : "#6366f1";
                       return (
                         <div key={n.id}
-                          onClick={() => { markRead(n.id); setBellOpen(false); navigate("/notifications"); }}
+                          onClick={() => {
+                            if (!n.read) markRead(n.id);
+                            setBellOpen(false);
+                            navigate(getNotificationTarget(n));
+                          }}
                           className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150 hover:opacity-80"
                           style={{ borderBottom: isDark ? "1px solid rgba(255,255,255,0.04)" : "1px solid rgba(99,102,241,0.06)" }}>
                           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"

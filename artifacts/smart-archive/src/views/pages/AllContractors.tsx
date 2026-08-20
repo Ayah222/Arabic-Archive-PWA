@@ -192,7 +192,7 @@ export default function AllContractors() {
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">{c.specialty}</p>
-                  <Link to={`/projects/${c.projectId}`}
+                  <Link to="/contractors"
                     className="text-xs mt-1 flex items-center gap-1 hover:opacity-80 transition-opacity"
                     style={{ color: "#00f0ff" }}>
                     <ExternalLink className="w-3 h-3" />{c.projectName}

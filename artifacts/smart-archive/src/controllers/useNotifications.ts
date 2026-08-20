@@ -5,6 +5,25 @@ import {
   getListNotificationsQueryKey,
 } from "@workspace/api-client-react";
 
+export function getNotificationTarget(notification: {
+  title: string;
+  message: string;
+  projectId?: string | null;
+}) {
+  if (
+    notification.message.includes("[pending-user:") ||
+    notification.title.includes("طلب تفعيل مستخدم")
+  ) {
+    return "/users";
+  }
+
+  if (notification.projectId) {
+    return `/projects/${notification.projectId}`;
+  }
+
+  return "/notifications";
+}
+
 export function useNotifications() {
   const qc = useQueryClient();
   const list = useListNotifications({ query: { refetchInterval: 15000, refetchOnWindowFocus: true } });

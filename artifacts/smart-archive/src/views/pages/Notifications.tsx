@@ -1,4 +1,5 @@
-import { useNotifications } from "../../controllers/useNotifications";
+import { useNavigate } from "react-router-dom";
+import { getNotificationTarget, useNotifications } from "../../controllers/useNotifications";
 import EmptyState from "../components/shared/EmptyState";
 
 const TYPE_ICON: Record<string, string> = {
@@ -36,6 +37,7 @@ function timeAgo(dateStr: string): string {
 
 export default function Notifications() {
   const { notifications, markRead, unreadCount, markAllRead } = useNotifications();
+  const navigate = useNavigate();
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-6">
@@ -76,7 +78,10 @@ export default function Notifications() {
           {notifications.map((n) => (
             <div
               key={n.id}
-              onClick={() => { if (!n.read) markRead(n.id); }}
+              onClick={() => {
+                if (!n.read) markRead(n.id);
+                navigate(getNotificationTarget(n));
+              }}
               className="liquid-glass-card rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:opacity-90"
               style={{
                 opacity: n.read ? 0.60 : 1,
