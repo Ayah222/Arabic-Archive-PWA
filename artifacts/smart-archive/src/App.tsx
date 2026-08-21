@@ -6,6 +6,7 @@ import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
 import Projects from "./views/pages/Projects";
 import ProjectDetail from "./views/pages/ProjectDetail";
+import ProjectReport from "./views/pages/ProjectReport";
 import AllContractors from "./views/pages/AllContractors";
 import AllContracts from "./views/pages/AllContracts";
 import AllMeetings from "./views/pages/AllMeetings";
@@ -51,6 +52,7 @@ export default function App() {
               <Routes>
                 <Route path="/"               element={<Dashboard />} />
                 <Route path="/projects"       element={<Projects />} />
+                <Route path="/projects/:id/report" element={<ProjectReport />} />
                 <Route path="/projects/:id"   element={<ProjectDetail />} />
                 <Route path="/contractors"    element={<AllContractors />} />
                 <Route path="/contracts"      element={<AllContracts />} />

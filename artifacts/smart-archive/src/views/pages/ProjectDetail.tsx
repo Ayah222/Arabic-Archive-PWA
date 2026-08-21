@@ -99,11 +99,20 @@ export default function ProjectDetail() {
             <h1 className="text-xl font-bold text-foreground truncate">{project.name}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{project.client}</p>
           </div>
-          <StatusBadge
-            label={PROJECT_STATUS_LABELS[project.status as ProjectStatus]}
-            colorClass={PROJECT_STATUS_COLORS[project.status as ProjectStatus]}
-            size="md"
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate(`/projects/${id}/report`)}
+              className="rounded-xl px-3 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+            >
+              تقرير PDF / طباعة
+            </button>
+            <StatusBadge
+              label={PROJECT_STATUS_LABELS[project.status as ProjectStatus]}
+              colorClass={PROJECT_STATUS_COLORS[project.status as ProjectStatus]}
+              size="md"
+            />
+          </div>
         </div>
         <div className="mt-3">
           <ProgressBar value={project.progress} showLabel size="lg" />
