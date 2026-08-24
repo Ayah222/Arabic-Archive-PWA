@@ -91,6 +91,20 @@ function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
   return headers;
 }
 
+function attachWorkspaceUserHeaders(headers: Headers) {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    const rawUser = sessionStorage.getItem("sa_user");
+    if (!rawUser) return;
+    const user = JSON.parse(rawUser) as { id?: string; name?: string; role?: string };
+    if (user.id) headers.set("x-user-id", encodeURIComponent(user.id));
+    if (user.name) headers.set("x-user-label", encodeURIComponent(user.name));
+    if (user.role) headers.set("x-user-role", user.role);
+  } catch {
+    // Requests still work for consumers that do not use Smart Archive sessions.
+  }
+}
+
 function getMediaType(headers: Headers): string | null {
   const value = headers.get("content-type");
   return value ? value.split(";", 1)[0].trim().toLowerCase() : null;
@@ -357,6 +371,7 @@ export async function customFetch<T = unknown>(
       headers.set("authorization", `Bearer ${token}`);
     }
   }
+  attachWorkspaceUserHeaders(headers);
 
   const requestInfo = { method, url: resolveUrl(input) };
 

@@ -13,7 +13,7 @@ description: How employee and manager login works in Smart Archive
 ### Manager Side ("جهة داري")
 - Separate login using **username + password** (not email)
 - Manager credentials: username `admin`, password `admin123`
-- The manager has full control: invite users, approve or reject pending accounts, and assign Manager/Employee roles.
+- The manager has full control: invite users, approve or reject pending accounts, assign roles, and perform final deletion.
 **Why:** The product uses one clear administrator role; the separate super-admin role is intentionally removed.
 
 ## User Flow (full)
@@ -22,7 +22,14 @@ Invite (by manager) → Employee receives magic link → `/accept-invite` page �
 ## Profiles Table
 - `id` (ref auth.users), `email`, `role`, `status`
 - Trigger auto-inserts into profiles on new auth.users row with status=`pending`
-- Roles: `admin`, `employee`
+- Roles: `admin`, `data_entry`, `viewer`. The legacy `employee` role is treated as `data_entry`.
+
+## Permission policy
+- `admin`: complete control, including user management and final deletion.
+- `data_entry`: view, print, upload, create, and edit; cannot delete.
+- `viewer`: view and print only.
+**Why:** Architectural archive data must be protected from accidental deletion while still allowing controlled operational entry.
+**How to apply:** Any new write or destructive feature must enforce these roles on both its UI and API, and successful actions should appear in the audit log with actor and timestamp.
 
 ## Supabase
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`

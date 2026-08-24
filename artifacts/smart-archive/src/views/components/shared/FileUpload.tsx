@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { getUserRequestHeaders } from "../../../controllers/useGlobal";
 
 interface FileUploadProps {
   onUpload: (result: { url: string; filename: string; size: number; mimetype: string }) => void;
@@ -34,7 +35,11 @@ export default function FileUpload({
       form.append("file", file);
       form.append("projectId", projectId);
       form.append("section", section);
-      const res = await fetch("/api/sa/upload", { method: "POST", body: form });
+      const res = await fetch("/api/sa/upload", {
+        method: "POST",
+        headers: getUserRequestHeaders(),
+        body: form,
+      });
       if (!res.ok) throw new Error("فشل في رفع الملف");
       const data = (await res.json()) as { url: string; filename: string; size: number; mimetype: string };
       onUpload(data);

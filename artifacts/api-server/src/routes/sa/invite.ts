@@ -5,8 +5,12 @@ const router = Router();
 
 router.post("/sa/invite", async (req, res) => {
   const { email, role } = req.body as { email: string; role: string };
+  const normalizedRole = role === "employee" ? "data_entry" : role ?? "data_entry";
 
   if (!email) return res.status(400).json({ error: "email required" });
+  if (!["admin", "data_entry", "viewer"].includes(normalizedRole)) {
+    return res.status(400).json({ error: "invalid role" });
+  }
 
   const supabaseUrl = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"];
   const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
@@ -51,7 +55,7 @@ router.post("/sa/invite", async (req, res) => {
 
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
-    data: { role: role ?? "employee" },
+    data: { role: normalizedRole },
   });
 
   if (error) return res.status(400).json({ error: error.message });

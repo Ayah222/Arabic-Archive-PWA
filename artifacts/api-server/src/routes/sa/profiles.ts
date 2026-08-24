@@ -13,6 +13,7 @@ function adminClient() {
 // GET /api/sa/profiles  — all profiles
 router.get("/sa/profiles", async (_req, res) => {
   await adminClient().from("profiles").update({ role: "admin" }).eq("role", "super_admin");
+  await adminClient().from("profiles").update({ role: "data_entry" }).eq("role", "employee");
 
   const { data, error } = await adminClient()
     .from("profiles")
@@ -30,18 +31,25 @@ router.get("/sa/profiles/:id", async (req, res) => {
     .eq("id", req.params.id)
     .single();
   if (error || !data) return res.status(404).json({ error: "Profile not found" });
-  res.json(data.role === "super_admin" ? { ...data, role: "admin" } : data);
+  res.json(
+    data.role === "super_admin"
+      ? { ...data, role: "admin" }
+      : data.role === "employee"
+        ? { ...data, role: "data_entry" }
+        : data,
+  );
 });
 
 // PATCH /api/sa/profiles/:id  — update role and/or status
 router.patch("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
   const { role, status } = req.body as { role?: string; status?: string };
-  if (role && !["admin", "employee"].includes(role)) {
-    return res.status(400).json({ error: "role must be admin or employee" });
+  const normalizedRole = role === "employee" ? "data_entry" : role;
+  if (normalizedRole && !["admin", "data_entry", "viewer"].includes(normalizedRole)) {
+    return res.status(400).json({ error: "role must be admin, data_entry, or viewer" });
   }
   const updates: Record<string, string> = {};
-  if (role)   updates.role   = role;
+  if (normalizedRole) updates.role = normalizedRole;
   if (status) updates.status = status;
 
   const { data, error } = await adminClient()

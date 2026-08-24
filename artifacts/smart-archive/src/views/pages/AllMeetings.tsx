@@ -5,6 +5,7 @@ import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { CalendarCheck, MapPin, Users, ExternalLink, Plus, X } from "lucide-react";
+import { getArchivePermissions } from "../../controllers/permissions";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const btnPrimary = "w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 mt-2";
@@ -64,17 +65,18 @@ function AddMeetingModal({ onClose }: { onClose: () => void }) {
 
 export default function AllMeetings() {
   const { t } = useLanguage();
+  const { canEdit } = getArchivePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const { data, isLoading } = useAllMeetings(q || undefined);
 
   useEffect(() => {
-    if (searchParams.get("add") === "1") {
+    if (canEdit && searchParams.get("add") === "1") {
       setShowAdd(true);
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [canEdit, searchParams, setSearchParams]);
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
@@ -83,11 +85,11 @@ export default function AllMeetings() {
           <h1 className="text-2xl font-bold text-foreground">{t("meetings")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("meetingsSub")}</p>
         </div>
-        <button onClick={() => setShowAdd(true)}
+        {canEdit && <button onClick={() => setShowAdd(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
           <Plus className="w-4 h-4" /> {t("addBtn")}
-        </button>
+        </button>}
       </div>
 
       <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("searchMeeting")}
@@ -125,7 +127,7 @@ export default function AllMeetings() {
           ))}
         </div>
       )}
-      {showAdd && <AddMeetingModal onClose={() => setShowAdd(false)} />}
+      {canEdit && showAdd && <AddMeetingModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }

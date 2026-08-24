@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuditLog, getCurrentUser } from "../../controllers/useGlobal";
+import { useAuditLog, getCurrentUser, getUserRequestHeaders } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api/sa";
@@ -12,8 +12,9 @@ interface Profile {
 }
 
 const ROLE_LABELS: Record<string, { ar: string; en: string }> = {
-  admin:       { ar: "مدير",          en: "Admin" },
-  employee:    { ar: "موظف",          en: "Employee" },
+  admin:       { ar: "مدير",                en: "Admin" },
+  data_entry:  { ar: "مسؤول إدخال",         en: "Data entry" },
+  viewer:      { ar: "موظف مراقب",          en: "Viewer" },
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -65,7 +66,7 @@ export default function UsersPage() {
   // Invite modal
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("employee");
+  const [inviteRole, setInviteRole] = useState("data_entry");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -76,7 +77,7 @@ export default function UsersPage() {
     try {
       const res = await fetch(`${API}/invite`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
       const data = await res.json();
@@ -95,7 +96,7 @@ export default function UsersPage() {
   const updateProfile = async (id: string, updates: Partial<Pick<Profile, "role" | "status">>) => {
     const res = await fetch(`${API}/profiles/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
       body: JSON.stringify(updates),
     });
     if (res.ok) {
@@ -115,7 +116,10 @@ export default function UsersPage() {
 
   const rejectInvitation = async (profile: Profile) => {
     if (!window.confirm(`سيتم حذف طلب الدعوة وحساب ${profile.email} نهائيًا. هل تريد المتابعة؟`)) return;
-    const res = await fetch(`${API}/profiles/${profile.id}`, { method: "DELETE" });
+    const res = await fetch(`${API}/profiles/${profile.id}`, {
+      method: "DELETE",
+      headers: getUserRequestHeaders(),
+    });
     if (!res.ok) return;
     setProfiles((current) => current.filter((item) => item.id !== profile.id));
   };
@@ -148,7 +152,8 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-foreground mb-1">الصلاحية</label>
                 <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                  <option value="employee">موظف</option>
+                  <option value="data_entry">مسؤول إدخال</option>
+                  <option value="viewer">موظف مراقب</option>
                   <option value="admin">مدير / Admin</option>
                 </select>
               </div>
@@ -218,11 +223,12 @@ export default function UsersPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Role */}
-                  {editingId === profile.id ? (
+                  {profile.status === "active" && editingId === profile.id ? (
                     <div className="flex items-center gap-2">
                       <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
                         className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="employee">{ROLE_LABELS.employee[lang]}</option>
+                        <option value="data_entry">{ROLE_LABELS.data_entry[lang]}</option>
+                        <option value="viewer">{ROLE_LABELS.viewer[lang]}</option>
                         <option value="admin">{ROLE_LABELS.admin[lang]}</option>
                       </select>
                       <button onClick={() => handleSaveRole(profile.id)}
@@ -230,11 +236,15 @@ export default function UsersPage() {
                       <button onClick={() => setEditingId(null)}
                         className="px-3 py-1.5 bg-secondary rounded-lg text-xs">إلغاء</button>
                     </div>
-                  ) : (
+                  ) : profile.status === "active" ? (
                     <button onClick={() => { setEditingId(profile.id); setNewRole(profile.role); }}
                       className="text-xs px-2.5 py-1 rounded-full border font-semibold text-muted-foreground border-border hover:text-foreground transition-colors">
                       {ROLE_LABELS[profile.role]?.[lang] ?? profile.role} ✏️
                     </button>
+                  ) : (
+                    <span className="text-xs px-2.5 py-1 rounded-full border font-semibold text-muted-foreground border-border">
+                      {ROLE_LABELS[profile.role]?.[lang] ?? "سيُحدد بعد التفعيل"}
+                    </span>
                   )}
 
                   {/* Approve / Suspend */}

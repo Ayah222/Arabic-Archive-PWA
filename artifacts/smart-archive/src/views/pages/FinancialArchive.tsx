@@ -6,6 +6,7 @@ import Toast from "../components/shared/Toast";
 import EmptyState from "../components/shared/EmptyState";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { TrendingUp, TrendingDown, Wallet, Bell, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { getArchivePermissions } from "../../controllers/permissions";
 
 const CATEGORIES_AR = ["دفعات المشاريع", "رواتب", "رسوم حكومية", "مواد ومستلزمات", "ضرائب", "مصاريف إدارية", "أخرى"];
 const CATEGORIES_EN = ["Project Payments", "Salaries", "Government Fees", "Materials & Supplies", "Taxes", "Admin Expenses", "Other"];
@@ -28,6 +29,7 @@ function NeonStat({ label, value, icon: Icon, color, sub }: { label: string; val
 
 export default function FinancialArchive() {
   const { t, lang } = useLanguage();
+  const { canEdit, canDelete } = getArchivePermissions();
   const { data, isLoading } = useFinance();
   const { create, update, remove } = useFinanceActions();
   const CATEGORIES = lang === "ar" ? CATEGORIES_AR : CATEGORIES_EN;
@@ -93,11 +95,11 @@ export default function FinancialArchive() {
           <h1 className="text-2xl font-bold text-foreground">{t("finance")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("financeSub")}</p>
         </div>
-        <button onClick={() => { setForm(empty); setShowAdd(true); }}
+        {canEdit && <button onClick={() => { setForm(empty); setShowAdd(true); }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={{ background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,240,255,0.30)" }}>
           <Plus className="w-4 h-4" /> {t("addBtn")}
-        </button>
+        </button>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -175,16 +177,16 @@ export default function FinancialArchive() {
                     <span className="text-base font-black" style={{ color }}>
                       {isIncome ? "+" : "-"}{r.amount.toLocaleString("ar-SA")}
                     </span>
-                    <button onClick={() => setEditItem({ id: r.id, data: { title: r.title, amount: r.amount, type: r.type, category: r.category, date: r.date, reminderDate: r.reminderDate, notes: r.notes, projectId: r.projectId } })}
+                    {canEdit && <button onClick={() => setEditItem({ id: r.id, data: { title: r.title, amount: r.amount, type: r.type, category: r.category, date: r.date, reminderDate: r.reminderDate, notes: r.notes, projectId: r.projectId } })}
                       className="w-7 h-7 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
                       style={{ background: "rgba(255,255,255,0.06)" }}>
                       <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                    </button>
-                    <button onClick={() => setDeleteId(r.id)}
+                    </button>}
+                    {canDelete && <button onClick={() => setDeleteId(r.id)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
                       style={{ background: "rgba(239,68,68,0.08)" }}>
                       <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                    </button>
+                    </button>}
                   </div>
                 </div>
                 {r.notes && <p className="mt-2 text-xs text-muted-foreground border-t border-border pt-2">{r.notes}</p>}

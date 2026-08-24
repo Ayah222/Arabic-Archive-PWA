@@ -16,6 +16,7 @@ import ConfirmDialog from "../components/shared/ConfirmDialog";
 import EmptyState from "../components/shared/EmptyState";
 import FileUpload from "../components/shared/FileUpload";
 import Toast from "../components/shared/Toast";
+import { getArchivePermissions } from "../../controllers/permissions";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
@@ -54,6 +55,7 @@ export default function ProjectDetail() {
   const [newCatName, setNewCatName] = useState("");
   const { data: categories = [] } = useCategories(id);
   const { create: createCat, remove: removeCat } = useCategoryActions(id);
+  const { canEdit, canDelete } = getArchivePermissions();
 
   const { data: project, isLoading, isError } = useProject(id);
 
@@ -87,12 +89,12 @@ export default function ProjectDetail() {
       {/* Header */}
       <div className="bg-card border-b border-border px-4 md:px-8 py-5 sticky top-0 md:top-0 z-10">
         <div className="flex items-center gap-3 mb-3">
-          <button
+          {canEdit && <button
             onClick={() => navigate("/projects")}
             className="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1"
           >
             ← المشاريع
-          </button>
+          </button>}
         </div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -167,18 +169,18 @@ export default function ProjectDetail() {
             </button>
           ))}
           {/* New Category button */}
-          <button
+          {canEdit && <button
             onClick={() => setShowNewCategory(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap border border-dashed border-primary/40 text-primary hover:bg-primary/5 transition-all duration-150"
           >
             <span>➕</span>
             <span>فئة جديدة</span>
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* New Category Modal */}
-      {showNewCategory && (
+        {canEdit && showNewCategory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}
           onClick={() => { setShowNewCategory(false); setNewCatName(""); }}>
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -261,7 +263,7 @@ export default function ProjectDetail() {
                   <h2 className="font-bold text-lg">🗂️ {cat.name}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">أرفق أي نوع من الملفات لهذه الفئة</p>
                 </div>
-                <button
+                {canDelete && <button
                   onClick={async () => {
                     if (!confirm(`حذف فئة "${cat.name}" وجميع ملفاتها؟`)) return;
                     await removeCat.mutateAsync(cat.id);
@@ -271,7 +273,7 @@ export default function ProjectDetail() {
                   className="text-xs text-destructive hover:underline"
                 >
                   🗑️ حذف الفئة
-                </button>
+                </button>}
               </div>
               <AttachmentsPanel projectId={id} entityType="custom_doc" entityId={catId} />
             </div>
@@ -293,6 +295,7 @@ const defaultContractForm: ContractFormData = {
 
 function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, update, remove } = useContracts(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -320,10 +323,10 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">العقود ({list.data?.length ?? 0})</h2>
-        <button onClick={() => { setForm(defaultContractForm); setShowCreate(true); }}
+        {canEdit && <button onClick={() => { setForm(defaultContractForm); setShowCreate(true); }}
           className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
           + إضافة عقد
-        </button>
+        </button>}
       </div>
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="📋" title="لا توجد عقود" description="أضف أول عقد لهذا المشروع" />
@@ -339,10 +342,15 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
               <p className="text-sm font-semibold text-primary mt-1">{formatCurrency(c.value)}</p>
               <p className="text-xs text-muted-foreground mt-1">{formatDate(c.startDate)} — {formatDate(c.endDate)}</p>
               {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
-              <div className="flex gap-4 mt-3 text-sm">
+              {(canEdit || canDelete) && <div className="flex gap-4 mt-3 text-sm">
+                {canEdit &&
                 <button onClick={() => setEditItem({ id: c.id, data: { title: c.title, party: c.party, value: c.value.toString(), startDate: c.startDate, endDate: c.endDate, status: c.status as ContractStatus, notes: c.notes ?? "" } })} className="text-primary hover:underline">تعديل</button>
+                }
+                {canDelete &&
                 <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline">حذف</button>
+                }
               </div>
+              }
               <AttachmentsPanel projectId={projectId} entityType="contract" entityId={c.id} compact />
             </div>
           ))}
@@ -406,6 +414,7 @@ const defaultContractorForm: ContractorTabFormData = { name: "", specialty: "", 
 
 function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, update, remove } = useProjectContractors(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractorTabFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -424,7 +433,7 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">المقاولون ({list.data?.length ?? 0})</h2>
-        <button onClick={() => { setForm(defaultContractorForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة مقاول</button>
+        {canEdit && <button onClick={() => { setForm(defaultContractorForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة مقاول</button>}
       </div>
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="👷" title="لا يوجد مقاولون" description="أضف مقاول للمشروع" />
@@ -442,10 +451,15 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
               {c.phone && <p className="text-xs text-muted-foreground">📞 {c.phone}</p>}
               {c.email && <p className="text-xs text-muted-foreground">✉️ {c.email}</p>}
               {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
-              <div className="flex gap-4 mt-3 text-sm">
+              {(canEdit || canDelete) && <div className="flex gap-4 mt-3 text-sm">
+                {canEdit &&
                 <button onClick={() => setEditItem({ id: c.id, data: { name: c.name, specialty: c.specialty, phone: c.phone ?? "", email: c.email ?? "", status: c.status as "active"|"inactive", notes: c.notes ?? "" } })} className="text-primary hover:underline">تعديل</button>
+                }
+                {canDelete &&
                 <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline">حذف</button>
+                }
               </div>
+              }
             </div>
           ))}
         </div>
@@ -499,6 +513,7 @@ function ContractorForm({ data, onChange, onSubmit, loading, submitLabel }: { da
 /* ===== DOCUMENTS TAB ===== */
 function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useDocuments(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [docName, setDocName] = useState("");
   const [docNotes, setDocNotes] = useState("");
@@ -526,7 +541,7 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">المستندات ({list.data?.length ?? 0})</h2>
-        <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ رفع مستند</button>
+        {canEdit && <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ رفع مستند</button>}
       </div>
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="📄" title="لا توجد مستندات" description="ارفع أول مستند لهذا المشروع" />
@@ -565,12 +580,12 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
                   )}
                 </div>
               </div>
-              <button onClick={() => setDeleteId(d.id)} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>
+               {canDelete && <button onClick={() => setDeleteId(d.id)} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>}
             </div>
           ))}
         </div>
       )}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="رفع مستند">
+      {canEdit && <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="رفع مستند">
         <div className="space-y-4">
           <FormField label="اسم المستند *">
             <input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="اسم المستند" className={inputCls} dir="rtl" />
@@ -580,7 +595,7 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
           <FormField label="ملاحظات"><textarea value={docNotes} onChange={(e) => setDocNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
           <button onClick={handleCreate} disabled={create.isPending || !docName.trim() || !uploadedFile} className={btnCls}>{create.isPending ? "جاري..." : "إضافة المستند"}</button>
         </div>
-      </Modal>
+      </Modal>}
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, did: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف المستند", type: "success" }); }} title="حذف المستند" message="هل أنت متأكد من حذف هذا المستند؟" confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
@@ -592,6 +607,7 @@ const defaultMeetingForm: MeetingFormData = { title: "", date: "", location: "",
 
 function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useMeetings(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<MeetingFormData>(defaultMeetingForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -618,7 +634,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">الاجتماعات ({list.data?.length ?? 0})</h2>
-        <button onClick={() => { setForm(defaultMeetingForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة اجتماع</button>
+        {canEdit && <button onClick={() => { setForm(defaultMeetingForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة اجتماع</button>}
       </div>
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="🤝" title="لا توجد اجتماعات" description="أضف أول اجتماع لهذا المشروع" />
@@ -640,7 +656,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               )}
               {m.agenda && <p className="text-sm text-muted-foreground mt-2"><strong>الأجندة:</strong> {m.agenda}</p>}
               {m.notes && <p className="text-sm text-muted-foreground mt-1 italic">{m.notes}</p>}
-              <button onClick={() => setDeleteId(m.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
+              {canDelete && <button onClick={() => setDeleteId(m.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
               <AttachmentsPanel projectId={projectId} entityType="meeting" entityId={m.id} compact />
             </div>
           ))}
@@ -685,6 +701,7 @@ const defaultLetterForm: LetterFormData = { subject: "", direction: "outgoing", 
 
 function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useLetters(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<LetterFormData>(defaultLetterForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -702,7 +719,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">الخطابات ({list.data?.length ?? 0})</h2>
-        <button onClick={() => { setForm(defaultLetterForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة خطاب</button>
+        {canEdit && <button onClick={() => { setForm(defaultLetterForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة خطاب</button>}
       </div>
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="✉️" title="لا توجد خطابات" description="أضف أول خطاب لهذا المشروع" />
@@ -738,7 +755,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
                 )}
               </div>
               {l.notes && <p className="text-sm text-muted-foreground mt-1 italic">{l.notes}</p>}
-              <button onClick={() => setDeleteId(l.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
+              {canDelete && <button onClick={() => setDeleteId(l.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
               <AttachmentsPanel projectId={projectId} entityType="letter" entityId={l.id} compact />
             </div>
           ))}
@@ -800,6 +817,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
 function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { data, isLoading } = useContacts(projectId);
   const { create, remove } = useContactActions(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", role: "consultant", phone: "", email: "", notes: "" });
@@ -826,7 +844,7 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">جهات الاتصال ({data?.length ?? 0})</h2>
-        <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة جهة</button>
+        {canEdit && <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة جهة</button>}
       </div>
       {isLoading ? <LoadingSkeleton /> : !data?.length ? (
         <EmptyState icon="👤" title="لا توجد جهات اتصال" description="أضف جهات الاتصال المرتبطة بهذا المشروع" />
@@ -843,12 +861,12 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               {c.phone && <p className="text-xs text-muted-foreground mt-1">📞 {c.phone}</p>}
               {c.email && <p className="text-xs text-muted-foreground">✉️ {c.email}</p>}
               {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
-              <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>
+              {canDelete && <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
             </div>
           ))}
         </div>
       )}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة جهة اتصال">
+      {canEdit && <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة جهة اتصال">
         <div className="space-y-3">
           <FormField label="الاسم *"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم الجهة أو الشخص" className={inputCls} dir="rtl" /></FormField>
           <FormField label="الدور">
@@ -865,7 +883,7 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
           <button onClick={handleCreate} disabled={create.isPending || !form.name.trim()} className={btnCls}>{create.isPending ? "جاري..." : "إضافة الجهة"}</button>
         </div>
-      </Modal>
+      </Modal>}
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync(deleteId!); setDeleteId(null); setToast({ message: "تم حذف جهة الاتصال", type: "success" }); }} title="حذف جهة الاتصال" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
@@ -875,6 +893,7 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
 function PhotosTab({ projectId, setToast }: TabProps) {
   const { data: photos = [], isLoading } = useProjectPhotos(projectId);
   const { add, remove } = usePhotoActions(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [preview, setPreview] = useState<SAPhoto | null>(null);
   const [desc, setDesc] = useState("");
   const inputRef = useState<HTMLInputElement | null>(null);
@@ -903,7 +922,7 @@ function PhotosTab({ projectId, setToast }: TabProps) {
   return (
     <div className="space-y-5">
       {/* Upload zone */}
-      <div
+      {canEdit && <div
         className="relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all hover:opacity-90"
         style={{ borderColor: "rgba(0,240,255,0.30)", background: "rgba(0,240,255,0.03)" }}
         onClick={() => document.getElementById("photo-upload-input")?.click()}
@@ -921,7 +940,7 @@ function PhotosTab({ projectId, setToast }: TabProps) {
           className="hidden"
           onChange={e => handleFiles(e.target.files)}
         />
-      </div>
+      </div>}
 
       {/* Grid */}
       {isLoading ? (
@@ -944,12 +963,12 @@ function PhotosTab({ projectId, setToast }: TabProps) {
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2"
                 style={{ background: "linear-gradient(to top, rgba(0,0,0,0.70) 0%, transparent 50%)" }}>
-                <button
+                {canDelete && <button
                   className="self-end w-7 h-7 rounded-full flex items-center justify-center text-white text-xs"
                   style={{ background: "rgba(255,0,80,0.80)" }}
                   onClick={e => { e.stopPropagation(); handleDelete(photo.id); }}>
                   ✕
-                </button>
+                </button>}
                 <p className="text-white text-[11px] font-medium truncate">{photo.name}</p>
               </div>
             </div>
@@ -977,11 +996,11 @@ function PhotosTab({ projectId, setToast }: TabProps) {
                   style={{ background: "rgba(0,240,255,0.20)", border: "1px solid rgba(0,240,255,0.30)" }}>
                   تنزيل
                 </a>
-                <button onClick={() => handleDelete(preview.id)}
+                {canDelete && <button onClick={() => handleDelete(preview.id)}
                   className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
                   style={{ background: "rgba(255,0,80,0.20)", border: "1px solid rgba(255,0,80,0.30)" }}>
                   حذف
-                </button>
+                </button>}
                 <button onClick={() => setPreview(null)}
                   className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
                   style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
@@ -1013,6 +1032,7 @@ function AttachmentsPanel({
 }) {
   const { data: attachments = [], isLoading } = useEntityAttachments(projectId, entityType, entityId);
   const { add, remove } = useAttachmentActions(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("مستند");
@@ -1054,15 +1074,15 @@ function AttachmentsPanel({
         <span className="text-xs font-semibold text-muted-foreground">
           📎 المرفقات ({isLoading ? "…" : attachments.length})
         </span>
-        <button
+        {canEdit && <button
           onClick={() => setShowAdd((v) => !v)}
           className="text-xs text-primary hover:underline"
         >
           {showAdd ? "إلغاء" : "+ إرفاق ملف"}
-        </button>
+        </button>}
       </div>
 
-      {showAdd && (
+      {canEdit && showAdd && (
         <div className="bg-muted/40 rounded-xl p-3 mb-2 space-y-2">
           <input
             value={attName}
@@ -1101,12 +1121,12 @@ function AttachmentsPanel({
               >
                 تنزيل
               </a>
-              <button
+              {canDelete && <button
                 onClick={() => remove.mutateAsync({ aid: att.id, entityType, entityId })}
                 className="text-destructive hover:text-red-400 shrink-0"
               >
                 ✕
-              </button>
+              </button>}
             </div>
           ))}
         </div>
@@ -1119,6 +1139,7 @@ function AttachmentsPanel({
 function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const { data: docs = [], isLoading } = useEntityAttachments(projectId, "custom_doc", projectId);
   const { add, remove } = useAttachmentActions(projectId);
+  const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("");
@@ -1169,12 +1190,12 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">مستندات أخرى ({docs.length})</h2>
-        <button
+        {canEdit && <button
           onClick={() => setShowAdd(true)}
           className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
         >
           + إضافة مستند
-        </button>
+        </button>}
       </div>
 
       {/* Search */}
@@ -1217,7 +1238,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                 >
                   تنزيل
                 </a>
-                <button
+                {canDelete && <button
                   onClick={async () => {
                     await remove.mutateAsync({ aid: d.id, entityType: "custom_doc", entityId: projectId });
                     _setToast({ message: "تم حذف المستند", type: "success" });
@@ -1225,7 +1246,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                   className="text-xs text-destructive hover:underline"
                 >
                   حذف
-                </button>
+                </button>}
               </div>
             </div>
           ))}
@@ -1233,7 +1254,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       )}
 
       {/* Add Modal */}
-      {showAdd && (
+      {canEdit && showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.5)" }}
           onClick={() => setShowAdd(false)}>

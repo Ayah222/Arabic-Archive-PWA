@@ -9,13 +9,11 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
-      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
+      ...getUserRequestHeaders(),
     },
     body: JSON.stringify(body),
   });
@@ -24,13 +22,11 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
-  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
-      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
+      ...getUserRequestHeaders(),
     },
     body: JSON.stringify(body),
   });
@@ -39,13 +35,11 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function put<T>(path: string, body: unknown): Promise<T> {
-  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
-      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
+      ...getUserRequestHeaders(),
     },
     body: JSON.stringify(body),
   });
@@ -54,12 +48,10 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function del(path: string): Promise<void> {
-  const user = getCurrentUser();
   const r = await fetch(path, {
     method: "DELETE",
     headers: {
-      "x-user-id": encodeURIComponent(user?.id ?? "guest"),
-      "x-user-label": encodeURIComponent(user?.name ?? "guest"),
+      ...getUserRequestHeaders(),
     },
   });
   if (!r.ok) throw new Error(await r.text());
@@ -82,6 +74,15 @@ export function getCurrentUser(): CurrentUser | null {
   } catch {
     return null;
   }
+}
+
+export function getUserRequestHeaders() {
+  const user = getCurrentUser();
+  return {
+    "x-user-id": encodeURIComponent(user?.id ?? "guest"),
+    "x-user-label": encodeURIComponent(user?.name ?? "guest"),
+    "x-user-role": user?.role ?? "",
+  };
 }
 
 export function setCurrentUser(user: CurrentUser | null) {

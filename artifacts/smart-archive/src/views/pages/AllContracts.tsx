@@ -5,6 +5,7 @@ import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { FileSignature, ExternalLink, Calendar, DollarSign, Plus, X } from "lucide-react";
+import { getArchivePermissions } from "../../controllers/permissions";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const addBtnStyle = {
@@ -117,17 +118,18 @@ function AddContractModal({ onClose }: { onClose: () => void }) {
 
 export default function AllContracts() {
   const { t, lang } = useLanguage();
+  const { canEdit } = getArchivePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const { data, isLoading } = useAllContracts(q || undefined);
 
   useEffect(() => {
-    if (searchParams.get("add") === "1") {
+    if (canEdit && searchParams.get("add") === "1") {
       setShowAdd(true);
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [canEdit, searchParams, setSearchParams]);
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
@@ -136,11 +138,11 @@ export default function AllContracts() {
           <h1 className="text-2xl font-bold text-foreground">{t("contracts")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("contractsSub")}</p>
         </div>
-        <button onClick={() => setShowAdd(true)}
+        {canEdit && <button onClick={() => setShowAdd(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={addBtnStyle}>
           <Plus className="w-4 h-4" /> {t("addBtn")}
-        </button>
+        </button>}
       </div>
 
       <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("searchContract")}
@@ -181,7 +183,7 @@ export default function AllContracts() {
         </div>
       )}
 
-      {showAdd && <AddContractModal onClose={() => setShowAdd(false)} />}
+      {canEdit && showAdd && <AddContractModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }

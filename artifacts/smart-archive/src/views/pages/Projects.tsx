@@ -17,6 +17,7 @@ import {
   type ProjectStatus,
 } from "../../models/types";
 import type { ProjectInput, ProjectUpdate } from "../../controllers/useProjects";
+import { getArchivePermissions } from "../../controllers/permissions";
 
 const STATUS_OPTIONS: ProjectStatus[] = ["active", "completed", "on_hold", "cancelled"];
 
@@ -46,6 +47,7 @@ const defaultForm: ProjectFormData = {
 
 export default function Projects() {
   const { t, lang } = useLanguage();
+  const { canEdit, canDelete } = getArchivePermissions();
   const statusLabel = (s: ProjectStatus) => getProjectStatusLabel(s, lang);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -121,12 +123,12 @@ export default function Projects() {
             {projects?.length ?? 0} {lang === "ar" ? "مشروع" : "project(s)"}
           </p>
         </div>
-        <button
+        {canEdit && <button
           onClick={() => { setForm(defaultForm); setShowCreate(true); }}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors shadow-sm"
         >
           <span>+</span> {t("newProject")}
-        </button>
+        </button>}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -159,14 +161,14 @@ export default function Projects() {
           icon="📁"
           title={t("noProjects")}
           description={t("noProjectsSub")}
-          action={
+          action={canEdit ? (
             <button
               onClick={() => { setForm(defaultForm); setShowCreate(true); }}
               className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
             >
               {t("addProject")}
             </button>
-          }
+          ) : undefined}
         />
       ) : (
         <div className="space-y-3">
@@ -194,7 +196,8 @@ export default function Projects() {
                   {project.budget && <span>💰 {formatCurrency(project.budget)}</span>}
                 </div>
               </Link>
-              <div className="flex border-t border-border">
+              {(canEdit || canDelete) && <div className="flex border-t border-border">
+                {canEdit && <>
                 <button
                   onClick={() => setEditProject({
                     id: project.id,
@@ -210,14 +213,18 @@ export default function Projects() {
                 >
                   {t("edit")}
                 </button>
-                <div className="w-px bg-border" />
+                {canDelete && <div className="w-px bg-border" />}
+                </>}
+                {canDelete &&
                 <button
                   onClick={() => setDeleteId(project.id)}
                   className="flex-1 py-3 text-sm text-destructive hover:bg-red-50 transition-colors rounded-br-2xl font-medium"
                 >
                   {t("delete")}
                 </button>
+                }
               </div>
+              }
             </div>
           ))}
         </div>
@@ -298,7 +305,7 @@ function ProjectForm({
           <select value={data.status} onChange={(e) => set("status", e.target.value)}
             className="w-full px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm">
             {(["active", "completed", "on_hold", "cancelled"] as ProjectStatus[]).map((s) => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
+              <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
             ))}
           </select>
         </div>

@@ -20,9 +20,11 @@ import attachmentsRouter from "./attachments";
 import categoriesRouter from "./categories";
 import inviteRouter from "./invite";
 import profilesRouter from "./profiles";
+import { enforcePermissions } from "./permissions";
 
 const router: IRouter = Router();
 
+router.use(enforcePermissions);
 router.use(dashboardRouter);
 router.use(notificationsRouter);
 router.use(projectsRouter);

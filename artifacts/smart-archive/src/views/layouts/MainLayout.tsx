@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getNotificationTarget, useNotifications } from "../../controllers/useNotifications";
 import { useAuthActions, getCurrentUser } from "../../controllers/useGlobal";
+import { getArchivePermissions } from "../../controllers/permissions";
 import { useLanguage } from "../../contexts/LanguageContext";
 import MicrophoneButton from "../components/shared/MicrophoneButton";
 import Toast from "../components/shared/Toast";
@@ -52,6 +53,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const { logout } = useAuthActions();
   const currentUser = getCurrentUser();
+  const { canEdit } = getArchivePermissions();
   const { lang, dir, t, toggle } = useLanguage();
   const [isDark, setIsDark]       = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -168,7 +170,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   )}
                   {active && <LayoutGrid className="w-3.5 h-3.5 shrink-0 relative z-10 opacity-55" />}
                 </Link>
-                {hasQuickAdd && (
+                {canEdit && hasQuickAdd && (
                   <button
                     onClick={() => { setSidebarOpen(false); navigate(`${to}?add=1`); }}
                     title={`إضافة جديد`}
