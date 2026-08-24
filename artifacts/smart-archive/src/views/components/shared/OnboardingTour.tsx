@@ -1,5 +1,7 @@
 // Prompt 11: Onboarding tour for new users
 import { useState, useEffect } from "react";
+import { getCurrentUser } from "../../../controllers/useGlobal";
+import { getArchivePermissions } from "../../../controllers/permissions";
 
 const TOUR_KEY = "sa_onboarding_done";
 
@@ -9,55 +11,79 @@ interface Step {
   desc: string;
 }
 
-const STEPS: Step[] = [
+const getSteps = (canEdit: boolean, canDelete: boolean, canManageUsers: boolean): Step[] => [
+  {
+    icon: "🧭",
+    title: "ابدأ من القائمة الجانبية",
+    desc: "ستجد هنا «لوحة التحكم»، «المشاريع»، «العقود»، «المقاولون»، «الاجتماعات»، «الخطابات والمراسلات»، «الأرشيف المالي»، «البحث الموحد»، «التقارير»، و«الأسئلة الشائعة».",
+  },
   {
     icon: "📁",
-    title: "أنشئ مشروعك الأول",
-    desc: "انتقل إلى «المشاريع» من القائمة وأضف مشروعك بضغطة واحدة. كل مشروع له لوحة متكاملة تضم عقوده، مستنداته، اجتماعاته وخطاباته.",
+    title: canEdit ? "أنشئ أو افتح مشروعاً" : "افتح المشروع المطلوب",
+    desc: canEdit
+      ? "من «المشاريع» اضغط «+ مشروع جديد» في أعلى الصفحة للبدء، أو استخدم «تعديل» داخل بطاقة أي مشروع. اضغط على اسم المشروع لفتح تفاصيله."
+      : "من «المشاريع» اضغط على اسم المشروع لفتح تفاصيله. ستتمكن من مراجعة البيانات دون ظهور أزرار التعديل أو الإضافة.",
   },
   {
-    icon: "📄",
-    title: "إدارة المخططات مع التحكم بالإصدارات",
-    desc: "ارفع المخططات والوثائق الفنية. كل رفع يُسجَّل كإصدار (Rev 0, Rev 1...)، ويمكنك متابعة حالة الاعتماد لكل إصدار بشكل مرئي.",
+    icon: "🗂️",
+    title: "تعرّف على تبويبات المشروع",
+    desc: "داخل المشروع ستجد تبويبات «العقود»، «المقاولون»، «المخططات»، «الاجتماعات»، «الخطابات»، «جهات الاتصال»، و«الصور». استخدم التبويب المناسب للوصول إلى المعلومة بسرعة.",
   },
   {
-    icon: "✉️",
-    title: "الخطابات والمراسلات منظمة تلقائياً",
-    desc: "كل خطاب يحصل على رقم مرجعي تلقائي (LTR-2026-001). تتبع حالة التوزيع وربط الخطاب بالجهة المستلمة.",
+    icon: canEdit ? "➕" : "👁️",
+    title: canEdit ? "مكان أزرار الإضافة والرفع" : "المشاهدة والطباعة متاحتان لك",
+    desc: canEdit
+      ? "أزرار الإضافة موجودة أعلى كل تبويب: «+ إضافة عقد»، «+ إضافة مقاول»، «+ إضافة اجتماع»، «+ إضافة خطاب»، و«+ رفع مستند». ويمكنك استخدام «➕ فئة جديدة» و«+ إرفاق ملف» لتنظيم الملفات."
+      : "يمكنك فتح كل التبويبات وقراءة البيانات، ثم الضغط على «تقرير PDF / طباعة» بجانب اسم المشروع لطباعة التقرير أو حفظه كملف PDF. لن تظهر لك أزرار الإضافة أو الرفع أو التعديل أو الحذف.",
   },
   {
-    icon: "🔔",
-    title: "تنبيهات تلقائية بدون جهد",
-    desc: "النظام يراقب تلقائياً المستندات المتأخرة والعقود القاربة على الانتهاء والخطابات غير المؤكدة، ويرسل إشعارات فورية.",
+    icon: "🖨️",
+    title: "التقارير والبحث في مكانهما",
+    desc: "استخدم «البحث الموحد» للوصول إلى مشروع أو عقد أو خطاب بسرعة. ومن «التقارير» اختر التقرير الأسبوعي أو الشهري واضغط «تصدير PDF» للطباعة أو الحفظ.",
   },
+  canManageUsers
+    ? {
+        icon: "🛡️",
+        title: "إدارة المستخدمين وسجل النشاط",
+        desc: "ستجد «المستخدمون» في القائمة الجانبية. من هناك فعّل الحسابات وحدد دور كل مستخدم، ثم افتح تبويب «سجل النشاط» لمراجعة اسم المنفذ والتاريخ ووصف الإجراءات.",
+      }
+    : {
+        icon: "🔐",
+        title: canDelete ? "صلاحياتك في النظام" : "صلاحياتك في النظام",
+        desc: canDelete
+          ? "لديك صلاحية المدير الكاملة، بما فيها إدارة المستخدمين والحذف النهائي. استخدم الحذف بحذر، وتابع الإجراءات من سجل النشاط."
+          : "صلاحيتك تسمح بالمشاهدة والطباعة، أو بالإضافة والرفع والتعديل حسب دورك. الحذف النهائي وإدارة المستخدمين متاحان للمدير فقط.",
+      },
 ];
 
 export default function OnboardingTour() {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
+  const currentUser = getCurrentUser();
+  const { canEdit, canDelete, canManageUsers } = getArchivePermissions();
+  const steps = getSteps(canEdit, canDelete, canManageUsers);
+  const tourKey = `${TOUR_KEY}:${currentUser?.id ?? currentUser?.username ?? "guest"}`;
 
   useEffect(() => {
-    const done = localStorage.getItem(TOUR_KEY);
-    if (!done) {
-      // Show after short delay
-      const t = setTimeout(() => setVisible(true), 1200);
-      return () => clearTimeout(t);
-    }
-  }, []);
+    if (localStorage.getItem(tourKey)) return;
+    // Show after short delay
+    const t = setTimeout(() => setVisible(true), 1200);
+    return () => clearTimeout(t);
+  }, [tourKey]);
 
   const handleClose = () => {
-    localStorage.setItem(TOUR_KEY, "1");
+    localStorage.setItem(tourKey, "1");
     setVisible(false);
   };
 
   const handleNext = () => {
-    if (step < STEPS.length - 1) setStep(step + 1);
+    if (step < steps.length - 1) setStep(step + 1);
     else handleClose();
   };
 
   if (!visible) return null;
 
-  const current = STEPS[step];
+  const current = steps[step];
 
   return (
     <div
@@ -75,7 +101,7 @@ export default function OnboardingTour() {
       >
         {/* Progress */}
         <div className="flex justify-center gap-1.5">
-          {STEPS.map((_, i) => (
+          {steps.map((_, i) => (
             <div
               key={i}
               className="h-1 rounded-full transition-all duration-300"
@@ -113,11 +139,11 @@ export default function OnboardingTour() {
               color: "#00f0ff",
             }}
           >
-            {step < STEPS.length - 1 ? "التالي" : "ابدأ الآن"}
+            {step < steps.length - 1 ? "التالي" : "ابدأ الآن"}
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground">{step + 1} / {STEPS.length}</p>
+        <p className="text-xs text-muted-foreground">{step + 1} / {steps.length}</p>
       </div>
     </div>
   );
