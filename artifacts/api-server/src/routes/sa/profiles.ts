@@ -43,14 +43,15 @@ router.get("/sa/profiles/:id", async (req, res) => {
 // PATCH /api/sa/profiles/:id  — update role and/or status
 router.patch("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
-  const { role, status } = req.body as { role?: string; status?: string };
+  const { role, status, hr_access } = req.body as { role?: string; status?: string; hr_access?: boolean };
   const normalizedRole = role === "employee" ? "data_entry" : role;
   if (normalizedRole && !["admin", "data_entry", "viewer"].includes(normalizedRole)) {
     return res.status(400).json({ error: "role must be admin, data_entry, or viewer" });
   }
-  const updates: Record<string, string> = {};
+  const updates: Record<string, string | boolean> = {};
   if (normalizedRole) updates.role = normalizedRole;
   if (status) updates.status = status;
+  if (typeof hr_access === "boolean") updates.hr_access = hr_access;
 
   const { data, error } = await adminClient()
     .from("profiles")

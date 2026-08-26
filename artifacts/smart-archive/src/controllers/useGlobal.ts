@@ -64,6 +64,7 @@ export interface CurrentUser {
   username: string;
   name: string;
   role: "admin" | "employee" | "data_entry" | "viewer";
+  hrAccess?: boolean;
 }
 
 export function getCurrentUser(): CurrentUser | null {

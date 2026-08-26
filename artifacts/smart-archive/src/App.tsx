@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getCurrentUser } from "./controllers/useGlobal";
+import { getArchivePermissions } from "./controllers/permissions";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
@@ -22,6 +23,11 @@ import UsersPage from "./views/pages/Users";
 import AcceptInvite from "./views/pages/AcceptInvite";
 import OnboardingTour from "./views/components/shared/OnboardingTour";
 import EmailArchive from "./views/pages/EmailArchive";
+import HRHome from "./views/pages/hr/HRHome";
+import HREmployees from "./views/pages/hr/HREmployees";
+import HREmployeeDetail from "./views/pages/hr/HREmployeeDetail";
+import HRCandidates from "./views/pages/hr/HRCandidates";
+import HRCorporate from "./views/pages/hr/HRCorporate";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -65,6 +71,11 @@ export default function App() {
                 <Route path="/notifications"  element={<Notifications />} />
                 <Route path="/reports"        element={<ReportsPage />} />
                 <Route path="/faq"            element={<FAQPage />} />
+                <Route path="/hr"             element={getArchivePermissions().canAccessHR ? <HRHome /> : <Navigate to="/" replace />} />
+                <Route path="/hr/employees"   element={getArchivePermissions().canAccessHR ? <HREmployees /> : <Navigate to="/" replace />} />
+                <Route path="/hr/employees/:id" element={getArchivePermissions().canAccessHR ? <HREmployeeDetail /> : <Navigate to="/" replace />} />
+                <Route path="/hr/candidates"  element={getArchivePermissions().canAccessHR ? <HRCandidates /> : <Navigate to="/" replace />} />
+                <Route path="/hr/corporate"   element={getArchivePermissions().canAccessHR ? <HRCorporate /> : <Navigate to="/" replace />} />
                 <Route path="/users"          element={getCurrentUser()?.role === "admin" ? <UsersPage /> : <Navigate to="/" replace />} />
                 <Route path="*"              element={<NotFound />} />
               </Routes>

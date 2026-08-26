@@ -47,6 +47,7 @@ export async function supabaseLogin(email: string, password: string) {
     username: profile.email,
     name: profile.name ?? profile.email,
     role: profile.role,
+    hrAccess: Boolean(profile.hr_access),
     source: "supabase" as const,
   };
   setCurrentUser(sessionUser);

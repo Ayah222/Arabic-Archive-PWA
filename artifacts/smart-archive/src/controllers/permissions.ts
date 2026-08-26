@@ -16,5 +16,6 @@ export function getArchivePermissions() {
     canEdit: role === "admin" || role === "data_entry",
     canDelete: role === "admin",
     canManageUsers: role === "admin",
+    canAccessHR: role === "admin" || getCurrentUser()?.hrAccess === true,
   };
 }

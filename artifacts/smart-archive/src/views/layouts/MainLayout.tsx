@@ -9,7 +9,7 @@ import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert, HardHat, FileSignature,
-  CalendarCheck, Mail, Inbox, Search, Wallet, BarChart2, HelpCircle, Users, Plus, LogOut,
+  CalendarCheck, Mail, Inbox, Search, Wallet, BarChart2, HelpCircle, Users, Plus, LogOut, UserCog,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -43,6 +43,7 @@ const NAV_KEYS = [
   { to: "/notifications", key: "notifications" as const, Icon: Bell             },
   { to: "/reports",       key: "reports"       as const, Icon: BarChart2        },
   { to: "/faq",           key: "faq"           as const, Icon: HelpCircle       },
+  { to: "/hr",            key: "hr"            as const, Icon: UserCog          },
   { to: "/users",         key: "users"         as const, Icon: Users            },
 ];
 
@@ -54,7 +55,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const { logout } = useAuthActions();
   const currentUser = getCurrentUser();
-  const { canEdit } = getArchivePermissions();
+  const { canEdit, canAccessHR } = getArchivePermissions();
   const { lang, dir, t, toggle } = useLanguage();
   const [isDark, setIsDark]       = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -103,6 +104,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   const navItems = NAV_KEYS
     .filter(n => n.to !== "/users" || currentUser?.role === "admin")
+    .filter(n => n.to !== "/hr" || canAccessHR)
     .map(n => ({ ...n, label: t(n.key) }));
   const currentLabel = navItems.find(i => isActive(i.to))?.label ?? t("system");
 

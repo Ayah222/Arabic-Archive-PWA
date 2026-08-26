@@ -18,6 +18,7 @@ const T = {
     reports: "التقارير",
     faq: "الأسئلة الشائعة",
     users: "المستخدمون",
+    hr: "الموارد البشرية",
     // App shell
     appName: "أرشيف ذكي",
     appSub: "نظام إدارة الأرشيف",
@@ -239,6 +240,7 @@ const T = {
     reports: "Reports",
     faq: "FAQ",
     users: "Users",
+    hr: "HR",
     // App shell
     appName: "Smart Archive",
     appSub: "Archive Management System",

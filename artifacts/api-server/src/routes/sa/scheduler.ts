@@ -3,6 +3,7 @@
 import { store, newId } from "./store";
 import { syncEmailArchive } from "./emailArchive";
 import { listAllDocuments, listAllLetters, listAllContracts, listFinance, listProjects } from "./archiveDb";
+import { listEmployees, listAllEmployeeDocuments, listAllEmployeeLeaves, listAllLicenses } from "./hrDb";
 
 const REVIEW_DAYS_THRESHOLD = 5; // documents under review for more than N days trigger alert
 
@@ -126,6 +127,133 @@ async function runScheduledChecks() {
       scheduledAt: null,
       read: false,
       projectId: record.projectId,
+      createdAt: todayStr,
+    });
+  }
+
+  // Check 5 (HR): Employee document expiry within 30 days
+  const [employees, employeeDocuments, employeeLeaves, licenses] = await Promise.all([
+    listEmployees(),
+    listAllEmployeeDocuments(),
+    listAllEmployeeLeaves(),
+    listAllLicenses(),
+  ]);
+
+  for (const doc of employeeDocuments) {
+    if (!doc.expiryDate) continue;
+    const daysLeft = daysBetween(todayStr, doc.expiryDate + "T00:00:00Z");
+    if (daysLeft < 0 || daysLeft > 30) continue;
+
+    const alreadyNotified = store.notifications.some(
+      (n) => n.message.includes(doc.id) && daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
+
+    const employee = employees.find((e) => e.id === doc.employeeId);
+    store.notifications.unshift({
+      id: newId(),
+      title: `مستند موظف يقترب من انتهائه`,
+      message: `مستند "${doc.name}" للموظف "${employee?.name ?? "—"}" ينتهي خلال ${daysLeft} يوم. [${doc.id}]`,
+      type: "reminder",
+      audience: "admin",
+      scheduledAt: null,
+      read: false,
+      projectId: null,
+      createdAt: todayStr,
+    });
+  }
+
+  // Check 6 (HR): Upcoming leave start/return within 3 days
+  for (const leave of employeeLeaves) {
+    const employee = employees.find((e) => e.id === leave.employeeId);
+    const daysToStart = daysBetween(todayStr, leave.startDate + "T00:00:00Z");
+    const daysToEnd = daysBetween(todayStr, leave.endDate + "T00:00:00Z");
+
+    if (daysToStart >= 0 && daysToStart <= 3) {
+      const alreadyNotified = store.notifications.some(
+        (n) => n.message.includes(`leave-start:${leave.id}`) && daysBetween(n.createdAt, todayStr) < 1
+      );
+      if (!alreadyNotified) {
+        store.notifications.unshift({
+          id: newId(),
+          title: `إجازة موظف تبدأ قريباً`,
+          message: `إجازة "${employee?.name ?? "—"}" تبدأ خلال ${daysToStart} يوم. [leave-start:${leave.id}]`,
+          type: "reminder",
+          audience: "admin",
+          scheduledAt: null,
+          read: false,
+          projectId: null,
+          createdAt: todayStr,
+        });
+      }
+    }
+
+    if (daysToEnd >= 0 && daysToEnd <= 3) {
+      const alreadyNotified = store.notifications.some(
+        (n) => n.message.includes(`leave-end:${leave.id}`) && daysBetween(n.createdAt, todayStr) < 1
+      );
+      if (!alreadyNotified) {
+        store.notifications.unshift({
+          id: newId(),
+          title: `عودة موظف من الإجازة قريباً`,
+          message: `عودة "${employee?.name ?? "—"}" من الإجازة خلال ${daysToEnd} يوم. [leave-end:${leave.id}]`,
+          type: "reminder",
+          audience: "admin",
+          scheduledAt: null,
+          read: false,
+          projectId: null,
+          createdAt: todayStr,
+        });
+      }
+    }
+  }
+
+  // Check 7 (HR): Probation end within 7 days (hireDate + probationDays)
+  for (const employee of employees) {
+    if (!employee.hireDate || employee.status !== "active") continue;
+    const probationEnd = new Date(employee.hireDate);
+    probationEnd.setDate(probationEnd.getDate() + employee.probationDays);
+    const daysLeft = daysBetween(todayStr, probationEnd.toISOString());
+    if (daysLeft < 0 || daysLeft > 7) continue;
+
+    const alreadyNotified = store.notifications.some(
+      (n) => n.message.includes(`probation:${employee.id}`) && daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
+
+    store.notifications.unshift({
+      id: newId(),
+      title: `انتهاء فترة تجربة موظف`,
+      message: `فترة تجربة "${employee.name}" تنتهي خلال ${daysLeft} يوم. [probation:${employee.id}]`,
+      type: "reminder",
+      audience: "admin",
+      scheduledAt: null,
+      read: false,
+      projectId: null,
+      createdAt: todayStr,
+    });
+  }
+
+  // Check 8 (HR): Government/company license expiry within 30 days
+  for (const license of licenses) {
+    if (!license.expiryDate) continue;
+    const daysLeft = daysBetween(todayStr, license.expiryDate + "T00:00:00Z");
+    if (daysLeft < 0 || daysLeft > 30) continue;
+
+    const alreadyNotified = store.notifications.some(
+      (n) => n.message.includes(license.id) && daysBetween(n.createdAt, todayStr) < 1
+    );
+    if (alreadyNotified) continue;
+
+    store.notifications.unshift({
+      id: newId(),
+      title: `ترخيص يقترب من انتهائه`,
+      message: `ترخيص "${license.name}" ينتهي خلال ${daysLeft} يوم. [${license.id}]`,
+      type: "warning",
+      audience: "admin",
+      scheduledAt: null,
+      read: false,
+      projectId: null,
       createdAt: todayStr,
     });
   }

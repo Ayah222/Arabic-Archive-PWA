@@ -9,6 +9,7 @@ interface Profile {
   email: string;
   role: string;
   status: string;
+  hr_access?: boolean;
 }
 
 const ROLE_LABELS: Record<string, { ar: string; en: string }> = {
@@ -92,8 +93,8 @@ export default function UsersPage() {
     }
   };
 
-  // Update profile (role or status)
-  const updateProfile = async (id: string, updates: Partial<Pick<Profile, "role" | "status">>) => {
+  // Update profile (role, status, or HR access)
+  const updateProfile = async (id: string, updates: Partial<Pick<Profile, "role" | "status" | "hr_access">>) => {
     const res = await fetch(`${API}/profiles/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
@@ -264,6 +265,20 @@ export default function UsersPage() {
                     <button onClick={() => updateProfile(profile.id, { status: "pending" })}
                       className="px-3 py-1.5 bg-yellow-500/20 text-yellow-600 border border-yellow-500/30 rounded-lg text-xs font-semibold hover:bg-yellow-500/30 transition-colors">
                       🧊 تجميد
+                    </button>
+                  )}
+
+                  {/* HR access toggle */}
+                  {profile.status === "active" && profile.role !== "admin" && (
+                    <button
+                      onClick={() => updateProfile(profile.id, { hr_access: !profile.hr_access })}
+                      title="السماح بالوصول إلى وحدة الموارد البشرية"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        profile.hr_access
+                          ? "bg-cyan-500/15 text-cyan-600 border-cyan-500/30 hover:bg-cyan-500/25"
+                          : "bg-secondary text-muted-foreground border-border hover:text-foreground"
+                      }`}>
+                      {profile.hr_access ? "✅ صلاحية الموارد البشرية" : "منح صلاحية الموارد البشرية"}
                     </button>
                   )}
                 </div>

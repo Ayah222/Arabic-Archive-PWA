@@ -21,11 +21,19 @@ import categoriesRouter from "./categories";
 import inviteRouter from "./invite";
 import profilesRouter from "./profiles";
 import emailArchiveRouter from "./emailArchive";
+import hrEmployeesRouter from "./hr/employees";
+import hrCandidatesRouter from "./hr/candidates";
+import hrCorporateRouter from "./hr/corporate";
 import { enforcePermissions } from "./permissions";
+import { requireHrAccess } from "./hr/permissions";
 
 const router: IRouter = Router();
 
 router.use(enforcePermissions);
+router.use(requireHrAccess);
+router.use(hrEmployeesRouter);
+router.use(hrCandidatesRouter);
+router.use(hrCorporateRouter);
 router.use(dashboardRouter);
 router.use(notificationsRouter);
 router.use(projectsRouter);
