@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { randomUUID } from "crypto";
-import { store } from "./store";
+import { listAttachments, createAttachment, deleteAttachment } from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -9,12 +8,7 @@ const router: IRouter = Router();
 router.get("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
   const { id } = req.params;
   const { entityType, entityId } = req.query as { entityType?: string; entityId?: string };
-
-  let results = store.attachments.filter((a) => a.projectId === id);
-  if (entityType) results = results.filter((a) => a.entityType === entityType);
-  if (entityId)   results = results.filter((a) => a.entityId  === entityId);
-
-  res.json(results);
+  res.json(await listAttachments(id, { entityType, entityId }));
 });
 
 // POST create an attachment
@@ -31,32 +25,18 @@ router.post("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
     return;
   }
 
-  const attachment = {
-    id: randomUUID(),
-    projectId: id,
-    entityType: entityType as "contract" | "meeting" | "letter" | "custom_doc",
-    entityId: entityId ?? id, // fallback to projectId for custom_doc
-    dataUrl,
-    name,
-    customType: customType ?? "مستند",
-    mimeType: mimeType ?? "application/octet-stream",
-    size: size ?? 0,
-    uploadedAt: new Date().toISOString(),
-  };
-
-  store.attachments.push(attachment);
+  const attachment = await createAttachment(id, { entityType, entityId, dataUrl, name, customType, mimeType, size });
   res.status(201).json(attachment);
 });
 
 // DELETE an attachment
 router.delete("/sa/projects/:id/attachments/:aid", async (req, res): Promise<void> => {
   const { id, aid } = req.params;
-  const idx = store.attachments.findIndex((a) => a.id === aid && a.projectId === id);
-  if (idx === -1) {
+  const deleted = await deleteAttachment(id, aid);
+  if (!deleted) {
     res.status(404).json({ error: "Attachment not found" });
     return;
   }
-  store.attachments.splice(idx, 1);
   res.sendStatus(204);
 });
 

@@ -2,6 +2,7 @@
 // Runs every hour to check for overdue documents and pending letters
 import { store, newId } from "./store";
 import { syncEmailArchive } from "./emailArchive";
+import { listAllDocuments, listAllLetters, listAllContracts, listFinance, listProjects } from "./archiveDb";
 
 const REVIEW_DAYS_THRESHOLD = 5; // documents under review for more than N days trigger alert
 
@@ -9,12 +10,20 @@ function daysBetween(a: string, b: string) {
   return Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
 }
 
-function runScheduledChecks() {
+async function runScheduledChecks() {
   const now = new Date();
   const todayStr = now.toISOString();
 
+  const [documents, letters, contracts, finance, projects] = await Promise.all([
+    listAllDocuments(),
+    listAllLetters(),
+    listAllContracts(),
+    listFinance(),
+    listProjects(),
+  ]);
+
   // Check 1: Documents under review for more than REVIEW_DAYS_THRESHOLD days (Prompt 4)
-  for (const doc of store.documents) {
+  for (const doc of documents) {
     if (doc.approvalStatus !== "under_review") continue;
     const latestRev = doc.revisions[doc.currentRevision] ?? doc.revisions.at(-1);
     if (!latestRev) continue;
@@ -30,7 +39,7 @@ function runScheduledChecks() {
     );
     if (alreadyNotified) continue;
 
-    const project = store.projects.find((p) => p.id === doc.projectId);
+    const project = projects.find((p) => p.id === doc.projectId);
     store.notifications.unshift({
       id: newId(),
       title: `مستند متأخر: ${doc.name}`,
@@ -44,7 +53,7 @@ function runScheduledChecks() {
   }
 
   // Check 2: Outgoing letters without confirmed receipt (Prompt 4)
-  for (const letter of store.letters) {
+  for (const letter of letters) {
     if (letter.direction !== "outgoing") continue;
     if (letter.distributionStatus === "received") continue;
     const daysPending = daysBetween(letter.createdAt, todayStr);
@@ -57,7 +66,7 @@ function runScheduledChecks() {
     );
     if (alreadyNotified) continue;
 
-    const project = store.projects.find((p) => p.id === letter.projectId);
+    const project = projects.find((p) => p.id === letter.projectId);
     store.notifications.unshift({
       id: newId(),
       title: `متابعة مطلوبة: خطاب لم يُؤكد استلامه`,
@@ -71,7 +80,7 @@ function runScheduledChecks() {
   }
 
   // Check 3: Contracts expiring within 30 days (Prompt 12)
-  for (const contract of store.contracts) {
+  for (const contract of contracts) {
     if (contract.status !== "active") continue;
     const daysLeft = daysBetween(todayStr, contract.endDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 30) continue;
@@ -83,7 +92,7 @@ function runScheduledChecks() {
     );
     if (alreadyNotified) continue;
 
-    const project = store.projects.find((p) => p.id === contract.projectId);
+    const project = projects.find((p) => p.id === contract.projectId);
     store.notifications.unshift({
       id: newId(),
       title: `عقد يقترب من انتهائه`,
@@ -97,7 +106,7 @@ function runScheduledChecks() {
   }
 
   // Check 4: Finance reminder dates (Prompt 12)
-  for (const record of store.finance) {
+  for (const record of finance) {
     if (!record.reminderDate) continue;
     const daysLeft = daysBetween(todayStr, record.reminderDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 3) continue; // Alert 3 days before
@@ -127,10 +136,12 @@ function runScheduledChecks() {
 
 export function startScheduler() {
   // Run once on startup
-  runScheduledChecks();
+  void runScheduledChecks().catch((error) => console.error("Initial scheduled checks failed", error));
 
   // Then every hour
-  setInterval(runScheduledChecks, 60 * 60 * 1000);
+  setInterval(() => {
+    void runScheduledChecks().catch((error) => console.error("Scheduled checks failed", error));
+  }, 60 * 60 * 1000);
 
   // Gmail is read-only through the Replit connector. Sync is intentionally
   // isolated so an external API error never interrupts the archive scheduler.

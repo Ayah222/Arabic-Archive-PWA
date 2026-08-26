@@ -1,13 +1,10 @@
 import { Router, type IRouter } from "express";
-import { store, newId } from "./store";
+import { listFinance, createFinanceRecord, updateFinanceRecord, deleteFinanceRecord } from "./archiveDb";
 
 const router: IRouter = Router();
 
-router.get("/sa/finance", async (req, res): Promise<void> => {
-  const list = [...store.finance].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  res.json(list);
+router.get("/sa/finance", async (_req, res): Promise<void> => {
+  res.json(await listFinance());
 });
 
 router.post("/sa/finance", async (req, res): Promise<void> => {
@@ -16,28 +13,16 @@ router.post("/sa/finance", async (req, res): Promise<void> => {
     res.status(400).json({ error: "title, amount, type, category, date required" });
     return;
   }
-  const record = {
-    id: newId(),
-    title,
-    amount: Number(amount),
-    type,
-    category,
-    date,
-    reminderDate: reminderDate ?? null,
-    notes: notes ?? null,
-    projectId: projectId ?? null,
-    createdAt: new Date().toISOString(),
-  };
-  store.finance.push(record);
+  const record = await createFinanceRecord({
+    title, amount: Number(amount), type, category, date,
+    reminderDate: reminderDate ?? null, notes: notes ?? null, projectId: projectId ?? null,
+  });
   res.status(201).json(record);
 });
 
 router.put("/sa/finance/:id", async (req, res): Promise<void> => {
-  const idx = store.finance.findIndex((f) => f.id === req.params.id);
-  if (idx === -1) { res.status(404).json({ error: "Not found" }); return; }
   const { title, amount, type, category, date, reminderDate, notes, projectId } = req.body;
-  store.finance[idx] = {
-    ...store.finance[idx],
+  const record = await updateFinanceRecord(req.params.id, {
     ...(title !== undefined && { title }),
     ...(amount !== undefined && { amount: Number(amount) }),
     ...(type !== undefined && { type }),
@@ -46,14 +31,14 @@ router.put("/sa/finance/:id", async (req, res): Promise<void> => {
     ...(reminderDate !== undefined && { reminderDate }),
     ...(notes !== undefined && { notes }),
     ...(projectId !== undefined && { projectId }),
-  };
-  res.json(store.finance[idx]);
+  });
+  if (!record) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(record);
 });
 
 router.delete("/sa/finance/:id", async (req, res): Promise<void> => {
-  const idx = store.finance.findIndex((f) => f.id === req.params.id);
-  if (idx === -1) { res.status(404).json({ error: "Not found" }); return; }
-  store.finance.splice(idx, 1);
+  const deleted = await deleteFinanceRecord(req.params.id);
+  if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
   res.status(204).end();
 });
 

@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { store, newId } from "./store";
 import {
   ListContractsParams,
   CreateContractParams,
@@ -8,6 +7,7 @@ import {
   UpdateContractBody,
   DeleteContractParams,
 } from "@workspace/api-zod";
+import { listContracts, createContract, updateContract, deleteContract } from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -17,7 +17,7 @@ router.get("/sa/projects/:id/contracts", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  res.json(store.contracts.filter((c) => c.projectId === params.data.id));
+  res.json(await listContracts(params.data.id));
 });
 
 router.post("/sa/projects/:id/contracts", async (req, res): Promise<void> => {
@@ -31,15 +31,7 @@ router.post("/sa/projects/:id/contracts", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const contract = {
-    id: newId(),
-    projectId: params.data.id,
-    ...parsed.data,
-    notes: parsed.data.notes ?? null,
-    fileUrl: parsed.data.fileUrl ?? null,
-    createdAt: new Date().toISOString(),
-  };
-  store.contracts.push(contract);
+  const contract = await createContract(params.data.id, parsed.data);
   res.status(201).json(contract);
 });
 
@@ -54,15 +46,12 @@ router.patch("/sa/projects/:id/contracts/:cid", async (req, res): Promise<void> 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const idx = store.contracts.findIndex(
-    (c) => c.id === params.data.cid && c.projectId === params.data.id
-  );
-  if (idx === -1) {
+  const contract = await updateContract(params.data.id, params.data.cid, parsed.data);
+  if (!contract) {
     res.status(404).json({ error: "Contract not found" });
     return;
   }
-  store.contracts[idx] = { ...store.contracts[idx], ...parsed.data };
-  res.json(store.contracts[idx]);
+  res.json(contract);
 });
 
 router.delete("/sa/projects/:id/contracts/:cid", async (req, res): Promise<void> => {
@@ -71,14 +60,11 @@ router.delete("/sa/projects/:id/contracts/:cid", async (req, res): Promise<void>
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const idx = store.contracts.findIndex(
-    (c) => c.id === params.data.cid && c.projectId === params.data.id
-  );
-  if (idx === -1) {
+  const deleted = await deleteContract(params.data.id, params.data.cid);
+  if (!deleted) {
     res.status(404).json({ error: "Contract not found" });
     return;
   }
-  store.contracts.splice(idx, 1);
   res.sendStatus(204);
 });
 

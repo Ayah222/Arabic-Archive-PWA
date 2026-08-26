@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { store, newId } from "./store";
 import {
   ListMeetingsParams,
   CreateMeetingParams,
@@ -8,6 +7,7 @@ import {
   UpdateMeetingBody,
   DeleteMeetingParams,
 } from "@workspace/api-zod";
+import { listMeetings, createMeeting, updateMeeting, deleteMeeting } from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -17,7 +17,7 @@ router.get("/sa/projects/:id/meetings", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  res.json(store.meetings.filter((m) => m.projectId === params.data.id));
+  res.json(await listMeetings(params.data.id));
 });
 
 router.post("/sa/projects/:id/meetings", async (req, res): Promise<void> => {
@@ -31,16 +31,7 @@ router.post("/sa/projects/:id/meetings", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const meeting = {
-    id: newId(),
-    projectId: params.data.id,
-    ...parsed.data,
-    location: parsed.data.location ?? null,
-    agenda: parsed.data.agenda ?? null,
-    notes: parsed.data.notes ?? null,
-    createdAt: new Date().toISOString(),
-  };
-  store.meetings.push(meeting);
+  const meeting = await createMeeting(params.data.id, parsed.data);
   res.status(201).json(meeting);
 });
 
@@ -55,15 +46,12 @@ router.patch("/sa/projects/:id/meetings/:mid", async (req, res): Promise<void> =
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const idx = store.meetings.findIndex(
-    (m) => m.id === params.data.mid && m.projectId === params.data.id
-  );
-  if (idx === -1) {
+  const meeting = await updateMeeting(params.data.id, params.data.mid, parsed.data);
+  if (!meeting) {
     res.status(404).json({ error: "Meeting not found" });
     return;
   }
-  store.meetings[idx] = { ...store.meetings[idx], ...parsed.data };
-  res.json(store.meetings[idx]);
+  res.json(meeting);
 });
 
 router.delete("/sa/projects/:id/meetings/:mid", async (req, res): Promise<void> => {
@@ -72,14 +60,11 @@ router.delete("/sa/projects/:id/meetings/:mid", async (req, res): Promise<void> 
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const idx = store.meetings.findIndex(
-    (m) => m.id === params.data.mid && m.projectId === params.data.id
-  );
-  if (idx === -1) {
+  const deleted = await deleteMeeting(params.data.id, params.data.mid);
+  if (!deleted) {
     res.status(404).json({ error: "Meeting not found" });
     return;
   }
-  store.meetings.splice(idx, 1);
   res.sendStatus(204);
 });
 

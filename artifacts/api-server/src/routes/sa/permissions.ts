@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { addAuditLog } from "./store";
+import { addAuditLog } from "./archiveDb";
 
 type SARole = "admin" | "data_entry" | "viewer";
 
@@ -108,7 +108,7 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
       "new",
     );
 
-    addAuditLog(userId, userLabel, action, entity, entityId, `${actionLabel} ${entity}`);
+    void addAuditLog(userId, userLabel, action, entity, entityId, `${actionLabel} ${entity}`);
   });
 
   next();

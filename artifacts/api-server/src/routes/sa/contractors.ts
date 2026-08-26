@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { store, newId } from "./store";
 import {
   ListProjectContractorsParams,
   CreateProjectContractorParams,
@@ -8,6 +7,7 @@ import {
   UpdateProjectContractorBody,
   DeleteProjectContractorParams,
 } from "@workspace/api-zod";
+import { listContractors, createContractor, updateContractor, updateContractorRating, deleteContractor } from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -17,7 +17,7 @@ router.get("/sa/projects/:id/contractors", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  res.json(store.contractors.filter((c) => c.projectId === params.data.id));
+  res.json(await listContractors(params.data.id));
 });
 
 router.post("/sa/projects/:id/contractors", async (req, res): Promise<void> => {
@@ -31,16 +31,7 @@ router.post("/sa/projects/:id/contractors", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const contractor = {
-    id: newId(),
-    projectId: params.data.id,
-    ...parsed.data,
-    phone: parsed.data.phone ?? null,
-    email: parsed.data.email ?? null,
-    notes: parsed.data.notes ?? null,
-    createdAt: new Date().toISOString(),
-  };
-  store.contractors.push(contractor);
+  const contractor = await createContractor(params.data.id, parsed.data);
   res.status(201).json(contractor);
 });
 
@@ -55,15 +46,12 @@ router.patch("/sa/projects/:id/contractors/:cid", async (req, res): Promise<void
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const idx = store.contractors.findIndex(
-    (c) => c.id === params.data.cid && c.projectId === params.data.id
-  );
-  if (idx === -1) {
+  const contractor = await updateContractor(params.data.id, params.data.cid, parsed.data);
+  if (!contractor) {
     res.status(404).json({ error: "Contractor not found" });
     return;
   }
-  store.contractors[idx] = { ...store.contractors[idx], ...parsed.data };
-  res.json(store.contractors[idx]);
+  res.json(contractor);
 });
 
 /* ── Rating endpoint ── */
@@ -72,14 +60,16 @@ router.patch("/sa/projects/:id/contractors/:cid/rating", async (req, res): Promi
   const { workQuality, scheduleCompliance, safetyStandards, executionSpeed } = req.body as {
     workQuality: number; scheduleCompliance: number; safetyStandards: number; executionSpeed: number;
   };
-  const idx = store.contractors.findIndex((c) => c.id === cid && c.projectId === id);
-  if (idx === -1) { res.status(404).json({ error: "Contractor not found" }); return; }
   const avg = Math.round((workQuality + scheduleCompliance + safetyStandards + executionSpeed) / 4);
-  (store.contractors[idx] as import("./store").SAProjectContractor).rating = {
+  const contractor = await updateContractorRating(id, cid, {
     workQuality, scheduleCompliance, safetyStandards, executionSpeed, average: avg,
     updatedAt: new Date().toISOString(),
-  };
-  res.json(store.contractors[idx]);
+  });
+  if (!contractor) {
+    res.status(404).json({ error: "Contractor not found" });
+    return;
+  }
+  res.json(contractor);
 });
 
 router.delete("/sa/projects/:id/contractors/:cid", async (req, res): Promise<void> => {
@@ -88,14 +78,11 @@ router.delete("/sa/projects/:id/contractors/:cid", async (req, res): Promise<voi
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const idx = store.contractors.findIndex(
-    (c) => c.id === params.data.cid && c.projectId === params.data.id
-  );
-  if (idx === -1) {
+  const deleted = await deleteContractor(params.data.id, params.data.cid);
+  if (!deleted) {
     res.status(404).json({ error: "Contractor not found" });
     return;
   }
-  store.contractors.splice(idx, 1);
   res.sendStatus(204);
 });
 

@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { objectStorageClient, privateObjectLocation } from "../../lib/objectStorage";
 import { verifyEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
-import { addAuditLog } from "./store";
+import { addAuditLog } from "./archiveDb";
 
 const router: IRouter = Router();
 const gmail = new ReplitConnectors();

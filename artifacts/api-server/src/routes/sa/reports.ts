@@ -1,6 +1,14 @@
 // Prompt 3: Per-project reports
 import { Router, type IRouter } from "express";
-import { store } from "./store";
+import {
+  listProjects,
+  getProject,
+  listDocuments,
+  listLetters,
+  listContracts,
+  listMeetings,
+  listContacts,
+} from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -10,19 +18,21 @@ function daysBetween(a: string, b: string) {
   return Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
 }
 
-function buildProjectReport(projectId: string, period: "weekly" | "monthly") {
-  const project = store.projects.find((p) => p.id === projectId);
+async function buildProjectReport(projectId: string, period: "weekly" | "monthly") {
+  const project = await getProject(projectId);
   if (!project) return null;
 
   const now = new Date();
   const periodMs = period === "weekly" ? 7 * 86400000 : 30 * 86400000;
   const periodStart = new Date(now.getTime() - periodMs).toISOString();
 
-  const docs = store.documents.filter((d) => d.projectId === projectId);
-  const letters = store.letters.filter((l) => l.projectId === projectId);
-  const contracts = store.contracts.filter((c) => c.projectId === projectId);
-  const meetings = store.meetings.filter((m) => m.projectId === projectId);
-  const contacts = store.contacts.filter((c) => c.projectId === projectId);
+  const [docs, letters, contracts, meetings, contacts] = await Promise.all([
+    listDocuments(projectId),
+    listLetters(projectId),
+    listContracts(projectId),
+    listMeetings(projectId),
+    listContacts(projectId),
+  ]);
 
   // New in period
   const newDocs = docs.filter((d) => d.createdAt >= periodStart);
@@ -132,7 +142,7 @@ function buildProjectReport(projectId: string, period: "weekly" | "monthly") {
 router.get("/sa/reports/:projectId", async (req, res): Promise<void> => {
   const { projectId } = req.params;
   const period = (req.query.period as string) === "monthly" ? "monthly" : "weekly";
-  const report = buildProjectReport(projectId, period);
+  const report = await buildProjectReport(projectId, period);
   if (!report) {
     res.status(404).json({ error: "Project not found" });
     return;
@@ -143,10 +153,9 @@ router.get("/sa/reports/:projectId", async (req, res): Promise<void> => {
 // GET all project reports list (summary only)
 router.get("/sa/reports", async (req, res): Promise<void> => {
   const period = (req.query.period as string) === "monthly" ? "monthly" : "weekly";
-  const reports = store.projects
-    .map((p) => buildProjectReport(p.id, period))
-    .filter(Boolean);
-  res.json(reports);
+  const projects = await listProjects();
+  const reports = await Promise.all(projects.map((p) => buildProjectReport(p.id, period)));
+  res.json(reports.filter(Boolean));
 });
 
 export default router;

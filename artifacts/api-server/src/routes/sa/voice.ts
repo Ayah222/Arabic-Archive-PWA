@@ -3,6 +3,7 @@
 // Claude API can be plugged in via ANTHROPIC_API_KEY env var
 import { Router, type IRouter } from "express";
 import { store, newId } from "./store";
+import { listProjects, listAllLetters, listAllDocuments } from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -62,18 +63,20 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
 
   if (action === "last_letter") {
     const hint = params.projectHint?.toLowerCase() ?? "";
+    const projects = await listProjects();
     // Find matching project
     const project = hint
-      ? store.projects.find((p) => p.name.toLowerCase().includes(hint) || p.id.includes(hint))
+      ? projects.find((p) => p.name.toLowerCase().includes(hint) || p.id.includes(hint))
       : projectId
-        ? store.projects.find((p) => p.id === projectId)
+        ? projects.find((p) => p.id === projectId)
         : null;
 
+    const allLetters = await listAllLetters();
     const letters = project
-      ? store.letters.filter((l) => l.projectId === project.id)
+      ? allLetters.filter((l) => l.projectId === project.id)
       : projectId
-        ? store.letters.filter((l) => l.projectId === projectId)
-        : store.letters;
+        ? allLetters.filter((l) => l.projectId === projectId)
+        : allLetters;
 
     const outgoing = letters.filter((l) => l.direction === "outgoing");
     outgoing.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -90,16 +93,17 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
 
   if (action === "pending_docs") {
     const hint = params.contractorHint?.toLowerCase() ?? "";
-    let docs = store.documents.filter((d) => d.approvalStatus === "under_review");
+    const [allDocs, projects] = await Promise.all([listAllDocuments(), listProjects()]);
+    let docs = allDocs.filter((d) => d.approvalStatus === "under_review");
     if (hint) {
-      const proj = store.projects.find((p) =>
+      const proj = projects.find((p) =>
         p.name.toLowerCase().includes(hint) || p.client.toLowerCase().includes(hint)
       );
       if (proj) docs = docs.filter((d) => d.projectId === proj.id);
     }
     const result = docs.map((d) => ({
       ...d,
-      projectName: store.projects.find((p) => p.id === d.projectId)?.name ?? "—",
+      projectName: projects.find((p) => p.id === d.projectId)?.name ?? "—",
     }));
 
     return res.json({
@@ -130,23 +134,24 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
 
   if (action === "search") {
     const q = (params.query ?? text).toLowerCase();
-    const projects = store.projects.filter(
+    const [projectList, allLetters, allDocs] = await Promise.all([listProjects(), listAllLetters(), listAllDocuments()]);
+    const projects = projectList.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.client.toLowerCase().includes(q) ||
         (p.description ?? "").toLowerCase().includes(q)
     );
-    const letters = store.letters
+    const letters = allLetters
       .filter((l) => l.subject.toLowerCase().includes(q) || l.from.toLowerCase().includes(q))
       .map((l) => ({
         ...l,
-        projectName: store.projects.find((p) => p.id === l.projectId)?.name ?? "—",
+        projectName: projectList.find((p) => p.id === l.projectId)?.name ?? "—",
       }));
-    const documents = store.documents
+    const documents = allDocs
       .filter((d) => d.name.toLowerCase().includes(q))
       .map((d) => ({
         ...d,
-        projectName: store.projects.find((p) => p.id === d.projectId)?.name ?? "—",
+        projectName: projectList.find((p) => p.id === d.projectId)?.name ?? "—",
       }));
 
     return res.json({

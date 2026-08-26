@@ -1,7 +1,8 @@
 // Prompt 7: Simple role-based user management + login
 // Prompt 8: Self-service user registration
 import { Router, type IRouter } from "express";
-import { store, newId, addAuditLog } from "./store";
+import { store, newId } from "./store";
+import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
 import { createEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
 

@@ -1,6 +1,6 @@
 // Prompt 7: Audit log endpoint
 import { Router, type IRouter } from "express";
-import { store } from "./store";
+import { listAuditLogs } from "./archiveDb";
 
 const router: IRouter = Router();
 
@@ -10,15 +10,8 @@ router.get("/sa/audit", async (req, res): Promise<void> => {
     entity?: string; userId?: string; limit?: string;
   };
 
-  let logs = [...store.auditLogs];
-
-  if (entity) logs = logs.filter((l) => l.entity === entity);
-  if (userId) logs = logs.filter((l) => l.userId === userId);
-
   const maxItems = Math.min(parseInt(limit ?? "100"), 500);
-  logs = logs.slice(0, maxItems);
-
-  res.json(logs);
+  res.json(await listAuditLogs({ entity, userId, limit: maxItems }));
 });
 
 export default router;

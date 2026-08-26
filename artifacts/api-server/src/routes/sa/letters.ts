@@ -1,13 +1,12 @@
 import { Router, type IRouter } from "express";
-import { store, newId, nextLetterRef, addAuditLog } from "./store";
+import { listLetters, createLetter, updateLetter, deleteLetter, nextLetterRef, addAuditLog } from "./archiveDb";
 
 const router: IRouter = Router();
 
 // GET all letters for a project
 router.get("/sa/projects/:id/letters", async (req, res): Promise<void> => {
   const { id } = req.params;
-  const letters = store.letters.filter((l) => l.projectId === id);
-  res.json(letters);
+  res.json(await listLetters(id));
 });
 
 // POST create a letter (Prompt 1: auto-ref, recipients, distributionStatus)
@@ -27,28 +26,24 @@ router.post("/sa/projects/:id/letters", async (req, res): Promise<void> => {
     return;
   }
 
-  const letter = {
-    id: newId(),
-    projectId: id,
+  const autoRef = await nextLetterRef();
+  const letter = await createLetter(id, {
     subject,
-    direction: direction as "incoming" | "outgoing",
+    direction,
     from,
     to,
     date,
     reference: reference ?? null,
-    autoRef: nextLetterRef(),
-    recipients: (recipients ?? []) as Array<"owner" | "consultant" | "contractor" | "technical_office">,
-    distributionStatus: (distributionStatus ?? "not_sent") as "not_sent" | "sent" | "received",
+    autoRef,
+    recipients: recipients ?? [],
+    distributionStatus: distributionStatus ?? "not_sent",
     notes: notes ?? null,
     fileUrl: fileUrl ?? null,
-    createdAt: new Date().toISOString(),
-  };
-  store.letters.push(letter);
+  });
 
-  // Audit log
   const userId = (req.headers["x-user-id"] as string) ?? "system";
   const userLabel = (req.headers["x-user-label"] as string) ?? "مستخدم";
-  addAuditLog(userId, userLabel, "create", "letter", letter.id, `إضافة خطاب: ${subject}`);
+  await addAuditLog(userId, userLabel, "create", "letter", letter.id, `إضافة خطاب: ${subject}`);
 
   res.status(201).json(letter);
 });
@@ -59,39 +54,33 @@ router.patch("/sa/projects/:id/letters/:lid", async (req, res): Promise<void> =>
   const { distributionStatus, recipients } = req.body as {
     distributionStatus?: string; recipients?: string[];
   };
-  const idx = store.letters.findIndex((l) => l.id === lid && l.projectId === id);
-  if (idx === -1) {
+  const letter = await updateLetter(id, lid, { distributionStatus, recipients });
+  if (!letter) {
     res.status(404).json({ error: "Letter not found" });
     return;
-  }
-  if (distributionStatus) {
-    store.letters[idx].distributionStatus = distributionStatus as "not_sent" | "sent" | "received";
-  }
-  if (recipients) {
-    store.letters[idx].recipients = recipients as Array<"owner" | "consultant" | "contractor" | "technical_office">;
   }
 
   const userId = (req.headers["x-user-id"] as string) ?? "system";
   const userLabel = (req.headers["x-user-label"] as string) ?? "مستخدم";
-  addAuditLog(userId, userLabel, "update", "letter", lid, `تحديث خطاب: ${store.letters[idx].subject}`);
+  await addAuditLog(userId, userLabel, "update", "letter", lid, `تحديث خطاب: ${letter.subject}`);
 
-  res.json(store.letters[idx]);
+  res.json(letter);
 });
 
 // DELETE a letter
 router.delete("/sa/projects/:id/letters/:lid", async (req, res): Promise<void> => {
   const { id, lid } = req.params;
-  const idx = store.letters.findIndex((l) => l.id === lid && l.projectId === id);
-  if (idx === -1) {
+  const letters = await listLetters(id);
+  const letter = letters.find((l) => l.id === lid);
+  const deleted = await deleteLetter(id, lid);
+  if (!deleted) {
     res.status(404).json({ error: "Letter not found" });
     return;
   }
-  const subject = store.letters[idx].subject;
-  store.letters.splice(idx, 1);
 
   const userId = (req.headers["x-user-id"] as string) ?? "system";
   const userLabel = (req.headers["x-user-label"] as string) ?? "مستخدم";
-  addAuditLog(userId, userLabel, "delete", "letter", lid, `حذف خطاب: ${subject}`);
+  await addAuditLog(userId, userLabel, "delete", "letter", lid, `حذف خطاب: ${letter?.subject ?? ""}`);
 
   res.sendStatus(204);
 });
