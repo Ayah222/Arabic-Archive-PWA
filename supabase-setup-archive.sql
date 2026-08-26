@@ -197,8 +197,17 @@ BEGIN
     'letters', 'finance_records', 'contacts', 'categories', 'attachments', 'audit_logs'
   ]
   LOOP
+    -- PostgreSQL supports IF EXISTS for DROP POLICY, but not
+    -- IF NOT EXISTS for CREATE POLICY. Remove only this script's
+    -- named policy so the script can be safely run again.
     EXECUTE format(
-      'CREATE POLICY IF NOT EXISTS "%1$s_service_all" ON public.%1$s FOR ALL USING (true) WITH CHECK (true)',
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      archive_table || '_service_all',
+      archive_table
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR ALL USING (true) WITH CHECK (true)',
+      archive_table || '_service_all',
       archive_table
     );
   END LOOP;
