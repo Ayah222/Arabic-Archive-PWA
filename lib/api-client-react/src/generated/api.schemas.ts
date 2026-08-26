@@ -96,16 +96,16 @@ export const ProjectInputStatus = {
 export interface ProjectInput {
   /** @minLength 1 */
   name: string;
-  description: string;
+  description?: string;
   /** @minLength 1 */
-  client: string;
-  status: ProjectInputStatus;
+  client?: string;
+  status?: ProjectInputStatus;
   /**
      * @minimum 0
      * @maximum 100
      */
-  progress: number;
-  startDate: string;
+  progress?: number;
+  startDate?: string;
   /** @nullable */
   endDate?: string | null;
   /** @nullable */

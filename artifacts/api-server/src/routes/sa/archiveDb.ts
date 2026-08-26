@@ -206,20 +206,22 @@ export async function getProject(id: string): Promise<SAProject | null> {
 }
 
 export async function createProject(input: {
-  name: string; description: string; client: string; status: string; progress: number;
-  startDate: string; endDate?: string | null; budget?: number | null; location?: string | null;
+  name: string; description?: string; client?: string; status?: string; progress?: number;
+  startDate?: string; endDate?: string | null; budget?: number | null; location?: string | null;
   coverImage?: string | null;
 }): Promise<SAProject> {
+  // Only the name is required from the caller; every other field has a sensible
+  // default so a project can be created with just a title.
   const row = unwrap<Record<string, unknown>>(
     await supabaseAdmin()
       .from("projects")
       .insert({
         name: input.name,
-        description: input.description,
-        client: input.client,
-        status: input.status,
-        progress: input.progress,
-        start_date: input.startDate,
+        description: input.description ?? "",
+        client: input.client ?? "",
+        status: input.status ?? "active",
+        progress: input.progress ?? 0,
+        start_date: input.startDate || new Date().toISOString().slice(0, 10),
         end_date: input.endDate ?? null,
         budget: input.budget ?? null,
         location: input.location ?? null,

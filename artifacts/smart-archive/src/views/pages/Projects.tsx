@@ -66,9 +66,9 @@ export default function Projects() {
   const { createProject, updateProject, deleteProject } = useProjectActions();
 
   const handleCreate = async () => {
-    if (!form.name.trim() || !form.client.trim()) return;
+    if (!form.name.trim()) return;
     const input: ProjectInput = {
-      name: form.name, description: form.description, client: form.client,
+      name: form.name, description: form.description, client: form.client.trim() || undefined,
       status: form.status, progress: form.progress, startDate: form.startDate,
       endDate: form.endDate || null, budget: form.budget ? Number(form.budget) : null,
       location: form.location || null,
@@ -353,7 +353,7 @@ function ProjectForm({
           className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
           dir="ltr" type="url" />
       </div>
-      <button onClick={onSubmit} disabled={loading || !data.name.trim() || !data.client.trim()}
+      <button onClick={onSubmit} disabled={loading || !data.name.trim()}
         className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 mt-2">
         {loading ? t("saving") : submitLabel}
       </button>

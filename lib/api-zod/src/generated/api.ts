@@ -134,11 +134,11 @@ export const createProjectBodyProgressMax = 100;
 
 export const CreateProjectBody = zod.object({
   "name": zod.string().min(1),
-  "description": zod.string(),
-  "client": zod.string().min(1),
-  "status": zod.enum(['active', 'completed', 'on_hold', 'cancelled']),
-  "progress": zod.number().min(createProjectBodyProgressMin).max(createProjectBodyProgressMax),
-  "startDate": zod.string(),
+  "description": zod.string().optional(),
+  "client": zod.string().min(1).optional(),
+  "status": zod.enum(['active', 'completed', 'on_hold', 'cancelled']).optional(),
+  "progress": zod.number().min(createProjectBodyProgressMin).max(createProjectBodyProgressMax).optional(),
+  "startDate": zod.string().optional(),
   "endDate": zod.string().nullish(),
   "budget": zod.number().nullish(),
   "location": zod.string().nullish(),

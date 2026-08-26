@@ -770,7 +770,7 @@ components:
           type: ["string", "null"]
         coverImage:
           type: ["string", "null"]
-      required: [name, description, client, status, progress, startDate]
+      required: [name]
 
     ProjectUpdate:
       type: object
