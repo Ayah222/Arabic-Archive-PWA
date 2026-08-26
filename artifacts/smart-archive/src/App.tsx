@@ -21,6 +21,7 @@ import LoginPage from "./views/pages/Login";
 import UsersPage from "./views/pages/Users";
 import AcceptInvite from "./views/pages/AcceptInvite";
 import OnboardingTour from "./views/components/shared/OnboardingTour";
+import EmailArchive from "./views/pages/EmailArchive";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -59,6 +60,7 @@ export default function App() {
                 <Route path="/meetings"       element={<AllMeetings />} />
                 <Route path="/letters"        element={<AllLetters />} />
                 <Route path="/finance"        element={<FinancialArchive />} />
+                <Route path="/email-archive"  element={<EmailArchive />} />
                 <Route path="/search"         element={<SearchPage />} />
                 <Route path="/notifications"  element={<Notifications />} />
                 <Route path="/reports"        element={<ReportsPage />} />

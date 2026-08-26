@@ -57,6 +57,13 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     return;
   }
 
+  // Email archive has its own server-signed session middleware because it
+  // protects sensitive Gmail content and must not trust client role headers.
+  if (req.path.startsWith("/sa/email-archive")) {
+    next();
+    return;
+  }
+
   const role = normalizeRole(req.headers["x-user-role"]);
   if (!role) {
     res.status(403).json({ error: "يلزم تسجيل الدخول بصلاحية صالحة لإجراء هذا التغيير" });

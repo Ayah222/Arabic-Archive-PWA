@@ -20,6 +20,7 @@ import attachmentsRouter from "./attachments";
 import categoriesRouter from "./categories";
 import inviteRouter from "./invite";
 import profilesRouter from "./profiles";
+import emailArchiveRouter from "./emailArchive";
 import { enforcePermissions } from "./permissions";
 
 const router: IRouter = Router();
@@ -46,5 +47,6 @@ router.use(attachmentsRouter);
 router.use(categoriesRouter);
 router.use(inviteRouter);
 router.use(profilesRouter);
+router.use(emailArchiveRouter);
 
 export default router;

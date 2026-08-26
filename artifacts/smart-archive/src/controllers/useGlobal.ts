@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 const API = "/api/sa";
 
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(path);
+  const r = await fetch(path, { headers: getUserRequestHeaders() });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -552,4 +552,118 @@ export function useDocumentActions(projectId: string) {
   });
 
   return { updateApproval, addRevision };
+}
+
+/* ─── Gmail email archive ─── */
+export interface ArchivedEmailAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface ArchivedEmail {
+  id: string;
+  gmailMessageId: string;
+  gmailThreadId: string;
+  subject: string;
+  from: string;
+  to: string;
+  cc: string;
+  bcc: string;
+  replyTo: string;
+  direction: "incoming" | "outgoing";
+  sentAt: string;
+  receivedAt: string;
+  snippet: string;
+  preview?: string;
+  bodyText?: string;
+  bodyHtml?: string | null;
+  labels: string[];
+  attachments: ArchivedEmailAttachment[];
+  sizeBytes: number;
+  archivedAt: string;
+}
+
+export interface EmailArchiveFilters {
+  q?: string;
+  direction?: "" | "incoming" | "outgoing";
+  from?: string;
+  to?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface EmailArchiveDashboard {
+  gmailAddress: string | null;
+  lastSyncAt: string | null;
+  lastSuccessAt: string | null;
+  lastHistoryId: string | null;
+  nextPageToken: string | null;
+  lastError: string | null;
+  syncing: boolean;
+  messageCount: number;
+  incomingCount: number;
+  outgoingCount: number;
+  attachmentCount: number;
+  storageBytes: number;
+}
+
+export function useEmailArchive(filters: EmailArchiveFilters) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+  const query = params.toString();
+  return useQuery<ArchivedEmail[]>({
+    queryKey: ["email-archive", query],
+    queryFn: () => get(`${API}/email-archive${query ? `?${query}` : ""}`),
+  });
+}
+
+export function useArchivedEmail(id: string | null) {
+  return useQuery<ArchivedEmail>({
+    queryKey: ["email-archive-message", id],
+    queryFn: () => get(`${API}/email-archive/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useEmailArchiveDashboard() {
+  return useQuery<EmailArchiveDashboard>({
+    queryKey: ["email-archive-dashboard"],
+    queryFn: () => get(`${API}/email-archive/dashboard`),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useEmailArchiveActions() {
+  const qc = useQueryClient();
+  const sync = useMutation({
+    mutationFn: () => post<{ added: number; skipped: number; attachments: number; hasMore: boolean; syncedAt: string }>(`${API}/email-archive/sync`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["email-archive"] });
+      qc.invalidateQueries({ queryKey: ["email-archive-dashboard"] });
+    },
+  });
+  return { sync };
+}
+
+export function emailAttachmentDownloadUrl(emailId: string, attachmentId: string) {
+  return `${API}/email-archive/${emailId}/attachments/${attachmentId}/download`;
+}
+
+export async function downloadArchivedEmailAttachment(emailId: string, attachmentId: string, filename: string) {
+  const response = await fetch(emailAttachmentDownloadUrl(emailId, attachmentId), {
+    headers: getUserRequestHeaders(),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }

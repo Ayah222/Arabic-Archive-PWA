@@ -1,6 +1,7 @@
 // Prompt 4 + Prompt 12: Scheduled jobs for automatic reminders
 // Runs every hour to check for overdue documents and pending letters
 import { store, newId } from "./store";
+import { syncEmailArchive } from "./emailArchive";
 
 const REVIEW_DAYS_THRESHOLD = 5; // documents under review for more than N days trigger alert
 
@@ -130,4 +131,11 @@ export function startScheduler() {
 
   // Then every hour
   setInterval(runScheduledChecks, 60 * 60 * 1000);
+
+  // Gmail is read-only through the Replit connector. Sync is intentionally
+  // isolated so an external API error never interrupts the archive scheduler.
+  void syncEmailArchive().catch((error) => console.error("Initial Gmail archive sync failed", error));
+  setInterval(() => {
+    void syncEmailArchive().catch((error) => console.error("Scheduled Gmail archive sync failed", error));
+  }, 30 * 60 * 1000);
 }

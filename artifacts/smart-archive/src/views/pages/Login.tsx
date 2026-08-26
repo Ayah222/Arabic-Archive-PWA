@@ -79,6 +79,15 @@ export default function LoginPage() {
         return;
       }
 
+      const archiveSession = await fetch("/api/sa/auth/supabase-email-archive-session", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+      if (!archiveSession.ok) {
+        await supabase.auth.signOut();
+        throw new Error("تعذر تأكيد صلاحية الأرشيف");
+      }
+
       // Store user in session and navigate
       setCurrentUser({
         id: accountProfile.id,

@@ -2,8 +2,20 @@
 // Prompt 8: Self-service user registration
 import { Router, type IRouter } from "express";
 import { store, newId, addAuditLog } from "./store";
+import { createClient } from "@supabase/supabase-js";
+import { createEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
 
 const router: IRouter = Router();
+
+function setEmailArchiveCookie(res: import("express").Response, actor: EmailArchiveActor) {
+  res.cookie("sa_email_archive_session", createEmailArchiveSession(actor), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 8 * 60 * 60 * 1000,
+    path: "/api/sa/email-archive",
+  });
+}
 
 // POST login
 router.post("/sa/auth/login", async (req, res): Promise<void> => {
@@ -17,7 +29,7 @@ router.post("/sa/auth/login", async (req, res): Promise<void> => {
     res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
     return;
   }
-  // Return user info (no real token, client stores in localStorage)
+  setEmailArchiveCookie(res, { id: user.id, name: user.name, role: user.role });
   res.json({
     id: user.id,
     username: user.username,
@@ -56,12 +68,50 @@ router.post("/sa/auth/register", async (req, res): Promise<void> => {
 
   addAuditLog("system", "النظام", "create", "user", newUser.id, `تسجيل مستخدم جديد: ${username}`);
 
+  setEmailArchiveCookie(res, { id: newUser.id, name: newUser.name, role: newUser.role });
   res.status(201).json({
     id: newUser.id,
     username: newUser.username,
     name: newUser.name,
     role: newUser.role,
   });
+});
+
+// Exchanges a verified Supabase access token for an HttpOnly archive cookie.
+// The email archive itself never trusts roles supplied by browser JavaScript.
+router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise<void> => {
+  const authorization = req.headers.authorization;
+  const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const url = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!accessToken || !url || !serviceRoleKey) {
+    res.status(401).json({ error: "تعذر التحقق من جلسة المستخدم" });
+    return;
+  }
+
+  const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+  if (authError || !authData.user) {
+    res.status(401).json({ error: "جلسة المستخدم غير صالحة" });
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, email, role, status")
+    .eq("id", authData.user.id)
+    .single();
+  if (profileError || !profile || profile.status !== "active" || !["admin", "data_entry", "viewer"].includes(profile.role)) {
+    res.status(403).json({ error: "الحساب غير مفعل أو لا يملك صلاحية الأرشيف" });
+    return;
+  }
+
+  setEmailArchiveCookie(res, {
+    id: profile.id,
+    name: profile.email?.split("@")[0] || "مستخدم",
+    role: profile.role as EmailArchiveActor["role"],
+  });
+  res.status(204).end();
 });
 
 // GET all users (admin only — caller should validate role client-side)
