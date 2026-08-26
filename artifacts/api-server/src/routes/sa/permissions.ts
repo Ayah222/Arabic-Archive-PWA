@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { addAuditLog } from "./archiveDb";
+import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 type SARole = "admin" | "data_entry" | "viewer";
 
@@ -57,16 +58,12 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  // Email archive has its own server-signed session middleware because it
-  // protects sensitive Gmail content and must not trust client role headers.
-  if (req.path.startsWith("/sa/email-archive")) {
+  // Email archive and HR each have their own server-signed session
+  // middleware (see emailArchiveAuth.ts / hr/permissions.ts) because they
+  // protect sensitive data and must not derive authorization from client-
+  // supplied role headers, which are trivially forgeable.
+  if (req.path.startsWith("/sa/email-archive") || req.path.startsWith("/sa/hr")) {
     next();
-    return;
-  }
-
-  const role = normalizeRole(req.headers["x-user-role"]);
-  if (!role) {
-    res.status(403).json({ error: "يلزم تسجيل الدخول بصلاحية صالحة لإجراء هذا التغيير" });
     return;
   }
 
@@ -74,8 +71,33 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     req.path.startsWith("/sa/invite") ||
     req.path.startsWith("/sa/profiles") ||
     req.path.startsWith("/sa/users");
-  if (isUserManagement && role !== "admin") {
-    res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+
+  // User/profile administration (including granting hr_access) can change who
+  // gets an HR session, so it must never be gated by the forgeable
+  // x-user-role header — verify the same signed session the email archive
+  // uses and require its real role to be "admin".
+  if (isUserManagement) {
+    const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+    if (!actor || actor.role !== "admin") {
+      res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+      return;
+    }
+    res.on("finish", () => {
+      if (res.statusCode < 200 || res.statusCode >= 300 || hasDetailedAudit(req.path)) return;
+      const action = req.method === "POST" ? "create" : req.method === "DELETE" ? "delete" : "update";
+      const entity = entityForPath(req.path);
+      const actionLabel = action === "create" ? "إضافة" : action === "update" ? "تعديل" : "حذف نهائي";
+      const entityId = String(req.params.uid ?? req.params.id ?? "new");
+      // Attribute to the verified admin session, not client-supplied headers.
+      void addAuditLog(actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
+    });
+    next();
+    return;
+  }
+
+  const role = normalizeRole(req.headers["x-user-role"]);
+  if (!role) {
+    res.status(403).json({ error: "يلزم تسجيل الدخول بصلاحية صالحة لإجراء هذا التغيير" });
     return;
   }
 

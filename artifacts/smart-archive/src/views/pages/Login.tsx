@@ -61,7 +61,7 @@ export default function LoginPage() {
       // Fetch profile to check status & role
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select("id, email, role, status")
+        .select("id, email, role, status, hr_access")
         .eq("id", data.user.id)
         .single();
 
@@ -88,12 +88,21 @@ export default function LoginPage() {
         throw new Error("تعذر تأكيد صلاحية الأرشيف");
       }
 
+      // Best-effort: grants the HR session cookie only if this profile is an
+      // admin or has the `hr_access` flag. A non-OK response here is expected
+      // (and harmless) for employees without HR access.
+      await fetch("/api/sa/auth/supabase-hr-session", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      }).catch(() => undefined);
+
       // Store user in session and navigate
       setCurrentUser({
         id: accountProfile.id,
         username: accountProfile.email,
         name: accountProfile.email.split("@")[0],
         role: accountProfile.role as any,
+        hrAccess: accountProfile.hr_access === true,
       });
       navigate("/");
     } catch (e: unknown) {

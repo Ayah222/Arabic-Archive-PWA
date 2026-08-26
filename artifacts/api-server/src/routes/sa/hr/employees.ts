@@ -8,13 +8,17 @@ import {
 } from "../hrDb";
 import { addAuditLog } from "../archiveDb";
 import { suggestDocumentCategory } from "../../../lib/ai";
+import { hrActorFrom } from "./permissions";
 
 const router: IRouter = Router();
 
-function userInfo(req: import("express").Request) {
+function userInfo(_req: import("express").Request, res: import("express").Response) {
+  // hrActorFrom reads the verified sa_hr_session actor set by requireHrAccess
+  // — never trust client-supplied x-user-id/x-user-label headers here.
+  const actor = hrActorFrom(res);
   return {
-    userId: (req.headers["x-user-id"] as string) ?? "system",
-    userLabel: (req.headers["x-user-label"] as string) ?? "مستخدم",
+    userId: actor?.id ?? "system",
+    userLabel: actor?.name ?? "مستخدم",
   };
 }
 
@@ -43,7 +47,7 @@ router.post("/sa/hr/employees", async (req, res): Promise<void> => {
     return;
   }
   const employee = await createEmployee({ name, nationalId, position, department, phone, email, hireDate, employmentType, status, probationDays, notes });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "موظف", employee.id, `إضافة موظف: ${name}`);
   res.status(201).json(employee);
 });
@@ -55,7 +59,7 @@ router.patch("/sa/hr/employees/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "الموظف غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "update", "موظف", employee.id, `تحديث بيانات موظف: ${employee.name}`);
   res.json(employee);
 });
@@ -67,7 +71,7 @@ router.delete("/sa/hr/employees/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "الموظف غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "موظف", req.params.id, `حذف موظف: ${employee?.name ?? ""}`);
   res.sendStatus(204);
 });
@@ -101,7 +105,7 @@ router.post("/sa/hr/employees/:id/documents", async (req, res): Promise<void> =>
   const doc = await createEmployeeDocument(req.params.id, {
     category: category ?? "personal", name, url, mimeType, size, description, expiryDate,
   });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "مستند موظف", doc.id, `رفع مستند: ${name}`);
   res.status(201).json(doc);
 });
@@ -112,7 +116,7 @@ router.delete("/sa/hr/employees/:id/documents/:did", async (req, res): Promise<v
     res.status(404).json({ error: "المستند غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "مستند موظف", req.params.did, "حذف مستند موظف");
   res.sendStatus(204);
 });
@@ -130,7 +134,7 @@ router.post("/sa/hr/employees/:id/leaves", async (req, res): Promise<void> => {
     return;
   }
   const leave = await createEmployeeLeave(req.params.id, { leaveType: leaveType ?? "annual", startDate, endDate, notes });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "إجازة", leave.id, "إضافة إجازة موظف");
   res.status(201).json(leave);
 });
@@ -141,7 +145,7 @@ router.delete("/sa/hr/employees/:id/leaves/:lid", async (req, res): Promise<void
     res.status(404).json({ error: "سجل الإجازة غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "إجازة", req.params.lid, "حذف إجازة موظف");
   res.sendStatus(204);
 });

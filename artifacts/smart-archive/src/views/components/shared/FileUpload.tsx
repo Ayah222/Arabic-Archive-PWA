@@ -8,6 +8,11 @@ interface FileUploadProps {
   label?: string;
   projectId: string;
   section: string;
+  // HR documents (national IDs, CVs, contracts) must never go through the
+  // generic /sa/upload + unauthenticated /sa/files/:filename pair. HR pages
+  // pass "/api/sa/hr/upload" here, which is gated by the signed HR session
+  // and serves back only through the equally-gated /sa/hr/files/:filename.
+  endpoint?: string;
 }
 
 export default function FileUpload({
@@ -17,6 +22,7 @@ export default function FileUpload({
   label = "رفع ملف",
   projectId,
   section,
+  endpoint = "/api/sa/upload",
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -35,7 +41,7 @@ export default function FileUpload({
       form.append("file", file);
       form.append("projectId", projectId);
       form.append("section", section);
-      const res = await fetch("/api/sa/upload", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: getUserRequestHeaders(),
         body: form,

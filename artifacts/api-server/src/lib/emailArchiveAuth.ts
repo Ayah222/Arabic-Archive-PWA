@@ -41,3 +41,35 @@ export function verifyEmailArchiveSession(token: unknown): EmailArchiveActor | n
     return null;
   }
 }
+
+// The HR module holds highly sensitive PII (national IDs, CVs, government
+// correspondence), so — like the email archive — it never trusts client-
+// supplied role/id headers. Access is granted via this server-signed HttpOnly
+// cookie, issued only after verifying either the local admin login or a real
+// Supabase access token + the profile's `hr_access` flag (see users.ts).
+export type HrActor = { id: string; name: string };
+type HrSessionPayload = HrActor & { exp: number };
+
+export function createHrSession(actor: HrActor) {
+  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + 8 * 60 * 60 * 1000 })).toString("base64url");
+  return `${payload}.${signature(payload)}`;
+}
+
+export function verifyHrSession(token: unknown): HrActor | null {
+  if (typeof token !== "string") return null;
+  const [payload, providedSignature] = token.split(".");
+  if (!payload || !providedSignature) return null;
+
+  const expectedSignature = signature(payload);
+  const provided = Buffer.from(providedSignature);
+  const expected = Buffer.from(expectedSignature);
+  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as HrSessionPayload;
+    if (!parsed.id || !parsed.name || parsed.exp < Date.now()) return null;
+    return { id: parsed.id, name: parsed.name };
+  } catch {
+    return null;
+  }
+}

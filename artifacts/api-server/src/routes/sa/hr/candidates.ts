@@ -9,18 +9,18 @@ import {
 import { addAuditLog } from "../archiveDb";
 import { extractCvSkills } from "../../../lib/ai";
 import { extractPdfText } from "../../../lib/pdfText";
+import { hrActorFrom } from "./permissions";
+import { resolveHrFilePath } from "./files";
 
 const router: IRouter = Router();
 
-const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
-  ? path.resolve(process.cwd(), "../..")
-  : process.cwd();
-const uploadsDir = path.resolve(workspaceRoot, "artifacts/api-server/uploads");
-
-function userInfo(req: import("express").Request) {
+function userInfo(_req: import("express").Request, res: import("express").Response) {
+  // hrActorFrom reads the verified sa_hr_session actor set by requireHrAccess
+  // — never trust client-supplied x-user-id/x-user-label headers here.
+  const actor = hrActorFrom(res);
   return {
-    userId: (req.headers["x-user-id"] as string) ?? "system",
-    userLabel: (req.headers["x-user-label"] as string) ?? "مستخدم",
+    userId: actor?.id ?? "system",
+    userLabel: actor?.name ?? "مستخدم",
   };
 }
 
@@ -46,7 +46,7 @@ router.post("/sa/hr/candidates", async (req, res): Promise<void> => {
     return;
   }
   const candidate = await createCandidate({ name, phone, email, positionApplied, cvUrl, notes });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "مرشح", candidate.id, `إضافة مرشح: ${name}`);
   res.status(201).json(candidate);
 });
@@ -57,7 +57,7 @@ router.patch("/sa/hr/candidates/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "المرشح غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "update", "مرشح", candidate.id, `تحديث بيانات مرشح: ${candidate.name}`);
   res.json(candidate);
 });
@@ -69,7 +69,7 @@ router.delete("/sa/hr/candidates/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "المرشح غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "مرشح", req.params.id, `حذف مرشح: ${candidate?.name ?? ""}`);
   res.sendStatus(204);
 });
@@ -92,7 +92,7 @@ router.post("/sa/hr/candidates/:id/extract-skills", async (req, res): Promise<vo
   }
 
   const filename = path.basename(new URL(urlToUse, "http://internal").pathname);
-  const filePath = path.join(uploadsDir, filename);
+  const filePath = resolveHrFilePath(filename);
   if (!fs.existsSync(filePath) || !filename.toLowerCase().endsWith(".pdf")) {
     res.json({ skills: [], extracted: false });
     return;

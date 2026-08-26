@@ -7,13 +7,17 @@ import {
   listCorrespondence, createCorrespondence, updateCorrespondence, deleteCorrespondence,
 } from "../hrDb";
 import { addAuditLog } from "../archiveDb";
+import { hrActorFrom } from "./permissions";
 
 const router: IRouter = Router();
 
-function userInfo(req: import("express").Request) {
+function userInfo(_req: import("express").Request, res: import("express").Response) {
+  // hrActorFrom reads the verified sa_hr_session actor set by requireHrAccess
+  // — never trust client-supplied x-user-id/x-user-label headers here.
+  const actor = hrActorFrom(res);
   return {
-    userId: (req.headers["x-user-id"] as string) ?? "system",
-    userLabel: (req.headers["x-user-label"] as string) ?? "مستخدم",
+    userId: actor?.id ?? "system",
+    userLabel: actor?.name ?? "مستخدم",
   };
 }
 
@@ -32,7 +36,7 @@ router.post("/sa/hr/policies", async (req, res): Promise<void> => {
     return;
   }
   const policy = await createPolicy({ title, category, fileUrl, description, effectiveDate });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "سياسة", policy.id, `إضافة سياسة: ${title}`);
   res.status(201).json(policy);
 });
@@ -52,7 +56,7 @@ router.delete("/sa/hr/policies/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "السياسة غير موجودة" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "سياسة", req.params.id, "حذف سياسة");
   res.sendStatus(204);
 });
@@ -72,7 +76,7 @@ router.post("/sa/hr/licenses", async (req, res): Promise<void> => {
     return;
   }
   const license = await createLicense({ name, licenseNumber, issuingAuthority, issueDate, expiryDate, fileUrl, notes });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "ترخيص", license.id, `إضافة ترخيص: ${name}`);
   res.status(201).json(license);
 });
@@ -92,7 +96,7 @@ router.delete("/sa/hr/licenses/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "الترخيص غير موجود" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "ترخيص", req.params.id, "حذف ترخيص");
   res.sendStatus(204);
 });
@@ -112,7 +116,7 @@ router.post("/sa/hr/correspondence", async (req, res): Promise<void> => {
     return;
   }
   const correspondence = await createCorrespondence({ subject, direction, authority, date, reference, fileUrl, notes });
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "create", "مراسلة حكومية", correspondence.id, `إضافة مراسلة: ${subject}`);
   res.status(201).json(correspondence);
 });
@@ -132,7 +136,7 @@ router.delete("/sa/hr/correspondence/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "المراسلة غير موجودة" });
     return;
   }
-  const { userId, userLabel } = userInfo(req);
+  const { userId, userLabel } = userInfo(req, res);
   await addAuditLog(userId, userLabel, "delete", "مراسلة حكومية", req.params.id, "حذف مراسلة");
   res.sendStatus(204);
 });

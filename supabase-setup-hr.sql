@@ -114,7 +114,12 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS hr_access BOOLEAN NOT NULL 
 CREATE INDEX IF NOT EXISTS employee_documents_employee_idx ON public.employee_documents(employee_id);
 CREATE INDEX IF NOT EXISTS employee_leaves_employee_idx    ON public.employee_leaves(employee_id);
 
--- تفعيل RLS — الخادم يستخدم مفتاح service role الذي يتجاوز RLS دائماً.
+-- تفعيل RLS. المتصفح لا يتواصل مطلقاً مع جداول الموارد البشرية مباشرة —
+-- كل الوصول يمر عبر خادم API الذي يستخدم مفتاح service role. لذلك السياسة
+-- أدناه مقيّدة صراحة بدور service_role فقط (TO service_role)، بينما لا تحصل
+-- الأدوار anon/authenticated (التي يستخدمها مفتاح المتصفح العام) على أي
+-- سياسة إطلاقاً، أي أن RLS يمنعها من قراءة/تعديل هذه البيانات تماماً حتى لو
+-- استُخرج مفتاح anon من كود المتصفح.
 ALTER TABLE public.employees           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_documents  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_leaves     ENABLE ROW LEVEL SECURITY;
@@ -138,7 +143,7 @@ BEGIN
       hr_table
     );
     EXECUTE format(
-      'CREATE POLICY %I ON public.%I FOR ALL USING (true) WITH CHECK (true)',
+      'CREATE POLICY %I ON public.%I FOR ALL TO service_role USING (true) WITH CHECK (true)',
       hr_table || '_service_all',
       hr_table
     );

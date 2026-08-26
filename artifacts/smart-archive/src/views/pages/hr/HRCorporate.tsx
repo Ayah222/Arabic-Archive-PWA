@@ -74,7 +74,7 @@ function PoliciesTab() {
             <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="التصنيف (اختياري)" className={inputCls} />
             <input type="date" dir="ltr" value={form.effectiveDate} onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} className={inputCls} />
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="وصف مختصر" className={`${inputCls} resize-none`} />
-            <FileUpload onUpload={setFile} projectId="hr" section="hr-policies" label={file ? "تم رفع الملف ✓" : "رفع ملف السياسة (اختياري)"} />
+            <FileUpload onUpload={setFile} projectId="hr" section="hr-policies" label={file ? "تم رفع الملف ✓" : "رفع ملف السياسة (اختياري)"} endpoint="/api/sa/hr/upload" />
             <button onClick={handleSubmit} disabled={create.isPending || !form.title.trim()} className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50" style={addBtnStyle}>
               {create.isPending ? "جاري الحفظ..." : "حفظ السياسة"}
             </button>
@@ -141,7 +141,7 @@ function LicensesTab() {
               <input type="date" dir="ltr" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} className={inputCls} />
             </div>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="ملاحظات" className={`${inputCls} resize-none`} />
-            <FileUpload onUpload={setFile} projectId="hr" section="hr-licenses" label={file ? "تم رفع الملف ✓" : "رفع ملف الترخيص (اختياري)"} />
+            <FileUpload onUpload={setFile} projectId="hr" section="hr-licenses" label={file ? "تم رفع الملف ✓" : "رفع ملف الترخيص (اختياري)"} endpoint="/api/sa/hr/upload" />
             <button onClick={handleSubmit} disabled={create.isPending || !form.name.trim()} className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50" style={addBtnStyle}>
               {create.isPending ? "جاري الحفظ..." : "حفظ الترخيص"}
             </button>
@@ -206,7 +206,7 @@ function CorrespondenceTab() {
               <input value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} placeholder="رقم المرجع" dir="ltr" className={inputCls} />
             </div>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="ملاحظات" className={`${inputCls} resize-none`} />
-            <FileUpload onUpload={setFile} projectId="hr" section="hr-correspondence" label={file ? "تم رفع الملف ✓" : "رفع الملف (اختياري)"} />
+            <FileUpload onUpload={setFile} projectId="hr" section="hr-correspondence" label={file ? "تم رفع الملف ✓" : "رفع الملف (اختياري)"} endpoint="/api/sa/hr/upload" />
             <button onClick={handleSubmit} disabled={create.isPending || !form.subject.trim()} className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50" style={addBtnStyle}>
               {create.isPending ? "جاري الحفظ..." : "حفظ المراسلة"}
             </button>

@@ -4,7 +4,7 @@ import { Router, type IRouter } from "express";
 import { store, newId } from "./store";
 import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
-import { createEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
+import { createEmailArchiveSession, createHrSession, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
 
 const router: IRouter = Router();
 
@@ -14,7 +14,20 @@ function setEmailArchiveCookie(res: import("express").Response, actor: EmailArch
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: 8 * 60 * 60 * 1000,
-    path: "/api/sa/email-archive",
+    // Scoped to all of /api/sa (not just /email-archive): enforcePermissions
+    // also reads this cookie to verify real admin status for user/profile
+    // management routes, so it must be sent on those requests too.
+    path: "/api/sa",
+  });
+}
+
+function setHrCookie(res: import("express").Response, actor: HrActor) {
+  res.cookie("sa_hr_session", createHrSession(actor), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 8 * 60 * 60 * 1000,
+    path: "/api/sa/hr",
   });
 }
 
@@ -31,6 +44,11 @@ router.post("/sa/auth/login", async (req, res): Promise<void> => {
     return;
   }
   setEmailArchiveCookie(res, { id: user.id, name: user.name, role: user.role });
+  // The single local manager account (role "admin") always has HR access;
+  // local data_entry/viewer accounts are not part of the HR grant model.
+  if (user.role === "admin") {
+    setHrCookie(res, { id: user.id, name: user.name });
+  }
   res.json({
     id: user.id,
     username: user.username,
@@ -112,6 +130,41 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
     name: profile.email?.split("@")[0] || "مستخدم",
     role: profile.role as EmailArchiveActor["role"],
   });
+  res.status(204).end();
+});
+
+// Exchanges a verified Supabase access token for an HttpOnly HR session
+// cookie. Only issued if the profile is active and either has the explicit
+// `hr_access` grant or role "admin" — never trusts anything the browser sends.
+router.post("/sa/auth/supabase-hr-session", async (req, res): Promise<void> => {
+  const authorization = req.headers.authorization;
+  const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const url = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!accessToken || !url || !serviceRoleKey) {
+    res.status(401).json({ error: "تعذر التحقق من جلسة المستخدم" });
+    return;
+  }
+
+  const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+  if (authError || !authData.user) {
+    res.status(401).json({ error: "جلسة المستخدم غير صالحة" });
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, email, role, status, hr_access")
+    .eq("id", authData.user.id)
+    .single();
+  const hasHrAccess = profile?.role === "admin" || profile?.hr_access === true;
+  if (profileError || !profile || profile.status !== "active" || !hasHrAccess) {
+    res.status(403).json({ error: "ليست لديك صلاحية الوصول لوحدة الموارد البشرية" });
+    return;
+  }
+
+  setHrCookie(res, { id: profile.id, name: profile.email?.split("@")[0] || "مستخدم" });
   res.status(204).end();
 });
 

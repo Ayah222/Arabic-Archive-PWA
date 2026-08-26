@@ -27,7 +27,7 @@ router.get("/sa/profiles", async (_req, res) => {
 router.get("/sa/profiles/:id", async (req, res) => {
   const { data, error } = await adminClient()
     .from("profiles")
-    .select("id,email,role,status")
+    .select("id,email,role,status,hr_access")
     .eq("id", req.params.id)
     .single();
   if (error || !data) return res.status(404).json({ error: "Profile not found" });

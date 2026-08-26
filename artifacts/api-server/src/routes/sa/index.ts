@@ -24,6 +24,7 @@ import emailArchiveRouter from "./emailArchive";
 import hrEmployeesRouter from "./hr/employees";
 import hrCandidatesRouter from "./hr/candidates";
 import hrCorporateRouter from "./hr/corporate";
+import hrFilesRouter from "./hr/files";
 import { enforcePermissions } from "./permissions";
 import { requireHrAccess } from "./hr/permissions";
 
@@ -31,6 +32,7 @@ const router: IRouter = Router();
 
 router.use(enforcePermissions);
 router.use(requireHrAccess);
+router.use(hrFilesRouter);
 router.use(hrEmployeesRouter);
 router.use(hrCandidatesRouter);
 router.use(hrCorporateRouter);

@@ -79,7 +79,7 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
 
       {canEdit && (
         <div className="liquid-glass-card rounded-2xl p-4 space-y-3">
-          <FileUpload onUpload={handleUpload} projectId="hr" section="hr-employee-documents" label="رفع مستند" />
+          <FileUpload onUpload={handleUpload} projectId="hr" section="hr-employee-documents" label="رفع مستند" endpoint="/api/sa/hr/upload" />
           {suggesting && <p className="text-xs text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3 animate-pulse" /> جاري اقتراح التصنيف...</p>}
           {pendingFile && (
             <div className="space-y-2 border-t border-border pt-3">

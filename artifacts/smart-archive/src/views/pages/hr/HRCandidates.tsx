@@ -72,7 +72,7 @@ function AddCandidateModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">السيرة الذاتية (PDF يفضل)</label>
-            <FileUpload onUpload={handleCvUpload} accept=".pdf,.doc,.docx" projectId="hr" section="hr-candidates" label={cv ? cv.filename : "رفع السيرة الذاتية"} />
+            <FileUpload onUpload={handleCvUpload} accept=".pdf,.doc,.docx" projectId="hr" section="hr-candidates" label={cv ? cv.filename : "رفع السيرة الذاتية"} endpoint="/api/sa/hr/upload" />
           </div>
           <button onClick={handleSubmit} disabled={create.isPending || extracting || !form.name.trim()}
             className="w-full py-3 rounded-xl text-sm font-semibold transition-all mt-2 disabled:opacity-50" style={addBtnStyle}>

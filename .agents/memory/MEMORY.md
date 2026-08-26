@@ -3,3 +3,5 @@
 - [Notification audiences](notification-audiences.md) — administrative approval alerts belong to managers only; employee notifications remain a separate future stream.
 - [Supabase setup gotchas](supabase-setup-gotchas.md) — `CREATE POLICY IF NOT EXISTS` is invalid Postgres syntax; DATABASE_URL in this project is Replit's own Postgres, not Supabase.
 - [Supabase-js typed unwrap helper](supabase-js-unwrap-typing.md) — untyped supabase-js client needs explicit generics on single-row `unwrap<T>()` calls or `tsc` fails to infer.
+- [pdf-parse v2 breaking API change](pdf-parse-v2-api.md) — v2.x replaced the default-function export with a `PDFParse` class; old-API calls fail silently as "no text".
+- [Debugging silent AI-feature fallbacks](ai-fallback-debugging.md) — test the OpenAI key with a raw fetch before assuming a code bug when a graceful-fallback AI helper always returns its default.
