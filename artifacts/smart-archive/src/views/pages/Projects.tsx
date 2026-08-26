@@ -209,7 +209,7 @@ export default function Projects() {
                       location: project.location ?? "",
                     },
                   })}
-                  className="flex-1 py-3 text-sm text-primary hover:bg-accent transition-colors rounded-bl-2xl font-medium"
+                  className="flex-1 py-3 text-sm text-primary hover:bg-primary/10 transition-colors rounded-bl-2xl font-medium"
                 >
                   {t("edit")}
                 </button>
