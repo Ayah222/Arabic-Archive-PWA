@@ -1,3 +1,5 @@
 - [Protected files — never edit](protected-files.md) — vite.config, tailwind.config, package.json, postcss.config are off-limits always.
 - [Auth & Login Flow](auth-login-flow.md) — employee uses Supabase email/password; the sole manager uses username/password admin/admin123.
 - [Notification audiences](notification-audiences.md) — administrative approval alerts belong to managers only; employee notifications remain a separate future stream.
+- [Supabase setup gotchas](supabase-setup-gotchas.md) — `CREATE POLICY IF NOT EXISTS` is invalid Postgres syntax; DATABASE_URL in this project is Replit's own Postgres, not Supabase.
+- [Supabase-js typed unwrap helper](supabase-js-unwrap-typing.md) — untyped supabase-js client needs explicit generics on single-row `unwrap<T>()` calls or `tsc` fails to infer.
