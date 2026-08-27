@@ -21,6 +21,7 @@ import categoriesRouter from "./categories";
 import inviteRouter from "./invite";
 import profilesRouter from "./profiles";
 import emailArchiveRouter from "./emailArchive";
+import messagesRouter from "./messages";
 import hrEmployeesRouter from "./hr/employees";
 import hrCandidatesRouter from "./hr/candidates";
 import hrCorporateRouter from "./hr/corporate";
@@ -58,5 +59,6 @@ router.use(categoriesRouter);
 router.use(inviteRouter);
 router.use(profilesRouter);
 router.use(emailArchiveRouter);
+router.use(messagesRouter);
 
 export default router;

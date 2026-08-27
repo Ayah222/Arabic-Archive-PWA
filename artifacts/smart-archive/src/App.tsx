@@ -28,6 +28,7 @@ import HREmployees from "./views/pages/hr/HREmployees";
 import HREmployeeDetail from "./views/pages/hr/HREmployeeDetail";
 import HRCandidates from "./views/pages/hr/HRCandidates";
 import HRCorporate from "./views/pages/hr/HRCorporate";
+import Chat from "./views/pages/Chat";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -69,6 +70,7 @@ export default function App() {
                 <Route path="/email-archive"  element={<EmailArchive />} />
                 <Route path="/search"         element={<SearchPage />} />
                 <Route path="/notifications"  element={<Notifications />} />
+                <Route path="/chat"           element={<Chat />} />
                 <Route path="/reports"        element={<ReportsPage />} />
                 <Route path="/faq"            element={<FAQPage />} />
                 <Route path="/hr"             element={getArchivePermissions().canAccessHR ? <HRHome /> : <Navigate to="/" replace />} />

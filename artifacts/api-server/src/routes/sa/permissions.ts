@@ -62,7 +62,7 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
   // middleware (see emailArchiveAuth.ts / hr/permissions.ts) because they
   // protect sensitive data and must not derive authorization from client-
   // supplied role headers, which are trivially forgeable.
-  if (req.path.startsWith("/sa/email-archive") || req.path.startsWith("/sa/hr")) {
+  if (req.path.startsWith("/sa/email-archive") || req.path.startsWith("/sa/hr") || req.path.startsWith("/sa/messages")) {
     next();
     return;
   }
