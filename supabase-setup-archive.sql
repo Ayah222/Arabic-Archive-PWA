@@ -142,13 +142,46 @@ CREATE TABLE IF NOT EXISTS public.attachments (
   project_id   UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   entity_type  TEXT NOT NULL,
   entity_id    TEXT NOT NULL,
-  data_url     TEXT NOT NULL,
+  data_url     TEXT,
+  object_path  TEXT,
   name         TEXT NOT NULL,
   custom_type  TEXT NOT NULL DEFAULT 'مستند',
   mime_type    TEXT NOT NULL DEFAULT 'application/octet-stream',
   size         BIGINT NOT NULL DEFAULT 0,
   uploaded_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 12. صور المشاريع المخزنة في Supabase Object Storage
+CREATE TABLE IF NOT EXISTS public.project_photos (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id   UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  object_path  TEXT NOT NULL,
+  name         TEXT NOT NULL,
+  description  TEXT NOT NULL DEFAULT '',
+  mime_type    TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size         BIGINT NOT NULL DEFAULT 0,
+  uploaded_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 13. الإشعارات الدائمة
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title         TEXT NOT NULL,
+  message       TEXT NOT NULL,
+  type          TEXT NOT NULL DEFAULT 'info',
+  audience      TEXT NOT NULL DEFAULT 'all',
+  scheduled_at  TIMESTAMPTZ,
+  read          BOOLEAN NOT NULL DEFAULT FALSE,
+  project_id    UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.attachments
+  ALTER COLUMN data_url DROP NOT NULL;
+
+CREATE INDEX IF NOT EXISTS project_photos_project_id_idx ON public.project_photos(project_id);
+CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON public.notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_read_idx ON public.notifications(read);
 
 -- 11. سجل النشاط
 CREATE TABLE IF NOT EXISTS public.audit_logs (
@@ -187,6 +220,8 @@ ALTER TABLE public.contacts       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attachments    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_photos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -194,7 +229,8 @@ DECLARE
 BEGIN
   FOREACH archive_table IN ARRAY ARRAY[
     'projects', 'contracts', 'contractors', 'documents', 'meetings',
-    'letters', 'finance_records', 'contacts', 'categories', 'attachments', 'audit_logs'
+    'letters', 'finance_records', 'contacts', 'categories', 'attachments', 'audit_logs',
+    'project_photos', 'notifications'
   ]
   LOOP
     -- PostgreSQL supports IF EXISTS for DROP POLICY, but not

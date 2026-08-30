@@ -19,6 +19,7 @@ import type {
   SAAttachment,
   SAAuditLog,
 } from "./store";
+import { deletePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message);
@@ -165,12 +166,14 @@ function toCategory(row: Record<string, unknown>): SACategory {
 }
 
 function toAttachment(row: Record<string, unknown>): SAAttachment {
+  const objectPath = (row.object_path as string) ?? null;
   return {
     id: row.id as string,
     projectId: row.project_id as string,
     entityType: row.entity_type as SAAttachment["entityType"],
     entityId: row.entity_id as string,
-    dataUrl: row.data_url as string,
+    dataUrl: objectPath ? storageObjectUrl(objectPath) : row.data_url as string,
+    objectPath,
     name: row.name as string,
     customType: row.custom_type as string,
     mimeType: row.mime_type as string,
@@ -833,7 +836,7 @@ export async function listAttachments(
 
 export async function createAttachment(
   projectId: string,
-  input: { entityType: string; entityId?: string; dataUrl: string; name: string; customType?: string; mimeType?: string; size?: number },
+  input: { entityType: string; entityId?: string; objectPath: string; name: string; customType?: string; mimeType?: string; size?: number },
 ): Promise<SAAttachment> {
   const row = unwrap<Record<string, unknown>>(
     await supabaseAdmin()
@@ -842,7 +845,8 @@ export async function createAttachment(
         project_id: projectId,
         entity_type: input.entityType,
         entity_id: input.entityId ?? projectId,
-        data_url: input.dataUrl,
+        object_path: input.objectPath,
+        data_url: null,
         name: input.name,
         custom_type: input.customType ?? "مستند",
         mime_type: input.mimeType ?? "application/octet-stream",
@@ -855,6 +859,14 @@ export async function createAttachment(
 }
 
 export async function deleteAttachmentsByCategory(projectId: string, categoryId: string): Promise<number> {
+  const existing = unwrap(
+    await supabaseAdmin()
+      .from("attachments")
+      .select("object_path")
+      .eq("project_id", projectId)
+      .eq("entity_type", "custom_doc")
+      .eq("entity_id", categoryId),
+  ) as Array<{ object_path?: string | null }>;
   const { error, count } = await supabaseAdmin()
     .from("attachments")
     .delete({ count: "exact" })
@@ -862,17 +874,22 @@ export async function deleteAttachmentsByCategory(projectId: string, categoryId:
     .eq("entity_type", "custom_doc")
     .eq("entity_id", categoryId);
   if (error) throw new Error(error.message);
+  await Promise.all(existing.flatMap((item) => item.object_path ? [deletePrivateObject(item.object_path)] : []));
   return count ?? 0;
 }
 
 export async function deleteAttachment(projectId: string, id: string): Promise<boolean> {
-  const { error, count } = await supabaseAdmin()
+  const { data, error } = await supabaseAdmin()
     .from("attachments")
-    .delete({ count: "exact" })
+    .delete()
     .eq("id", id)
-    .eq("project_id", projectId);
+    .eq("project_id", projectId)
+    .select("object_path")
+    .maybeSingle();
   if (error) throw new Error(error.message);
-  return (count ?? 0) > 0;
+  if (!data) return false;
+  if (data.object_path) await deletePrivateObject(data.object_path);
+  return true;
 }
 
 /* ─────────────── Search helpers (unfiltered lists for global/reports/voice) ── */

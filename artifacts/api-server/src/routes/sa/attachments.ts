@@ -1,35 +1,55 @@
 import { Router, type IRouter } from "express";
+import multer from "multer";
+import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage";
 import { listAttachments, createAttachment, deleteAttachment } from "./archiveDb";
 
 const router: IRouter = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
 
-// GET attachments for an entity within a project
-// ?entityType=contract&entityId=xxx  OR  ?entityType=custom_doc (no entityId needed — uses projectId)
 router.get("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
   const { id } = req.params;
   const { entityType, entityId } = req.query as { entityType?: string; entityId?: string };
-  res.json(await listAttachments(id, { entityType, entityId }));
+  res.json(await listAttachments(String(id), { entityType, entityId }));
 });
 
-// POST create an attachment
-router.post("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
+router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, res): Promise<void> => {
   const { id } = req.params;
-  const { entityType, entityId, dataUrl, name, customType, mimeType, size } = req.body as {
-    entityType?: string; entityId?: string;
-    dataUrl?: string; name?: string; customType?: string;
-    mimeType?: string; size?: number;
+  const projectId = String(id);
+  const { entityType, entityId, name, customType } = req.body as {
+    entityType?: string; entityId?: string; name?: string; customType?: string;
   };
-
-  if (!entityType || !dataUrl || !name) {
-    res.status(400).json({ error: "entityType, dataUrl and name are required" });
+  if (!entityType || !req.file) {
+    res.status(400).json({ error: "entityType and file are required" });
     return;
   }
 
-  const attachment = await createAttachment(id, { entityType, entityId, dataUrl, name, customType, mimeType, size });
-  res.status(201).json(attachment);
+  const saved = await savePrivateObject({
+    namespace: "attachments",
+    filename: req.file.originalname,
+    bytes: req.file.buffer,
+    contentType: req.file.mimetype,
+    segments: [projectId, entityType],
+  });
+  try {
+    const attachment = await createAttachment(projectId, {
+      entityType,
+      entityId,
+      objectPath: saved.objectName,
+      name: name || req.file.originalname,
+      customType,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+    });
+    res.status(201).json(attachment);
+  } catch (error) {
+    await deletePrivateObject(saved.objectName);
+    throw error;
+  }
 });
 
-// DELETE an attachment
 router.delete("/sa/projects/:id/attachments/:aid", async (req, res): Promise<void> => {
   const { id, aid } = req.params;
   const deleted = await deleteAttachment(id, aid);

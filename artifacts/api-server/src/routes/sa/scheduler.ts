@@ -4,6 +4,7 @@ import { store, newId } from "./store";
 import { syncEmailArchive } from "./emailArchive";
 import { listAllDocuments, listAllLetters, listAllContracts, listFinance, listProjects } from "./archiveDb";
 import { listEmployees, listAllEmployeeDocuments, listAllEmployeeLeaves, listAllLicenses } from "./hrDb";
+import { listNotifications, persistNotifications } from "./notificationDb";
 
 const REVIEW_DAYS_THRESHOLD = 5; // documents under review for more than N days trigger alert
 
@@ -14,6 +15,7 @@ function daysBetween(a: string, b: string) {
 async function runScheduledChecks() {
   const now = new Date();
   const todayStr = now.toISOString();
+  store.notifications = await listNotifications(500);
 
   const [documents, letters, contracts, finance, projects] = await Promise.all([
     listAllDocuments(),
@@ -260,6 +262,7 @@ async function runScheduledChecks() {
 
   // Trim notifications to max 200
   if (store.notifications.length > 200) store.notifications.splice(200);
+  await persistNotifications(store.notifications);
 }
 
 export function startScheduler() {

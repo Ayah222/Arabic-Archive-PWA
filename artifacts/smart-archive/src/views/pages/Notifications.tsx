@@ -22,6 +22,10 @@ const PRIORITY_COLOR: Record<string, string> = {
   low:    "text-cyan-400 bg-cyan-400/10 border-cyan-400/25",
 };
 
+function notificationPriority(notification: { priority?: string; type?: string }) {
+  return notification.priority ?? (notification.type === "error" ? "high" : notification.type === "warning" ? "medium" : "low");
+}
+
 function timeAgo(dateStr: string): string {
   try {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -114,9 +118,9 @@ export default function Notifications() {
                       }}>
                       {TYPE_LABEL[n.type] ?? n.type}
                     </span>
-                    {n.priority && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PRIORITY_COLOR[n.priority] ?? "text-muted-foreground"}`}>
-                        {n.priority === "high" ? "عالي" : n.priority === "medium" ? "متوسط" : "منخفض"}
+                    {notificationPriority(n as { priority?: string; type?: string }) && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PRIORITY_COLOR[notificationPriority(n as { priority?: string; type?: string })] ?? "text-muted-foreground"}`}>
+                        {notificationPriority(n as { priority?: string; type?: string }) === "high" ? "عالي" : notificationPriority(n as { priority?: string; type?: string }) === "medium" ? "متوسط" : "منخفض"}
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground">

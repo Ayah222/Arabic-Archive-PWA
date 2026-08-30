@@ -2,8 +2,9 @@
 // Uses keyword mapping + structured query for Arabic natural language
 // Claude API can be plugged in via ANTHROPIC_API_KEY env var
 import { Router, type IRouter } from "express";
-import { store, newId } from "./store";
+import { newId } from "./store";
 import { listProjects, listAllLetters, listAllDocuments } from "./archiveDb";
+import { createNotification } from "./notificationDb";
 
 const router: IRouter = Router();
 
@@ -124,7 +125,7 @@ router.post("/sa/voice", async (req, res): Promise<void> => {
       projectId: projectId ?? null,
       createdAt: new Date().toISOString(),
     };
-    store.notifications.unshift(notification);
+    await createNotification(notification);
     return res.json({
       action: "reminder",
       message: `تم إنشاء تذكير: "${text}"`,

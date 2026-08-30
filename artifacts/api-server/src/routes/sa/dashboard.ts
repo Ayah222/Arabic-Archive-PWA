@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { store } from "./store";
+import { listNotifications } from "./notificationDb";
 import { listProjects, listAllContracts, listAllDocuments, listAllMeetings, listAllLetters } from "./archiveDb";
 
 const router: IRouter = Router();
@@ -12,7 +12,7 @@ router.get("/sa/dashboard", async (_req, res): Promise<void> => {
     listAllMeetings(),
     listAllLetters(),
   ]);
-  const unread = store.notifications.filter((n) => !n.read).length;
+  const unread = (await listNotifications()).filter((n) => !n.read).length;
   res.json({
     totalProjects: projects.length,
     activeProjects: projects.filter((p) => p.status === "active").length,

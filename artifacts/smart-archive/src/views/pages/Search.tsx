@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useSearch } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { Search as SearchIcon, FolderOpen, HardHat, FileSignature, CalendarCheck, Mail } from "lucide-react";
+import { Search as SearchIcon, FolderOpen, HardHat, FileSignature, CalendarCheck, Mail, FileText, Paperclip } from "lucide-react";
 
 function Section({ title, icon: Icon, color, children }: { title: string; icon: React.ElementType; color: string; children: React.ReactNode }) {
   return (
@@ -21,10 +21,12 @@ function Section({ title, icon: Icon, color, children }: { title: string; icon: 
 export default function SearchPage() {
   const { t } = useLanguage();
   const [q, setQ] = useState("");
-  const { data, isFetching } = useSearch(q);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const { data, isFetching } = useSearch(q, from, to);
 
   const total = data
-    ? data.projects.length + data.contractors.length + data.contracts.length + data.meetings.length + data.letters.length
+    ? data.projects.length + data.contractors.length + data.contracts.length + data.meetings.length + data.letters.length + data.documents.length + data.attachments.length
     : 0;
 
   return (
@@ -43,7 +45,19 @@ export default function SearchPage() {
         {isFetching && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
       </div>
 
-      {q.length > 1 && data && (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label className="text-xs text-muted-foreground">من تاريخ
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-card text-foreground" />
+        </label>
+        <label className="text-xs text-muted-foreground">إلى تاريخ
+          <input type="date" value={to} onChange={e => setTo(e.target.value)}
+            min={from || undefined}
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-card text-foreground" />
+        </label>
+      </div>
+
+      {(q.length > 1 || from || to) && data && (
         <>
           <p className="text-sm text-muted-foreground">
             {total > 0 ? `${total} ${t("results")}` : t("noResults")}
@@ -95,8 +109,28 @@ export default function SearchPage() {
                 {data.letters.map(l => (
                   <div key={l.id} className="liquid-glass-card rounded-xl p-3.5">
                     <div className="font-medium text-foreground">{l.subject}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{l.direction === "outgoing" ? t("outgoing") : t("incoming")} • {l.projectName}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{l.autoRef || l.reference || "بدون مرجع"} • {l.projectName}</div>
                   </div>
+                ))}
+              </Section>
+            )}
+            {data.documents.length > 0 && (
+              <Section title="المستندات" icon={FileText} color="#22c55e">
+                {data.documents.map(d => (
+                  <Link key={d.id} to={`/projects/${d.projectId}`} className="block liquid-glass-card rounded-xl p-3.5">
+                    <div className="font-medium text-foreground">{d.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{d.docRef || "بدون مرجع"} • {d.projectName}</div>
+                  </Link>
+                ))}
+              </Section>
+            )}
+            {data.attachments.length > 0 && (
+              <Section title="المرفقات" icon={Paperclip} color="#f97316">
+                {data.attachments.map(a => (
+                  <a key={a.id} href={a.dataUrl} target="_blank" rel="noreferrer" className="block liquid-glass-card rounded-xl p-3.5">
+                    <div className="font-medium text-foreground">{a.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{a.customType} • {a.projectName}</div>
+                  </a>
                 ))}
               </Section>
             )}
@@ -104,7 +138,7 @@ export default function SearchPage() {
         </>
       )}
 
-      {q.length === 0 && (
+      {q.length === 0 && !from && !to && (
         <div className="text-center py-16">
           <SearchIcon className="w-14 h-14 mx-auto mb-4 opacity-10" />
           <p className="text-muted-foreground">{t("searchPrompt")}</p>

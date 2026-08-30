@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { store } from "./store";
+import { deleteNotificationsContaining } from "./notificationDb";
 
 const router = Router();
 
@@ -61,9 +61,7 @@ router.patch("/sa/profiles/:id", async (req, res) => {
     .single();
   if (error) return res.status(400).json({ error: error.message });
   if (status === "active") {
-    store.notifications = store.notifications.filter(
-      (notification) => !notification.message.includes(`[pending-user:${id}]`),
-    );
+    await deleteNotificationsContaining(`[pending-user:${id}]`);
   }
   res.json(data);
 });
@@ -87,9 +85,7 @@ router.delete("/sa/profiles/:id", async (req, res) => {
   if (authError) return res.status(400).json({ error: authError.message });
 
   await admin.from("profiles").delete().eq("id", id);
-  store.notifications = store.notifications.filter(
-    (notification) => !notification.message.includes(`[pending-user:${id}]`),
-  );
+  await deleteNotificationsContaining(`[pending-user:${id}]`);
   res.json({ id });
 });
 

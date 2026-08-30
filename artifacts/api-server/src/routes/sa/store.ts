@@ -81,6 +81,7 @@ export interface SAAttachment {
   entityType: "contract" | "meeting" | "letter" | "custom_doc";
   entityId: string;            // contractId / meetingId / letterId / projectId for custom_doc
   dataUrl: string;             // base64 data URL
+  objectPath: string | null;
   name: string;                // user-defined display name
   customType: string;          // user-defined category/type label
   mimeType: string;

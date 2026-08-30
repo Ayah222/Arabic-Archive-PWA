@@ -902,13 +902,11 @@ function PhotosTab({ projectId, setToast }: TabProps) {
     if (!files) return;
     Array.from(files).forEach(file => {
       if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string;
-        await add.mutateAsync({ dataUrl, name: file.name, description: desc });
+      void add.mutateAsync({ file, name: file.name, description: desc }).then(() => {
         setToast({ message: "تم رفع الصورة", type: "success" });
-      };
-      reader.readAsDataURL(file);
+      }).catch(() => {
+        setToast({ message: "فشل رفع الصورة", type: "error" });
+      });
     });
     setDesc("");
   };
@@ -1040,22 +1038,18 @@ function AttachmentsPanel({
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      await add.mutateAsync({
+    void add.mutateAsync({
         entityType, entityId,
-        dataUrl,
+        file,
         name: attName || file.name,
         customType: attType,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-      });
+      }).then(() => {
       setShowAdd(false);
       setAttName("");
       setAttType("مستند");
-    };
-    reader.readAsDataURL(file);
+      }).catch(() => {
+        window.alert("فشل رفع المرفق");
+      });
   };
 
   const mimeIcon = (mime: string) => {
@@ -1149,24 +1143,20 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!attName.trim()) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      await add.mutateAsync({
+    void add.mutateAsync({
         entityType: "custom_doc",
         entityId: projectId,
-        dataUrl,
+        file,
         name: attName,
         customType: attType || "مستند حر",
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-      });
+      }).then(() => {
       setShowAdd(false);
       setAttName("");
       setAttType("");
       _setToast({ message: "تم إضافة المستند", type: "success" });
-    };
-    reader.readAsDataURL(file);
+      }).catch(() => {
+        _setToast({ message: "فشل رفع المستند", type: "error" });
+      });
   };
 
   const filtered = search

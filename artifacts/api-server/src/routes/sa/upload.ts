@@ -1,34 +1,15 @@
 import { Router, type IRouter } from "express";
-import path from "path";
-import fs from "fs";
 import multer from "multer";
-
-const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
-  ? path.resolve(process.cwd(), "../..")
-  : process.cwd();
-
-const uploadsDir = path.resolve(workspaceRoot, "artifacts/api-server/uploads");
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9\u0600-\u06FF_-]/g, "_");
-    cb(null, `${Date.now()}-${base}${ext}`);
-  },
-});
+import {
+  decodeStorageObjectRef,
+  objectStorageClient,
+  privateObjectLocation,
+  savePrivateObject,
+} from "../../lib/objectStorage";
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req, _file, cb) => {
-    // Accept all file types — engineers & contractors work with unlimited doc types
-    cb(null, true);
-  },
 });
 
 const router: IRouter = Router();
@@ -38,23 +19,58 @@ router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void>
     res.status(400).json({ error: "لم يتم رفع ملف" });
     return;
   }
+
+  const projectId = String(req.body.projectId || "general");
+  const section = String(req.body.section || "files");
+  const saved = await savePrivateObject({
+    namespace: "uploads",
+    filename: req.file.originalname,
+    bytes: req.file.buffer,
+    contentType: req.file.mimetype,
+    segments: [projectId, section],
+  });
+
   res.json({
-    url: `/api/sa/files/${req.file.filename}`,
-    filename: req.file.filename,
+    url: saved.url,
+    objectPath: saved.objectName,
+    filename: req.file.originalname,
     size: req.file.size,
     mimetype: req.file.mimetype,
   });
 });
 
-router.get("/sa/files/:filename", async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
-  const filename = path.basename(raw);
-  const filePath = path.join(uploadsDir, filename);
-  if (!fs.existsSync(filePath)) {
+router.get("/sa/files/:objectRef", async (req, res): Promise<void> => {
+  try {
+    const objectName = decodeStorageObjectRef(req.params.objectRef);
+    const { bucketName, objectName: privatePrefix } = privateObjectLocation();
+    const allowedRoot = privatePrefix ? `${privatePrefix}/` : "";
+    const relativeName = objectName.startsWith(allowedRoot) ? objectName.slice(allowedRoot.length) : "";
+    if (!["uploads/", "project-photos/", "attachments/"].some((prefix) => relativeName.startsWith(prefix))) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+
+    const file = objectStorageClient.bucket(bucketName).file(objectName);
+    const [exists] = await file.exists();
+    if (!exists) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    const [metadata] = await file.getMetadata();
+    const filename = String(metadata.metadata?.originalName || objectName.split("/").at(-1) || "file");
+    res.setHeader("Content-Type", metadata.contentType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    file.createReadStream()
+      .on("error", () => {
+        if (!res.headersSent) res.status(500).json({ error: "تعذر قراءة الملف" });
+        else res.end();
+      })
+      .pipe(res);
+  } catch {
     res.status(404).json({ error: "File not found" });
-    return;
   }
-  res.sendFile(filePath);
 });
 
 export default router;

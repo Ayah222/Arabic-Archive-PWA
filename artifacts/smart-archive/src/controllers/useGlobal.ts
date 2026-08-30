@@ -57,6 +57,16 @@ async function del(path: string): Promise<void> {
   if (!r.ok) throw new Error(await r.text());
 }
 
+async function postForm<T>(path: string, form: FormData): Promise<T> {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: getUserRequestHeaders(),
+    body: form,
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 /* ─── Auth helpers (sessionStorage — clears on tab/browser close) ─── */
 
 export interface CurrentUser {
@@ -133,17 +143,19 @@ export function useAllLetters(q?: string) {
   });
 }
 
-export function useSearch(q: string) {
+export function useSearch(q: string, from = "", to = "") {
   return useQuery<{
     projects: Array<{ id: string; name: string; client: string; status: string; progress: number }>;
     contractors: Array<{ id: string; name: string; specialty: string; projectName: string }>;
     contracts: Array<{ id: string; title: string; party: string; projectName: string }>;
     meetings: Array<{ id: string; title: string; date: string; projectName: string }>;
-    letters: Array<{ id: string; subject: string; direction: string; projectName: string }>;
+    letters: Array<{ id: string; subject: string; direction: string; reference: string | null; autoRef: string; projectName: string }>;
+    documents: Array<{ id: string; projectId: string; name: string; docRef: string; createdAt: string; projectName: string }>;
+    attachments: Array<{ id: string; projectId: string; name: string; customType: string; uploadedAt: string; projectName: string; dataUrl: string }>;
   }>({
-    queryKey: ["search", q],
-    queryFn: () => get(`${API}/search?q=${encodeURIComponent(q)}`),
-    enabled: q.length > 1,
+    queryKey: ["search", q, from, to],
+    queryFn: () => get(`${API}/search?${new URLSearchParams({ q, from, to })}`),
+    enabled: q.length > 1 || Boolean(from || to),
   });
 }
 
@@ -436,8 +448,13 @@ export function useProjectPhotos(projectId: string) {
 export function usePhotoActions(projectId: string) {
   const qc = useQueryClient();
   const add = useMutation({
-    mutationFn: (data: { dataUrl: string; name: string; description: string }) =>
-      post<SAPhoto>(`${API}/projects/${projectId}/photos`, data),
+    mutationFn: (data: { file: File; name: string; description: string }) => {
+      const form = new FormData();
+      form.append("file", data.file);
+      form.append("name", data.name);
+      form.append("description", data.description);
+      return postForm<SAPhoto>(`${API}/projects/${projectId}/photos`, form);
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", projectId] }),
   });
   const remove = useMutation({
@@ -455,6 +472,7 @@ export interface SAAttachment {
   entityType: "contract" | "meeting" | "letter" | "custom_doc";
   entityId: string;
   dataUrl: string;
+  objectPath?: string | null;
   name: string;
   customType: string;
   mimeType: string;
@@ -473,8 +491,15 @@ export function useEntityAttachments(projectId: string, entityType: string, enti
 export function useAttachmentActions(projectId: string) {
   const qc = useQueryClient();
   const add = useMutation({
-    mutationFn: (data: { entityType: string; entityId: string; dataUrl: string; name: string; customType: string; mimeType: string; size: number }) =>
-      post<SAAttachment>(`${API}/projects/${projectId}/attachments`, data),
+    mutationFn: (data: { entityType: string; entityId: string; file: File; name: string; customType: string }) => {
+      const form = new FormData();
+      form.append("file", data.file);
+      form.append("entityType", data.entityType);
+      form.append("entityId", data.entityId);
+      form.append("name", data.name);
+      form.append("customType", data.customType);
+      return postForm<SAAttachment>(`${API}/projects/${projectId}/attachments`, form);
+    },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
     },
