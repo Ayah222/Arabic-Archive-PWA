@@ -13,6 +13,15 @@ type Message = {
 
 const API = "/api/sa/messages";
 
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { ...init, credentials: "include" });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error ?? `فشل الطلب (${response.status})`);
+  }
+  return data as T;
+}
+
 export default function Chat() {
   const currentUser = getCurrentUser();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -25,9 +34,7 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadContacts = useCallback(async () => {
-    const response = await fetch(`${API}/contacts`);
-    if (!response.ok) throw new Error("تعذر تحميل المستخدمين");
-    const data = (await response.json()) as Contact[];
+    const data = await request<Contact[]>(`${API}/contacts`);
     setContacts(data);
     setSelectedId((current) => current || data[0]?.id || "");
   }, []);
@@ -38,9 +45,7 @@ export default function Chat() {
       setLoading(false);
       return;
     }
-    const response = await fetch(`${API}?with=${encodeURIComponent(selectedId)}`);
-    if (!response.ok) throw new Error("تعذر تحميل الرسائل");
-    setMessages(await response.json());
+    setMessages(await request<Message[]>(`${API}?with=${encodeURIComponent(selectedId)}`));
     setLoading(false);
   }, [selectedId]);
 
@@ -68,13 +73,11 @@ export default function Chat() {
     setSending(true);
     setError("");
     try {
-      const response = await fetch(API, {
+      const data = await request<Message>(API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ receiver_id: selectedId, message }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "تعذر إرسال الرسالة");
       setMessages((current) => [...current, data]);
       setDraft("");
     } catch (e: unknown) {
