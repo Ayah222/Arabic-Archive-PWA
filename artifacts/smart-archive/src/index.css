@@ -278,6 +278,21 @@
   color: #00f0ff !important;
   font-weight: 700;
 }
+
+/* اتجاه أجزاء التاريخ الداخلي — خاص بحقول تاريخ الاجتماعات فقط */
+.meeting-date-input {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: plaintext;
+}
+.meeting-date-input::-webkit-datetime-edit,
+.meeting-date-input::-webkit-datetime-edit-fields-wrapper,
+.meeting-date-input::-webkit-datetime-edit-day-field,
+.meeting-date-input::-webkit-datetime-edit-month-field,
+.meeting-date-input::-webkit-datetime-edit-year-field {
+  direction: rtl !important;
+  text-align: right !important;
+}
 .dark select:focus {
   outline: none !important;
   border-color: rgba(0, 240, 255, 0.40) !important;

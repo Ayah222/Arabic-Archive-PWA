@@ -677,7 +677,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <div className="space-y-3">
           <FormField label="عنوان الاجتماع *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الاجتماع" className={inputCls} dir="rtl" /></FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} text-right`} style={{ direction: "rtl" }} /></FormField>
+            <FormField label="التاريخ *"><input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} text-right meeting-date-input`} style={{ direction: "rtl", textAlign: "right" }} /></FormField>
             <FormField label="الموقع"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="مكتب، موقع..." className={inputCls} dir="rtl" /></FormField>
           </div>
           <FormField label="الحضور">
