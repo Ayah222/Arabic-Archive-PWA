@@ -717,15 +717,26 @@ const defaultLetterForm: LetterFormData = { subject: "", direction: "outgoing", 
 function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useLetters(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
+  const attachment = useAttachmentActions(projectId);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<LetterFormData>(defaultLetterForm);
+  const [letterFile, setLetterFile] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date) return;
     try {
-      await create.mutateAsync({ id: projectId, data: { ...form, reference: form.reference || null, notes: form.notes || null, fileUrl: null } });
-      setShowCreate(false); setForm(defaultLetterForm);
+      const letter = await create.mutateAsync({ id: projectId, data: { ...form, reference: form.reference || null, notes: form.notes || null, fileUrl: null } });
+      if (letterFile) {
+        await attachment.add.mutateAsync({
+          entityType: "letter",
+          entityId: letter.id,
+          file: letterFile,
+          name: letterFile.name,
+          customType: "مرفق خطاب",
+        });
+      }
+      setShowCreate(false); setForm(defaultLetterForm); setLetterFile(null);
       setToast({ message: "تم إضافة الخطاب", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -819,8 +830,12 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
             </div>
           </FormField>
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
+          <FormField label="إرفاق ملف">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setLetterFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
+            <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+          </FormField>
           <p className="text-xs text-muted-foreground">سيتم توليد رقم مرجعي تلقائي (LTR-XXXX-XXX) عند الحفظ</p>
-          <button onClick={handleCreate} disabled={create.isPending || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnCls}>{create.isPending ? "جاري..." : "إضافة الخطاب"}</button>
+          <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnCls}>{create.isPending || attachment.add.isPending ? "جاري..." : "إضافة الخطاب"}</button>
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, lid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الخطاب", type: "success" }); }} title="حذف الخطاب" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />

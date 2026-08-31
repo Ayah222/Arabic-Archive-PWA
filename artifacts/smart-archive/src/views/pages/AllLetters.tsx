@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useAllLetters, useGlobalCreateLetter } from "../../controllers/useGlobal";
+import { useAllLetters, useGlobalCreateLetter, useAttachmentActions } from "../../controllers/useGlobal";
 import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -15,13 +15,24 @@ function AddLetterModal({ onClose }: { onClose: () => void }) {
   const { data: projects } = useProjects();
   const create = useGlobalCreateLetter();
   const [form, setForm] = useState({ projectId: "", subject: "", direction: "outgoing", from: "", to: "", date: "", reference: "", notes: "" });
+  const attachment = useAttachmentActions(form.projectId);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   const handleSubmit = async () => {
     if (!form.projectId || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date) return;
-    await create.mutateAsync({
+    const letter = await create.mutateAsync({
       projectId: form.projectId,
       data: { subject: form.subject, direction: form.direction, from: form.from, to: form.to, date: form.date, reference: form.reference || null, notes: form.notes || null, fileUrl: null },
     });
+    if (attachmentFile) {
+      await attachment.add.mutateAsync({
+        entityType: "letter",
+        entityId: (letter as { id: string }).id,
+        file: attachmentFile,
+        name: attachmentFile.name,
+        customType: "مرفق خطاب",
+      });
+    }
     onClose();
   };
 
@@ -65,9 +76,14 @@ function AddLetterModal({ onClose }: { onClose: () => void }) {
           <div><label className="block text-sm font-medium mb-1">{t("notes")}</label>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">إرفاق ملف</label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={e => setAttachmentFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
+            <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+          </div>
           <p className="text-xs text-muted-foreground">{t("autoRefNote")}</p>
-          <button onClick={handleSubmit} disabled={create.isPending || !form.projectId || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnPrimary}>
-            {create.isPending ? t("letterAdding") : t("addLetterBtn")}
+          <button onClick={handleSubmit} disabled={create.isPending || attachment.add.isPending || !form.projectId || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnPrimary}>
+            {create.isPending || attachment.add.isPending ? t("letterAdding") : t("addLetterBtn")}
           </button>
         </div>
       </div>
