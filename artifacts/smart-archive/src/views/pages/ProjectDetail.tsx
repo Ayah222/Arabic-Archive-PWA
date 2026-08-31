@@ -608,8 +608,10 @@ const defaultMeetingForm: MeetingFormData = { title: "", date: "", location: "",
 function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useMeetings(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
+  const attachment = useAttachmentActions(projectId);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<MeetingFormData>(defaultMeetingForm);
+  const [meetingFile, setMeetingFile] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [attendeeInput, setAttendeeInput] = useState("");
 
@@ -624,8 +626,17 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const handleCreate = async () => {
     if (!form.title.trim() || !form.date) return;
     try {
-      await create.mutateAsync({ id: projectId, data: { ...form, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null } });
-      setShowCreate(false); setForm(defaultMeetingForm);
+      const meeting = await create.mutateAsync({ id: projectId, data: { ...form, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null } });
+      if (meetingFile) {
+        await attachment.add.mutateAsync({
+          entityType: "meeting",
+          entityId: meeting.id,
+          file: meetingFile,
+          name: meetingFile.name,
+          customType: "مرفق اجتماع",
+        });
+      }
+      setShowCreate(false); setForm(defaultMeetingForm); setMeetingFile(null);
       setToast({ message: "تم إضافة الاجتماع", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -666,7 +677,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <div className="space-y-3">
           <FormField label="عنوان الاجتماع *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الاجتماع" className={inputCls} dir="rtl" /></FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" dir="ltr" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} /></FormField>
+            <FormField label="التاريخ *"><input type="date" dir="ltr" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} text-left`} style={{ direction: "ltr", unicodeBidi: "isolate" }} /></FormField>
             <FormField label="الموقع"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="مكتب، موقع..." className={inputCls} dir="rtl" /></FormField>
           </div>
           <FormField label="الحضور">
@@ -685,9 +696,13 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               </div>
             )}
           </FormField>
-          <FormField label="الأجندة"><textarea value={form.agenda} onChange={(e) => setForm({ ...form, agenda: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
+          <FormField label="الأجندة"><textarea value={form.agenda} onChange={(e) => setForm({ ...form, agenda: e.target.value })} rows={2} placeholder="اكتب محاور ونقاط الاجتماع الرئيسية هنا" className={`${inputCls} resize-none`} dir="rtl" /></FormField>
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
-          <button onClick={handleCreate} disabled={create.isPending || !form.title.trim() || !form.date} className={btnCls}>{create.isPending ? "جاري..." : "إضافة الاجتماع"}</button>
+          <FormField label="إرفاق ملف">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setMeetingFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
+            <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+          </FormField>
+          <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || !form.title.trim() || !form.date} className={btnCls}>{create.isPending || attachment.add.isPending ? "جاري..." : "إضافة الاجتماع"}</button>
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, mid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الاجتماع", type: "success" }); }} title="حذف الاجتماع" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />

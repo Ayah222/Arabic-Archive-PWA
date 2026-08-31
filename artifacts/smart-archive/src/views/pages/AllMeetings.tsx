@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useAllMeetings, useGlobalCreateMeeting } from "../../controllers/useGlobal";
+import { useAllMeetings, useGlobalCreateMeeting, useAttachmentActions } from "../../controllers/useGlobal";
 import { useProjects } from "../../controllers/useProjects";
 import EmptyState from "../components/shared/EmptyState";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -15,13 +15,24 @@ function AddMeetingModal({ onClose }: { onClose: () => void }) {
   const { data: projects } = useProjects();
   const create = useGlobalCreateMeeting();
   const [form, setForm] = useState({ projectId: "", title: "", date: "", location: "", agenda: "", notes: "" });
+  const attachment = useAttachmentActions(form.projectId);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   const handleSubmit = async () => {
     if (!form.projectId || !form.title.trim() || !form.date) return;
-    await create.mutateAsync({
+    const meeting = await create.mutateAsync({
       projectId: form.projectId,
       data: { title: form.title, date: form.date, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null, attendees: [] },
     });
+    if (attachmentFile) {
+      await attachment.add.mutateAsync({
+        entityType: "meeting",
+        entityId: (meeting as { id: string }).id,
+        file: attachmentFile,
+        name: attachmentFile.name,
+        customType: "مرفق اجتماع",
+      });
+    }
     onClose();
   };
 
@@ -42,20 +53,25 @@ function AddMeetingModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-sm font-medium mb-1">{t("meetingDate")}</label>
-              <input type="date" dir="ltr" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
+              <input type="date" dir="ltr" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={`${inputCls} text-left`} style={{ direction: "ltr", unicodeBidi: "isolate" }} />
             </div>
             <div><label className="block text-sm font-medium mb-1">{t("meetingLocation")}</label>
               <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder={t("meetingLocationPh")} className={inputCls} />
             </div>
           </div>
           <div><label className="block text-sm font-medium mb-1">{t("agenda")}</label>
-            <textarea value={form.agenda} onChange={e => setForm(f => ({ ...f, agenda: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
+            <textarea value={form.agenda} onChange={e => setForm(f => ({ ...f, agenda: e.target.value }))} rows={2} placeholder="اكتب محاور ونقاط الاجتماع الرئيسية هنا" className={`${inputCls} resize-none`} dir="rtl" />
           </div>
           <div><label className="block text-sm font-medium mb-1">{t("notes")}</label>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
           </div>
-          <button onClick={handleSubmit} disabled={create.isPending || !form.projectId || !form.title.trim() || !form.date} className={btnPrimary}>
-            {create.isPending ? t("meetingAdding") : t("addMeetingBtn")}
+          <div>
+            <label className="block text-sm font-medium mb-1">إرفاق ملف</label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={e => setAttachmentFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
+            <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+          </div>
+          <button onClick={handleSubmit} disabled={create.isPending || attachment.add.isPending || !form.projectId || !form.title.trim() || !form.date} className={btnPrimary}>
+            {create.isPending || attachment.add.isPending ? t("meetingAdding") : t("addMeetingBtn")}
           </button>
         </div>
       </div>
