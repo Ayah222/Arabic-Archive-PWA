@@ -93,11 +93,11 @@ function AddContractModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">{t("startDateLabel")}</label>
-              <input type="date" dir="ltr" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className={inputCls} />
+              <input type="date" lang="en-GB" dir="rtl" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">{t("endDateLabel")}</label>
-              <input type="date" dir="ltr" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={inputCls} />
+              <input type="date" lang="en-GB" dir="rtl" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
             </div>
           </div>
           <div>

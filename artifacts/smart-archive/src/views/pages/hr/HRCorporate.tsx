@@ -72,7 +72,7 @@ function PoliciesTab() {
           <div className="space-y-3">
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="عنوان السياسة *" className={inputCls} />
             <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="التصنيف (اختياري)" className={inputCls} />
-            <input type="date" dir="ltr" value={form.effectiveDate} onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} className={inputCls} />
+            <input type="date" lang="en-GB" dir="rtl" value={form.effectiveDate} onChange={e => setForm(f => ({ ...f, effectiveDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="وصف مختصر" className={`${inputCls} resize-none`} />
             <FileUpload onUpload={setFile} projectId="hr" section="hr-policies" label={file ? "تم رفع الملف ✓" : "رفع ملف السياسة (اختياري)"} endpoint="/api/sa/hr/upload" />
             <button onClick={handleSubmit} disabled={create.isPending || !form.title.trim()} className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50" style={addBtnStyle}>
@@ -137,8 +137,8 @@ function LicensesTab() {
             <input value={form.licenseNumber} onChange={e => setForm(f => ({ ...f, licenseNumber: e.target.value }))} placeholder="رقم الترخيص" dir="ltr" className={inputCls} />
             <input value={form.issuingAuthority} onChange={e => setForm(f => ({ ...f, issuingAuthority: e.target.value }))} placeholder="الجهة المصدرة" className={inputCls} />
             <div className="grid grid-cols-2 gap-3">
-              <input type="date" dir="ltr" value={form.issueDate} onChange={e => setForm(f => ({ ...f, issueDate: e.target.value }))} className={inputCls} />
-              <input type="date" dir="ltr" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} className={inputCls} />
+              <input type="date" lang="en-GB" dir="rtl" value={form.issueDate} onChange={e => setForm(f => ({ ...f, issueDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
+              <input type="date" lang="en-GB" dir="rtl" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
             </div>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="ملاحظات" className={`${inputCls} resize-none`} />
             <FileUpload onUpload={setFile} projectId="hr" section="hr-licenses" label={file ? "تم رفع الملف ✓" : "رفع ملف الترخيص (اختياري)"} endpoint="/api/sa/hr/upload" />
@@ -202,7 +202,7 @@ function CorrespondenceTab() {
             </select>
             <input value={form.authority} onChange={e => setForm(f => ({ ...f, authority: e.target.value }))} placeholder="الجهة الحكومية" className={inputCls} />
             <div className="grid grid-cols-2 gap-3">
-              <input type="date" dir="ltr" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
+            <input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={`${inputCls} archive-date-input`} />
               <input value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} placeholder="رقم المرجع" dir="ltr" className={inputCls} />
             </div>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="ملاحظات" className={`${inputCls} resize-none`} />

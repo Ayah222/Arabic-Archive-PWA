@@ -139,7 +139,7 @@ function CandidateCard({ c }: { c: HRCandidate }) {
               {c.offerStatus !== "none" && (
                 <div className="grid grid-cols-2 gap-2">
                   <input type="number" placeholder="الراتب المعروض" defaultValue={c.offerSalary ?? ""} onBlur={e => update.mutate({ id: c.id, offerSalary: Number(e.target.value) || null })} className={inputCls} />
-                  <input type="date" dir="ltr" defaultValue={c.offerStartDate ?? ""} onBlur={e => update.mutate({ id: c.id, offerStartDate: e.target.value || null })} className={inputCls} />
+                  <input type="date" lang="en-GB" dir="rtl" defaultValue={c.offerStartDate ?? ""} onBlur={e => update.mutate({ id: c.id, offerStartDate: e.target.value || null })} className={`${inputCls} archive-date-input`} />
                 </div>
               )}
               {c.cvUrl && (

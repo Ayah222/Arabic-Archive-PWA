@@ -53,7 +53,7 @@ function AddMeetingModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-sm font-medium mb-1">{t("meetingDate")}</label>
-              <input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={`${inputCls} text-right meeting-date-input`} style={{ direction: "rtl", textAlign: "right" }} />
+              <input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={`${inputCls} text-right archive-date-input`} style={{ direction: "rtl", textAlign: "right" }} />
             </div>
             <div><label className="block text-sm font-medium mb-1">{t("meetingLocation")}</label>
               <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder={t("meetingLocationPh")} className={inputCls} />

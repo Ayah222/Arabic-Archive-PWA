@@ -83,7 +83,7 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">تاريخ التعيين</label>
-              <input type="date" dir="ltr" value={form.hireDate} onChange={e => setForm(f => ({ ...f, hireDate: e.target.value }))} className={inputCls} />
+              <input type="date" lang="en-GB" dir="rtl" value={form.hireDate} onChange={e => setForm(f => ({ ...f, hireDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">مدة التجربة (أيام)</label>

@@ -47,13 +47,13 @@ export default function SearchPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="text-xs text-muted-foreground">من تاريخ
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-card text-foreground" />
+          <input type="date" lang="en-GB" dir="rtl" value={from} onChange={e => setFrom(e.target.value)}
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-card text-foreground archive-date-input" />
         </label>
         <label className="text-xs text-muted-foreground">إلى تاريخ
-          <input type="date" value={to} onChange={e => setTo(e.target.value)}
+          <input type="date" lang="en-GB" dir="rtl" value={to} onChange={e => setTo(e.target.value)}
             min={from || undefined}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-card text-foreground" />
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-card text-foreground archive-date-input" />
         </label>
       </div>
 

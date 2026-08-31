@@ -319,15 +319,15 @@ function ProjectForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium mb-1.5">{t("startDateLabel")}</label>
-          <input type="date" dir="ltr" value={data.startDate}
+          <input type="date" lang="en-GB" dir="rtl" value={data.startDate}
             onChange={(e) => set("startDate", e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm archive-date-input" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1.5">{t("endDateLabel")}</label>
-          <input type="date" dir="ltr" value={data.endDate}
+          <input type="date" lang="en-GB" dir="rtl" value={data.endDate}
             onChange={(e) => set("endDate", e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm archive-date-input" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">

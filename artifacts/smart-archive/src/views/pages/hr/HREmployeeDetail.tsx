@@ -85,7 +85,7 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
             <div className="space-y-2 border-t border-border pt-3">
               <p className="text-xs text-muted-foreground">الملف: {pendingFile.filename} — سيُحفظ في تصنيف "{CATEGORIES.find(c => c.key === activeCat)?.label}"</p>
               <div className="grid grid-cols-2 gap-2">
-                <input type="date" dir="ltr" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} placeholder="تاريخ الانتهاء (إن وجد)" className={inputCls} />
+                <input type="date" lang="en-GB" dir="rtl" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} placeholder="تاريخ الانتهاء (إن وجد)" className={`${inputCls} archive-date-input`} />
                 <input value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف مختصر (اختياري)" className={inputCls} />
               </div>
               <div className="flex gap-2">
@@ -147,8 +147,8 @@ function LeavesTab({ employeeId }: { employeeId: string }) {
               <option value="طارئة">إجازة طارئة</option>
               <option value="أخرى">أخرى</option>
             </select>
-            <input type="date" dir="ltr" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className={inputCls} />
-            <input type="date" dir="ltr" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={inputCls} />
+            <input type="date" lang="en-GB" dir="rtl" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
+            <input type="date" lang="en-GB" dir="rtl" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={`${inputCls} archive-date-input`} />
             <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="ملاحظات" className={inputCls} />
           </div>
           <button onClick={handleAdd} disabled={createLeave.isPending || !form.startDate || !form.endDate}

@@ -150,9 +150,9 @@ export default function EmailArchive() {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <CalendarDays className="w-3.5 h-3.5 opacity-60" />
           <span className="text-muted-foreground">التاريخ:</span>
-          <input type="date" value={filters.start ?? ""} onChange={(event) => updateFilter("start", event.target.value)} className="rounded-lg py-1.5 px-2 outline-none" style={inputStyle} />
+          <input type="date" lang="en-GB" dir="rtl" value={filters.start ?? ""} onChange={(event) => updateFilter("start", event.target.value)} className="rounded-lg py-1.5 px-2 outline-none archive-date-input" style={inputStyle} />
           <span className="opacity-45">إلى</span>
-          <input type="date" value={filters.end ?? ""} onChange={(event) => updateFilter("end", event.target.value)} className="rounded-lg py-1.5 px-2 outline-none" style={inputStyle} />
+          <input type="date" lang="en-GB" dir="rtl" value={filters.end ?? ""} onChange={(event) => updateFilter("end", event.target.value)} className="rounded-lg py-1.5 px-2 outline-none archive-date-input" style={inputStyle} />
           <span className="mr-auto text-muted-foreground">{emails.length} نتيجة</span>
         </div>
       </div>
