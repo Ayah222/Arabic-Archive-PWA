@@ -16,6 +16,7 @@ import ConfirmDialog from "../components/shared/ConfirmDialog";
 import EmptyState from "../components/shared/EmptyState";
 import FileUpload from "../components/shared/FileUpload";
 import Toast from "../components/shared/Toast";
+import DateInput from "../components/shared/DateInput";
 import { getArchivePermissions } from "../../controllers/permissions";
 import {
   PROJECT_STATUS_LABELS,
@@ -677,7 +678,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <div className="space-y-3">
           <FormField label="عنوان الاجتماع *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الاجتماع" className={inputCls} dir="rtl" /></FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" dir="ltr" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} text-left`} style={{ direction: "ltr", unicodeBidi: "isolate" }} /></FormField>
+            <FormField label="التاريخ *"><DateInput value={form.date} onChange={(date) => setForm({ ...form, date })} /></FormField>
             <FormField label="الموقع"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="مكتب، موقع..." className={inputCls} dir="rtl" /></FormField>
           </div>
           <FormField label="الحضور">

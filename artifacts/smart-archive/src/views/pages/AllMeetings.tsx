@@ -6,6 +6,7 @@ import EmptyState from "../components/shared/EmptyState";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { CalendarCheck, MapPin, Users, ExternalLink, Plus, X } from "lucide-react";
 import { getArchivePermissions } from "../../controllers/permissions";
+import DateInput from "../components/shared/DateInput";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const btnPrimary = "w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 mt-2";
@@ -53,7 +54,7 @@ function AddMeetingModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-sm font-medium mb-1">{t("meetingDate")}</label>
-              <input type="date" dir="ltr" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={`${inputCls} text-left`} style={{ direction: "ltr", unicodeBidi: "isolate" }} />
+              <DateInput value={form.date} onChange={date => setForm(f => ({ ...f, date }))} />
             </div>
             <div><label className="block text-sm font-medium mb-1">{t("meetingLocation")}</label>
               <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder={t("meetingLocationPh")} className={inputCls} />
