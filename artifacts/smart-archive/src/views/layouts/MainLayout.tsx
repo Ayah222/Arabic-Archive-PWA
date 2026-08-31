@@ -36,7 +36,7 @@ const NAV_KEYS = [
   { to: "/contracts",     key: "contracts"     as const, Icon: FileSignature    },
   { to: "/contractors",   key: "contractors"   as const, Icon: HardHat          },
   { to: "/meetings",      key: "meetings"      as const, Icon: CalendarCheck    },
-  { to: "/letters",       key: "letters"       as const, Icon: Mail             },
+  { to: "/letters",       key: "lettersNav"    as const, Icon: Mail             },
   { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
   { to: "/email-archive", key: "emailArchive"  as const, Icon: Inbox            },
   { to: "/search",        key: "search"        as const, Icon: Search           },
