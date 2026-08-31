@@ -29,6 +29,7 @@ import HREmployeeDetail from "./views/pages/hr/HREmployeeDetail";
 import HRCandidates from "./views/pages/hr/HRCandidates";
 import HRCorporate from "./views/pages/hr/HRCorporate";
 import Chat from "./views/pages/Chat";
+import PwaInstallPrompt from "./views/components/shared/PwaInstallPrompt";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -47,6 +48,7 @@ export default function App() {
     <LanguageProvider>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
+        <PwaInstallPrompt />
         <Routes>
           {/* Public pages — no layout, no auth */}
           <Route path="/login" element={<LoginPage />} />
