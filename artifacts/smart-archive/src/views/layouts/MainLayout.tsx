@@ -39,7 +39,6 @@ const NAV_KEYS = [
   { to: "/letters",       key: "lettersNav"    as const, Icon: Mail             },
   { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
   { to: "/email-archive", key: "emailArchive"  as const, Icon: Inbox            },
-  { to: "/search",        key: "search"        as const, Icon: Search           },
   { to: "/notifications", key: "notifications" as const, Icon: Bell             },
   { to: "/chat",          key: "chat"          as const, Icon: MessageCircle   },
   { to: "/faq",           key: "faq"           as const, Icon: HelpCircle       },
@@ -211,6 +210,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Unified search */}
+            <button
+              onClick={() => navigate("/search")}
+              title="البحث الموحد"
+              aria-label="البحث الموحد"
+              className="rounded-xl w-9 h-9 md:w-10 md:h-10 flex items-center justify-center transition-all hover:scale-105"
+              style={btnStyle}
+            >
+              <Search className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
+
             {/* Bell */}
             <div className="relative" ref={bellRef}>
               <button className="relative rounded-xl w-9 h-9 md:w-10 md:h-10 flex items-center justify-center"
