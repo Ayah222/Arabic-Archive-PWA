@@ -49,7 +49,7 @@ export default function PwaInstallPrompt() {
       <button
         type="button"
         onClick={install}
-        className="md:hidden fixed right-4 bottom-4 z-[90] flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl"
+        className="fixed right-4 bottom-4 z-[90] flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl"
         style={{ background: "linear-gradient(135deg, #00bcd4, #6d28d9)" }}
         aria-label="تثبيت التطبيق"
       >
@@ -69,10 +69,12 @@ export default function PwaInstallPrompt() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-muted-foreground">
-              على iPhone افتح قائمة المشاركة في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».
-              وعلى Android افتح قائمة Chrome ثم اختر «تثبيت التطبيق».
-            </p>
+             <div className="space-y-3 text-sm text-muted-foreground">
+               <p><strong className="text-foreground">Windows / Linux / Mac مع Chrome أو Edge:</strong> اضغط قائمة المتصفح، ثم اختر «تثبيت التطبيق» أو «Install app».</p>
+               <p><strong className="text-foreground">Android:</strong> افتح قائمة Chrome ثم اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</p>
+               <p><strong className="text-foreground">iPhone / iPad:</strong> افتح قائمة المشاركة في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».</p>
+               <p><strong className="text-foreground">Mac مع Safari:</strong> من قائمة File اختر «Add to Dock» إذا كان الخيار متاحاً.</p>
+             </div>
           </div>
         </div>
       )}

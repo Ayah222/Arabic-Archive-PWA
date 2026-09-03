@@ -9,7 +9,7 @@ import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert, HardHat, FileSignature,
-  CalendarCheck, Mail, Inbox, Search, Wallet, BarChart2, HelpCircle, Users, Plus, LogOut, UserCog, MessageCircle, Download, Share2,
+  CalendarCheck, Mail, Inbox, Search, Wallet, BarChart2, HelpCircle, Users, Plus, LogOut, UserCog, MessageCircle,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -50,11 +50,6 @@ const NAV_KEYS = [
 
 interface MainLayoutProps { children: React.ReactNode; }
 
-interface InstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
 export default function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const navigate  = useNavigate();
@@ -67,9 +62,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bellOpen, setBellOpen]   = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
-  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [installHelpOpen, setInstallHelpOpen] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(() => window.matchMedia("(display-mode: standalone)").matches);
 
   const handleLogout = () => {
     logout();
@@ -84,34 +76,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }, [isDark]);
 
   useEffect(() => { document.documentElement.classList.add("dark"); }, []);
-
-  useEffect(() => {
-    const beforeInstall = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
-    };
-    const installed = () => {
-      setIsInstalled(true);
-      setInstallPrompt(null);
-    };
-    window.addEventListener("beforeinstallprompt", beforeInstall);
-    window.addEventListener("appinstalled", installed);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", beforeInstall);
-      window.removeEventListener("appinstalled", installed);
-    };
-  }, []);
-
-  const handleInstall = async () => {
-    if (installPrompt) {
-      await installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice.outcome === "accepted") setIsInstalled(true);
-      setInstallPrompt(null);
-      return;
-    }
-    setInstallHelpOpen(true);
-  };
 
   const handleBellClick = () => setBellOpen(p => !p);
 
@@ -223,17 +187,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             );
           })}
         </nav>
-
-        {!isInstalled && (
-          <div className="p-3 border-t border-border/40">
-            <button onClick={handleInstall}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold"
-              style={{ color: isDark ? "#00f0ff" : "#4f46e5", background: isDark ? "rgba(0,240,255,0.07)" : "rgba(79,70,229,0.08)", border: isDark ? "1px solid rgba(0,240,255,0.20)" : "1px solid rgba(79,70,229,0.18)" }}>
-              <Download className="w-4 h-4" />
-              تثبيت التطبيق
-            </button>
-          </div>
-        )}
 
       </aside>
 
@@ -385,21 +338,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      {installHelpOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.72)" }} onClick={() => setInstallHelpOpen(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-card border border-border p-5 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-primary" />
-              <h3 className="font-bold">تثبيت التطبيق على الجوال</h3>
-            </div>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p><strong className="text-foreground">iPhone / Safari:</strong> اضغط زر المشاركة، ثم اختر «إضافة إلى الشاشة الرئيسية».</p>
-              <p><strong className="text-foreground">Android / Chrome:</strong> افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</p>
-            </div>
-            <button onClick={() => setInstallHelpOpen(false)} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold">حسناً</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
