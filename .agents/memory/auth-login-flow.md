@@ -35,3 +35,11 @@ Invite (by manager) → Employee receives magic link → `/accept-invite` page �
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`
 - Anon key: `VITE_SUPABASE_ANON_KEY`
 - Service role key: `SUPABASE_SERVICE_ROLE_KEY` (used only in api-server for admin ops like inviteUserByEmail)
+
+## Signed session alignment
+
+Archive features that protect private data, including employee messaging, must use the server-signed archive session and send credentials explicitly from the PWA.
+
+**Why:** Browser `sessionStorage` can still show an active user while a narrowly scoped or missing server Cookie causes protected requests to return 401.
+
+**How to apply:** Scope the archive Cookie to `/`, use `credentials: "include"` on API calls, and let Supabase users re-exchange their active access token if a protected request loses its Cookie.

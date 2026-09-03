@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send } from "lucide-react";
-import { getCurrentUser } from "../../controllers/useGlobal";
+import { getCurrentUser, getUserRequestHeaders } from "../../controllers/useGlobal";
+import { useLanguage } from "../../contexts/LanguageContext";
+import { supabase } from "../../lib/supabase";
 
 type Contact = { id: string; name: string; email: string | null };
 type Message = {
@@ -14,7 +16,24 @@ type Message = {
 const API = "/api/sa/messages";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { ...init, credentials: "include" });
+  const headers = new Headers(getUserRequestHeaders());
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  const requestInit = { ...init, headers, credentials: "include" as const };
+  let response = await fetch(url, requestInit);
+
+  if (response.status === 401 && getCurrentUser()?.role !== "admin") {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (accessToken) {
+      const sessionResponse = await fetch("/api/sa/auth/supabase-email-archive-session", {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (sessionResponse.ok) response = await fetch(url, requestInit);
+    }
+  }
+
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(data?.error ?? `فشل الطلب (${response.status})`);
@@ -23,6 +42,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function Chat() {
+  const { t } = useLanguage();
   const currentUser = getCurrentUser();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -92,7 +112,7 @@ export default function Chat() {
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-5" dir="rtl">
       <div>
-        <h1 className="text-2xl font-black text-foreground">الدردشة</h1>
+        <h1 className="text-2xl font-black text-foreground">{t("chat")}</h1>
         <p className="text-sm text-muted-foreground mt-1">رسائل مباشرة بين المستخدمين والمدير</p>
       </div>
 

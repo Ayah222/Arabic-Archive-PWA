@@ -17,7 +17,7 @@ function setEmailArchiveCookie(res: import("express").Response, actor: EmailArch
     // Scoped to all of /api/sa (not just /email-archive): enforcePermissions
     // also reads this cookie to verify real admin status for user/profile
     // management routes, so it must be sent on those requests too.
-    path: "/api/sa",
+    path: "/",
   });
 }
 

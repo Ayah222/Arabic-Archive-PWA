@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 const API = "/api/sa";
 
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(path, { headers: getUserRequestHeaders() });
+  const r = await fetch(path, { headers: getUserRequestHeaders(), credentials: "include" });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -11,6 +11,7 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(path, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...getUserRequestHeaders(),
@@ -24,6 +25,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 async function patch<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(path, {
     method: "PATCH",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...getUserRequestHeaders(),
@@ -37,6 +39,7 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
 async function put<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(path, {
     method: "PUT",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...getUserRequestHeaders(),
@@ -50,6 +53,7 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 async function del(path: string): Promise<void> {
   const r = await fetch(path, {
     method: "DELETE",
+    credentials: "include",
     headers: {
       ...getUserRequestHeaders(),
     },
@@ -60,6 +64,7 @@ async function del(path: string): Promise<void> {
 async function postForm<T>(path: string, form: FormData): Promise<T> {
   const r = await fetch(path, {
     method: "POST",
+    credentials: "include",
     headers: getUserRequestHeaders(),
     body: form,
   });

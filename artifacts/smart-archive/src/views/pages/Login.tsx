@@ -81,6 +81,7 @@ export default function LoginPage() {
 
       const archiveSession = await fetch("/api/sa/auth/supabase-email-archive-session", {
         method: "POST",
+        credentials: "include",
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       });
       if (!archiveSession.ok) {
@@ -93,6 +94,7 @@ export default function LoginPage() {
       // (and harmless) for employees without HR access.
       await fetch("/api/sa/auth/supabase-hr-session", {
         method: "POST",
+        credentials: "include",
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       }).catch(() => undefined);
 
