@@ -7,6 +7,7 @@ export type EmailArchiveActor = {
 };
 
 type ArchiveSessionPayload = EmailArchiveActor & { exp: number };
+export const ARCHIVE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function sessionSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -19,7 +20,7 @@ function signature(value: string) {
 }
 
 export function createEmailArchiveSession(actor: EmailArchiveActor) {
-  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + 8 * 60 * 60 * 1000 })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + ARCHIVE_SESSION_TTL_MS })).toString("base64url");
   return `${payload}.${signature(payload)}`;
 }
 
@@ -51,7 +52,7 @@ export type HrActor = { id: string; name: string };
 type HrSessionPayload = HrActor & { exp: number };
 
 export function createHrSession(actor: HrActor) {
-  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + 8 * 60 * 60 * 1000 })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + ARCHIVE_SESSION_TTL_MS })).toString("base64url");
   return `${payload}.${signature(payload)}`;
 }
 

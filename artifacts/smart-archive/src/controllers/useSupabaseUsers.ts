@@ -41,7 +41,7 @@ export async function supabaseLogin(email: string, password: string) {
     throw new Error("FROZEN");
   }
 
-  // Store in sessionStorage (same format as admin)
+  // Store persistently on the device (same format as admin)
   const sessionUser = {
     id: profile.id,
     username: profile.email,

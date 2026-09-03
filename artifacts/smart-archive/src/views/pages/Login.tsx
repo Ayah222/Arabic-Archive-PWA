@@ -41,7 +41,7 @@ export default function LoginPage() {
     if (tab === "admin") {
       try {
         await login.mutateAsync({ username: form.username, password: form.password });
-        navigate("/");
+        navigate("/", { replace: true });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : t("errorOccurred");
         try { setError(JSON.parse(msg).error ?? msg); } catch { setError(msg); }
@@ -106,7 +106,7 @@ export default function LoginPage() {
         role: accountProfile.role as any,
         hrAccess: accountProfile.hr_access === true,
       });
-      navigate("/");
+      navigate("/", { replace: true });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("errorOccurred"));
     } finally {

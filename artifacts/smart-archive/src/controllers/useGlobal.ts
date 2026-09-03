@@ -72,7 +72,7 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   return r.json();
 }
 
-/* ─── Auth helpers (sessionStorage — clears on tab/browser close) ─── */
+/* ─── Auth helpers (persistent device storage; logout removes it) ─── */
 
 export interface CurrentUser {
   id: string;
@@ -84,9 +84,16 @@ export interface CurrentUser {
 
 export function getCurrentUser(): CurrentUser | null {
   try {
-    const raw = sessionStorage.getItem("sa_user");
+    const raw = localStorage.getItem("sa_user") ?? sessionStorage.getItem("sa_user");
     if (!raw) return null;
-    return JSON.parse(raw) as CurrentUser;
+    const user = JSON.parse(raw) as CurrentUser;
+    // Migrate users from the previous session-only storage without forcing
+    // them to sign in again after the app is updated.
+    if (!localStorage.getItem("sa_user")) {
+      localStorage.setItem("sa_user", raw);
+      sessionStorage.removeItem("sa_user");
+    }
+    return user;
   } catch {
     return null;
   }
@@ -102,8 +109,13 @@ export function getUserRequestHeaders() {
 }
 
 export function setCurrentUser(user: CurrentUser | null) {
-  if (user) sessionStorage.setItem("sa_user", JSON.stringify(user));
-  else sessionStorage.removeItem("sa_user");
+  if (user) {
+    localStorage.setItem("sa_user", JSON.stringify(user));
+    sessionStorage.removeItem("sa_user");
+  } else {
+    localStorage.removeItem("sa_user");
+    sessionStorage.removeItem("sa_user");
+  }
 }
 
 export function useCurrentUser() {

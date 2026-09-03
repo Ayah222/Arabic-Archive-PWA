@@ -43,6 +43,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function LoginRoute() {
+  return getCurrentUser() ? <Navigate to="/" replace /> : <LoginPage />;
+}
+
 export default function App() {
   return (
     <LanguageProvider>
@@ -51,7 +55,7 @@ export default function App() {
         <PwaInstallPrompt />
         <Routes>
           {/* Public pages — no layout, no auth */}
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<LoginRoute />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
 
           {/* All other pages — protected */}

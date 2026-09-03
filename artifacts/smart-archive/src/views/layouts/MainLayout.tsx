@@ -63,7 +63,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const bellRef = useRef<HTMLDivElement>(null);

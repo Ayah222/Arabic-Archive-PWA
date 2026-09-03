@@ -4,7 +4,7 @@ import { Router, type IRouter } from "express";
 import { store, newId } from "./store";
 import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
-import { createEmailArchiveSession, createHrSession, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
+import { createEmailArchiveSession, createHrSession, ARCHIVE_SESSION_TTL_MS, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
 
 const router: IRouter = Router();
 
@@ -13,7 +13,7 @@ function setEmailArchiveCookie(res: import("express").Response, actor: EmailArch
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 8 * 60 * 60 * 1000,
+    maxAge: ARCHIVE_SESSION_TTL_MS,
     // Scoped to all of /api/sa (not just /email-archive): enforcePermissions
     // also reads this cookie to verify real admin status for user/profile
     // management routes, so it must be sent on those requests too.
@@ -26,7 +26,7 @@ function setHrCookie(res: import("express").Response, actor: HrActor) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 8 * 60 * 60 * 1000,
+    maxAge: ARCHIVE_SESSION_TTL_MS,
     path: "/api/sa/hr",
   });
 }
