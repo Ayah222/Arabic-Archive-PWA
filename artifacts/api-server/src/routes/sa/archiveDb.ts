@@ -165,8 +165,20 @@ function toCategory(row: Record<string, unknown>): SACategory {
   };
 }
 
+function attachmentObjectPath(row: Record<string, unknown>): string | null {
+  if (typeof row.object_path === "string" && row.object_path) return row.object_path;
+  if (typeof row.data_url !== "string") return null;
+  const prefix = "/api/sa/files/";
+  if (!row.data_url.startsWith(prefix)) return null;
+  try {
+    return Buffer.from(row.data_url.slice(prefix.length), "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
 function toAttachment(row: Record<string, unknown>): SAAttachment {
-  const objectPath = (row.object_path as string) ?? null;
+  const objectPath = attachmentObjectPath(row);
   return {
     id: row.id as string,
     projectId: row.project_id as string,
@@ -844,23 +856,28 @@ export async function createAttachment(
   projectId: string,
   input: { entityType: string; entityId?: string; objectPath: string; name: string; customType?: string; mimeType?: string; size?: number },
 ): Promise<SAAttachment> {
-  const row = unwrap<Record<string, unknown>>(
-    await supabaseAdmin()
+  const baseRow = {
+    project_id: projectId,
+    entity_type: input.entityType,
+    entity_id: input.entityId ?? projectId,
+    name: input.name,
+    custom_type: input.customType ?? "مستند",
+    mime_type: input.mimeType ?? "application/octet-stream",
+    size: input.size ?? 0,
+  };
+  let result = await supabaseAdmin()
+    .from("attachments")
+    .insert({ ...baseRow, object_path: input.objectPath, data_url: null })
+    .select()
+    .single();
+  if (result.error?.message.includes("'object_path' column")) {
+    result = await supabaseAdmin()
       .from("attachments")
-      .insert({
-        project_id: projectId,
-        entity_type: input.entityType,
-        entity_id: input.entityId ?? projectId,
-        object_path: input.objectPath,
-        data_url: null,
-        name: input.name,
-        custom_type: input.customType ?? "مستند",
-        mime_type: input.mimeType ?? "application/octet-stream",
-        size: input.size ?? 0,
-      })
+      .insert({ ...baseRow, data_url: storageObjectUrl(input.objectPath) })
       .select()
-      .single(),
-  );
+      .single();
+  }
+  const row = unwrap<Record<string, unknown>>(result);
   return toAttachment(row);
 }
 
@@ -868,11 +885,11 @@ export async function deleteAttachmentsByCategory(projectId: string, categoryId:
   const existing = unwrap(
     await supabaseAdmin()
       .from("attachments")
-      .select("object_path")
+      .select("*")
       .eq("project_id", projectId)
       .eq("entity_type", "custom_doc")
       .eq("entity_id", categoryId),
-  ) as Array<{ object_path?: string | null }>;
+  ) as Array<Record<string, unknown>>;
   const { error, count } = await supabaseAdmin()
     .from("attachments")
     .delete({ count: "exact" })
@@ -880,7 +897,10 @@ export async function deleteAttachmentsByCategory(projectId: string, categoryId:
     .eq("entity_type", "custom_doc")
     .eq("entity_id", categoryId);
   if (error) throw new Error(error.message);
-  await Promise.all(existing.flatMap((item) => item.object_path ? [deletePrivateObject(item.object_path)] : []));
+  await Promise.all(existing.flatMap((item) => {
+    const objectPath = attachmentObjectPath(item);
+    return objectPath ? [deletePrivateObject(objectPath)] : [];
+  }));
   return count ?? 0;
 }
 
@@ -890,11 +910,12 @@ export async function deleteAttachment(projectId: string, id: string): Promise<b
     .delete()
     .eq("id", id)
     .eq("project_id", projectId)
-    .select("object_path")
+    .select("*")
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return false;
-  if (data.object_path) await deletePrivateObject(data.object_path);
+  const objectPath = attachmentObjectPath(data);
+  if (objectPath) await deletePrivateObject(objectPath);
   return true;
 }
 

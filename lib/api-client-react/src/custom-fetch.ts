@@ -94,7 +94,9 @@ function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
 function attachWorkspaceUserHeaders(headers: Headers) {
   if (typeof sessionStorage === "undefined") return;
   try {
-    const rawUser = sessionStorage.getItem("sa_user");
+    const rawUser =
+      (typeof localStorage !== "undefined" ? localStorage.getItem("sa_user") : null) ??
+      sessionStorage.getItem("sa_user");
     if (!rawUser) return;
     const user = JSON.parse(rawUser) as { id?: string; name?: string; role?: string };
     if (user.id) headers.set("x-user-id", encodeURIComponent(user.id));
