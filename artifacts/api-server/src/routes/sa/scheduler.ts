@@ -1,6 +1,6 @@
 // Prompt 4 + Prompt 12: Scheduled jobs for automatic reminders
 // Runs every hour to check for overdue documents and pending letters
-import { store, newId } from "./store";
+import { newId } from "./store";
 import { syncEmailArchive } from "./emailArchive";
 import { listAllDocuments, listAllLetters, listAllContracts, listFinance, listProjects } from "./archiveDb";
 import { listEmployees, listAllEmployeeDocuments, listAllEmployeeLeaves, listAllLicenses } from "./hrDb";
@@ -15,7 +15,7 @@ function daysBetween(a: string, b: string) {
 async function runScheduledChecks() {
   const now = new Date();
   const todayStr = now.toISOString();
-  store.notifications = await listNotifications(500);
+  const notifications = await listNotifications(500);
 
   const [documents, letters, contracts, finance, projects] = await Promise.all([
     listAllDocuments(),
@@ -34,7 +34,7 @@ async function runScheduledChecks() {
     if (days <= REVIEW_DAYS_THRESHOLD) continue;
 
     // Check if we already have a recent notification for this doc
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) =>
         n.projectId === doc.projectId &&
         n.message.includes(doc.id) &&
@@ -43,7 +43,7 @@ async function runScheduledChecks() {
     if (alreadyNotified) continue;
 
     const project = projects.find((p) => p.id === doc.projectId);
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `مستند متأخر: ${doc.name}`,
       message: `مستند "${doc.name}" في مشروع "${project?.name ?? "—"}" قيد المراجعة منذ ${days} يوم — الرجاء المتابعة. [${doc.id}]`,
@@ -62,7 +62,7 @@ async function runScheduledChecks() {
     const daysPending = daysBetween(letter.createdAt, todayStr);
     if (daysPending < 7) continue; // Only alert after 7 days
 
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) =>
         n.message.includes(letter.id) &&
         daysBetween(n.createdAt, todayStr) < 1
@@ -70,7 +70,7 @@ async function runScheduledChecks() {
     if (alreadyNotified) continue;
 
     const project = projects.find((p) => p.id === letter.projectId);
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `متابعة مطلوبة: خطاب لم يُؤكد استلامه`,
       message: `خطاب "${letter.subject}" (${letter.autoRef}) في مشروع "${project?.name ?? "—"}" لم يُؤكد استلامه منذ ${daysPending} يوم. [${letter.id}]`,
@@ -88,7 +88,7 @@ async function runScheduledChecks() {
     const daysLeft = daysBetween(todayStr, contract.endDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 30) continue;
 
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) =>
         n.message.includes(contract.id) &&
         daysBetween(n.createdAt, todayStr) < 1
@@ -96,7 +96,7 @@ async function runScheduledChecks() {
     if (alreadyNotified) continue;
 
     const project = projects.find((p) => p.id === contract.projectId);
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `عقد يقترب من انتهائه`,
       message: `عقد "${contract.title}" في مشروع "${project?.name ?? "—"}" ينتهي خلال ${daysLeft} يوم. [${contract.id}]`,
@@ -114,14 +114,14 @@ async function runScheduledChecks() {
     const daysLeft = daysBetween(todayStr, record.reminderDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 3) continue; // Alert 3 days before
 
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) =>
         n.message.includes(record.id) &&
         daysBetween(n.createdAt, todayStr) < 1
     );
     if (alreadyNotified) continue;
 
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `تذكير مالي: ${record.title}`,
       message: `${record.title} — ${daysLeft === 0 ? "اليوم" : `خلال ${daysLeft} أيام`}. المبلغ: ${record.amount.toLocaleString("ar-SA")} ر.س. [${record.id}]`,
@@ -146,13 +146,13 @@ async function runScheduledChecks() {
     const daysLeft = daysBetween(todayStr, doc.expiryDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 30) continue;
 
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) => n.message.includes(doc.id) && daysBetween(n.createdAt, todayStr) < 1
     );
     if (alreadyNotified) continue;
 
     const employee = employees.find((e) => e.id === doc.employeeId);
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `مستند موظف يقترب من انتهائه`,
       message: `مستند "${doc.name}" للموظف "${employee?.name ?? "—"}" ينتهي خلال ${daysLeft} يوم. [${doc.id}]`,
@@ -172,11 +172,11 @@ async function runScheduledChecks() {
     const daysToEnd = daysBetween(todayStr, leave.endDate + "T00:00:00Z");
 
     if (daysToStart >= 0 && daysToStart <= 3) {
-      const alreadyNotified = store.notifications.some(
+      const alreadyNotified = notifications.some(
         (n) => n.message.includes(`leave-start:${leave.id}`) && daysBetween(n.createdAt, todayStr) < 1
       );
       if (!alreadyNotified) {
-        store.notifications.unshift({
+        notifications.unshift({
           id: newId(),
           title: `إجازة موظف تبدأ قريباً`,
           message: `إجازة "${employee?.name ?? "—"}" تبدأ خلال ${daysToStart} يوم. [leave-start:${leave.id}]`,
@@ -191,11 +191,11 @@ async function runScheduledChecks() {
     }
 
     if (daysToEnd >= 0 && daysToEnd <= 3) {
-      const alreadyNotified = store.notifications.some(
+      const alreadyNotified = notifications.some(
         (n) => n.message.includes(`leave-end:${leave.id}`) && daysBetween(n.createdAt, todayStr) < 1
       );
       if (!alreadyNotified) {
-        store.notifications.unshift({
+        notifications.unshift({
           id: newId(),
           title: `عودة موظف من الإجازة قريباً`,
           message: `عودة "${employee?.name ?? "—"}" من الإجازة خلال ${daysToEnd} يوم. [leave-end:${leave.id}]`,
@@ -218,12 +218,12 @@ async function runScheduledChecks() {
     const daysLeft = daysBetween(todayStr, probationEnd.toISOString());
     if (daysLeft < 0 || daysLeft > 7) continue;
 
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) => n.message.includes(`probation:${employee.id}`) && daysBetween(n.createdAt, todayStr) < 1
     );
     if (alreadyNotified) continue;
 
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `انتهاء فترة تجربة موظف`,
       message: `فترة تجربة "${employee.name}" تنتهي خلال ${daysLeft} يوم. [probation:${employee.id}]`,
@@ -242,12 +242,12 @@ async function runScheduledChecks() {
     const daysLeft = daysBetween(todayStr, license.expiryDate + "T00:00:00Z");
     if (daysLeft < 0 || daysLeft > 30) continue;
 
-    const alreadyNotified = store.notifications.some(
+    const alreadyNotified = notifications.some(
       (n) => n.message.includes(license.id) && daysBetween(n.createdAt, todayStr) < 1
     );
     if (alreadyNotified) continue;
 
-    store.notifications.unshift({
+    notifications.unshift({
       id: newId(),
       title: `ترخيص يقترب من انتهائه`,
       message: `ترخيص "${license.name}" ينتهي خلال ${daysLeft} يوم. [${license.id}]`,
@@ -261,8 +261,8 @@ async function runScheduledChecks() {
   }
 
   // Trim notifications to max 200
-  if (store.notifications.length > 200) store.notifications.splice(200);
-  await persistNotifications(store.notifications);
+  if (notifications.length > 200) notifications.splice(200);
+  await persistNotifications(notifications);
 }
 
 export function startScheduler() {

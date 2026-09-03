@@ -80,7 +80,7 @@ export interface SAAttachment {
   projectId: string;
   entityType: "contract" | "meeting" | "letter" | "custom_doc";
   entityId: string;            // contractId / meetingId / letterId / projectId for custom_doc
-  dataUrl: string;             // base64 data URL
+  dataUrl: string;             // persistent API URL backed by Object Storage
   objectPath: string | null;
   name: string;                // user-defined display name
   customType: string;          // user-defined category/type label
@@ -196,17 +196,14 @@ export interface SAFinanceRecord {
 }
 
 /* ─────────────── In-memory data ─────────────── */
-/* Only notifications (ephemeral/dynamic alerts) and users (login accounts,
- * unrelated to this migration) remain in memory. Everything else lives in
- * Supabase — see archiveDb.ts. */
+/* Only the legacy manager login accounts remain in memory. Archive data,
+ * uploaded file metadata, project photos, and notifications are persistent. */
 
 const now = new Date().toISOString();
 
 export const store: {
-  notifications: SANotification[];
   users: SAUser[];
 } = {
-  notifications: [],
   // Prompt 7: Users
   users: [
     {
