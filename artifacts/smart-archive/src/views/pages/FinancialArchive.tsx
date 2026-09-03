@@ -49,14 +49,15 @@ export default function FinancialArchive() {
   const totalExpense = data?.filter(r => r.type === "expense").reduce((s, r) => s + r.amount, 0) ?? 0;
   const balance = totalIncome - totalExpense;
 
-  const upcoming = data?.filter(r => {
+  const upcoming = (data?.filter(r => {
     if (!r.reminderDate) return false;
     const d = new Date(r.reminderDate);
     const now = new Date();
     return d >= now && d <= new Date(now.getTime() + 30 * 86400000);
-  }) ?? [];
+  }) ?? []).sort((a, b) => new Date(a.reminderDate!).getTime() - new Date(b.reminderDate!).getTime());
 
-  const filtered = data?.filter(r => filterType === "all" || r.type === filterType) ?? [];
+  const filtered = (data?.filter(r => filterType === "all" || r.type === filterType) ?? [])
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const fmt = (n: number) => n.toLocaleString("ar-SA") + " ر.س";
 
   const handleCreate = async () => {
