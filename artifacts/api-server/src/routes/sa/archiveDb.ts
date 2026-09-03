@@ -684,7 +684,13 @@ export async function nextLetterRef(): Promise<string> {
 /* ─────────────── Finance ─────────────── */
 
 export async function listFinance(): Promise<SAFinanceRecord[]> {
-  const rows = unwrap(await supabaseAdmin().from("finance_records").select("*").order("created_at", { ascending: false }));
+  const rows = unwrap(
+    await supabaseAdmin()
+      .from("finance_records")
+      .select("*")
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false }),
+  );
   return (rows ?? []).map(toFinance);
 }
 
