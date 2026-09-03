@@ -8,8 +8,8 @@ import MicrophoneButton from "../components/shared/MicrophoneButton";
 import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
-  CheckCheck, Info, AlertTriangle, ShieldAlert, HardHat, FileSignature,
-  CalendarCheck, Mail, Inbox, Search, Wallet, HelpCircle, Users, Plus, LogOut, UserCog, MessageCircle,
+  CheckCheck, Info, AlertTriangle, ShieldAlert,
+  Mail, Inbox, Search, Wallet, HelpCircle, Users, Plus, LogOut, UserCog, MessageCircle,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -33,9 +33,6 @@ const LightAurora = () => (
 const NAV_KEYS = [
   { to: "/",              key: "dashboard"     as const, Icon: LayoutDashboard },
   { to: "/projects",      key: "projects"      as const, Icon: FolderOpen       },
-  { to: "/contracts",     key: "contracts"     as const, Icon: FileSignature    },
-  { to: "/contractors",   key: "contractors"   as const, Icon: HardHat          },
-  { to: "/meetings",      key: "meetings"      as const, Icon: CalendarCheck    },
   { to: "/letters",       key: "lettersNav"    as const, Icon: Mail             },
   { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
   { to: "/email-archive", key: "emailArchive"  as const, Icon: Inbox            },
@@ -152,7 +149,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">
           {navItems.map(({ to, label, Icon }) => {
             const active = isActive(to);
-            const hasQuickAdd = ["/contractors", "/meetings", "/letters", "/contracts"].includes(to);
+            const hasQuickAdd = to === "/letters";
             return (
               <div key={to} className="flex items-center gap-1 group/row">
                 <Link to={to} onClick={() => setSidebarOpen(false)}
