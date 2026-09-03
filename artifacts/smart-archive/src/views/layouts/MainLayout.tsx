@@ -9,7 +9,7 @@ import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert,
-  Mail, Inbox, Search, Wallet, HelpCircle, Users, Plus, LogOut, UserCog, MessageCircle,
+  Mail, Inbox, Search, Wallet, HelpCircle, Users, LogOut, UserCog, MessageCircle,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -33,7 +33,6 @@ const LightAurora = () => (
 const NAV_KEYS = [
   { to: "/",              key: "dashboard"     as const, Icon: LayoutDashboard },
   { to: "/projects",      key: "projects"      as const, Icon: FolderOpen       },
-  { to: "/letters",       key: "lettersNav"    as const, Icon: Mail             },
   { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
   { to: "/email-archive", key: "emailArchive"  as const, Icon: Inbox            },
   { to: "/notifications", key: "notifications" as const, Icon: Bell             },
@@ -149,7 +148,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">
           {navItems.map(({ to, label, Icon }) => {
             const active = isActive(to);
-            const hasQuickAdd = to === "/letters";
             return (
               <div key={to} className="flex items-center gap-1 group/row">
                 <Link to={to} onClick={() => setSidebarOpen(false)}
@@ -169,15 +167,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   )}
                   {active && <LayoutGrid className="w-3.5 h-3.5 shrink-0 relative z-10 opacity-55" />}
                 </Link>
-                {canEdit && hasQuickAdd && (
-                  <button
-                    onClick={() => { setSidebarOpen(false); navigate(`${to}?add=1`); }}
-                    title={`إضافة جديد`}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 opacity-0 group-hover/row:opacity-100 transition-all duration-200 hover:scale-110"
-                    style={{ background: isDark ? "rgba(0,200,220,0.08)" : "rgba(99,102,241,0.08)", color: isDark ? "rgba(0,210,230,0.70)" : "#6366f1", border: isDark ? "1px solid rgba(0,200,220,0.18)" : "1px solid rgba(99,102,241,0.18)" }}>
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                )}
               </div>
             );
           })}
