@@ -51,7 +51,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const currentUser = getCurrentUser();
   const { canEdit, canAccessHR } = getArchivePermissions();
   const { lang, dir, t, toggle } = useLanguage();
-  const [isDark, setIsDark]       = useState(true);
+  const [isDark, setIsDark] = useState(() => {
+    const savedTheme = localStorage.getItem("sa_theme");
+    return savedTheme ? savedTheme === "dark" : true;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bellOpen, setBellOpen]   = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
@@ -64,11 +67,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const bellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isDark) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem("sa_theme", isDark ? "dark" : "light");
   }, [isDark]);
-
-  useEffect(() => { document.documentElement.classList.add("dark"); }, []);
 
   const handleBellClick = () => setBellOpen(p => !p);
 
