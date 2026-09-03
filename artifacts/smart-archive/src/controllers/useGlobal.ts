@@ -162,13 +162,14 @@ export function useAllLetters(q?: string) {
 
 export function useSearch(q: string, from = "", to = "") {
   return useQuery<{
-    projects: Array<{ id: string; name: string; client: string; status: string; progress: number }>;
+    projects: Array<{ id: string; name: string; client: string; status: string; progress: number; startDate: string; endDate: string | null }>;
     contractors: Array<{ id: string; name: string; specialty: string; projectName: string }>;
-    contracts: Array<{ id: string; title: string; party: string; projectName: string }>;
+    contracts: Array<{ id: string; title: string; party: string; startDate: string; endDate: string; projectName: string }>;
     meetings: Array<{ id: string; title: string; date: string; projectName: string }>;
-    letters: Array<{ id: string; subject: string; direction: string; reference: string | null; autoRef: string; projectName: string }>;
+    letters: Array<{ id: string; subject: string; direction: string; reference: string | null; autoRef: string; date: string; projectName: string }>;
     documents: Array<{ id: string; projectId: string; name: string; docRef: string; createdAt: string; projectName: string }>;
     attachments: Array<{ id: string; projectId: string; name: string; customType: string; uploadedAt: string; projectName: string; dataUrl: string }>;
+    finance: Array<{ id: string; title: string; amount: number; type: "income" | "expense"; category: string; date: string; reminderDate: string | null; projectId: string | null; projectName: string }>;
   }>({
     queryKey: ["search", q, from, to],
     queryFn: () => get(`${API}/search?${new URLSearchParams({ q, from, to })}`),

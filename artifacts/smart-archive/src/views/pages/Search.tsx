@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useSearch } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { Search as SearchIcon, FolderOpen, HardHat, FileSignature, CalendarCheck, Mail, FileText, Paperclip } from "lucide-react";
+import { Search as SearchIcon, FolderOpen, HardHat, FileSignature, CalendarCheck, Mail, FileText, Paperclip, Wallet } from "lucide-react";
 
 function Section({ title, icon: Icon, color, children }: { title: string; icon: React.ElementType; color: string; children: React.ReactNode }) {
   return (
@@ -26,7 +26,7 @@ export default function SearchPage() {
   const { data, isFetching } = useSearch(q, from, to);
 
   const total = data
-    ? data.projects.length + data.contractors.length + data.contracts.length + data.meetings.length + data.letters.length + data.documents.length + data.attachments.length
+    ? data.projects.length + data.contractors.length + data.contracts.length + data.meetings.length + data.letters.length + data.documents.length + data.attachments.length + data.finance.length
     : 0;
 
   return (
@@ -69,7 +69,7 @@ export default function SearchPage() {
                 {data.projects.map(p => (
                   <Link key={p.id} to={`/projects/${p.id}`} className="block liquid-glass-card rounded-xl p-3.5 hover:opacity-80 transition-opacity">
                     <div className="font-medium text-foreground">{p.name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{p.client} • {p.progress}%</div>
+                     <div className="text-xs text-muted-foreground mt-0.5">{p.client} • {p.startDate} • {p.progress}%</div>
                   </Link>
                 ))}
               </Section>
@@ -89,7 +89,7 @@ export default function SearchPage() {
                 {data.contracts.map(c => (
                   <div key={c.id} className="liquid-glass-card rounded-xl p-3.5">
                     <div className="font-medium text-foreground">{c.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{c.party} • {c.projectName}</div>
+                     <div className="text-xs text-muted-foreground mt-0.5">{c.party} • {c.startDate} — {c.endDate} • {c.projectName}</div>
                   </div>
                 ))}
               </Section>
@@ -109,7 +109,7 @@ export default function SearchPage() {
                 {data.letters.map(l => (
                   <div key={l.id} className="liquid-glass-card rounded-xl p-3.5">
                     <div className="font-medium text-foreground">{l.subject}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{l.autoRef || l.reference || "بدون مرجع"} • {l.projectName}</div>
+                     <div className="text-xs text-muted-foreground mt-0.5">{l.autoRef || l.reference || "بدون مرجع"} • {l.date} • {l.projectName}</div>
                   </div>
                 ))}
               </Section>
@@ -119,8 +119,20 @@ export default function SearchPage() {
                 {data.documents.map(d => (
                   <Link key={d.id} to={`/projects/${d.projectId}`} className="block liquid-glass-card rounded-xl p-3.5">
                     <div className="font-medium text-foreground">{d.name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{d.docRef || "بدون مرجع"} • {d.projectName}</div>
+                     <div className="text-xs text-muted-foreground mt-0.5">{d.docRef || "بدون مرجع"} • {d.createdAt.slice(0, 10)} • {d.projectName}</div>
                   </Link>
+                ))}
+              </Section>
+            )}
+            {data.finance.length > 0 && (
+              <Section title="المالية" icon={Wallet} color="#14b8a6">
+                {data.finance.map(record => (
+                  <div key={record.id} className="liquid-glass-card rounded-xl p-3.5">
+                    <div className="font-medium text-foreground">{record.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {record.date} • {record.category} • {record.projectName}
+                    </div>
+                  </div>
                 ))}
               </Section>
             )}
@@ -129,7 +141,7 @@ export default function SearchPage() {
                 {data.attachments.map(a => (
                   <a key={a.id} href={a.dataUrl} target="_blank" rel="noreferrer" className="block liquid-glass-card rounded-xl p-3.5">
                     <div className="font-medium text-foreground">{a.name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{a.customType} • {a.projectName}</div>
+                     <div className="text-xs text-muted-foreground mt-0.5">{a.customType} • {a.uploadedAt.slice(0, 10)} • {a.projectName}</div>
                   </a>
                 ))}
               </Section>
