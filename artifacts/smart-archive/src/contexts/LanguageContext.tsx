@@ -93,6 +93,7 @@ const T = {
     locationLabel: "الموقع",
     locationPlaceholder: "المدينة، الحي",
     mapsLabel: "رابط الموقع في خرائط جوجل",
+    financeDate: "تاريخ العملية *",
     // Contracts page
     contractsSub: "جميع العقود عبر المشاريع",
     addBtn: "إضافة",
@@ -317,6 +318,7 @@ const T = {
     locationLabel: "Location",
     locationPlaceholder: "City, District",
     mapsLabel: "Google Maps Link",
+    financeDate: "Transaction Date *",
     // Contracts page
     contractsSub: "All contracts across projects",
     addBtn: "Add",

@@ -261,14 +261,14 @@ function FinanceForm({ data, onChange, onSubmit, loading, submitLabel }: {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1.5">{t("startDateLabel")}</label>
-          <input type="date" lang="en-GB" dir="rtl" value={data.date} onChange={e => set("date", e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm archive-date-input" />
+          <label className="block text-sm font-medium mb-1.5">{t("financeDate")}</label>
+          <input type="date" lang="en-US" dir="ltr" value={data.date} onChange={e => set("date", e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm text-left" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1.5">{t("reminderDate")}</label>
-          <input type="date" lang="en-GB" dir="rtl" value={data.reminderDate ?? ""} onChange={e => set("reminderDate", e.target.value || null)}
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm archive-date-input" />
+          <input type="date" lang="en-US" dir="ltr" value={data.reminderDate ?? ""} onChange={e => set("reminderDate", e.target.value || null)}
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm text-left" />
         </div>
       </div>
       <div>
