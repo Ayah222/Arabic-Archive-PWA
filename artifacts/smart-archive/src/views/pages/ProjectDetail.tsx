@@ -606,10 +606,11 @@ type MeetingFormData = { title: string; date: string; location: string; agenda: 
 const defaultMeetingForm: MeetingFormData = { title: "", date: "", location: "", agenda: "", notes: "", attendees: [] };
 
 function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
-  const { list, create, remove } = useMeetings(projectId);
+  const { list, create, update, remove } = useMeetings(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const attachment = useAttachmentActions(projectId);
   const [showCreate, setShowCreate] = useState(false);
+  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
   const [form, setForm] = useState<MeetingFormData>(defaultMeetingForm);
   const [meetingFile, setMeetingFile] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -623,10 +624,52 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
     }
   };
 
-  const handleCreate = async () => {
+  const openCreate = () => {
+    setEditingMeetingId(null);
+    setForm(defaultMeetingForm);
+    setMeetingFile(null);
+    setAttendeeInput("");
+    setShowCreate(true);
+  };
+
+  const openEdit = (meeting: {
+    id: string;
+    title: string;
+    date: string;
+    location?: string | null;
+    agenda?: string | null;
+    notes?: string | null;
+    attendees: string[];
+  }) => {
+    setEditingMeetingId(meeting.id);
+    setForm({
+      title: meeting.title,
+      date: meeting.date,
+      location: meeting.location ?? "",
+      agenda: meeting.agenda ?? "",
+      notes: meeting.notes ?? "",
+      attendees: [...meeting.attendees],
+    });
+    setMeetingFile(null);
+    setAttendeeInput("");
+    setShowCreate(false);
+  };
+
+  const closeForm = () => {
+    setShowCreate(false);
+    setEditingMeetingId(null);
+    setForm(defaultMeetingForm);
+    setMeetingFile(null);
+    setAttendeeInput("");
+  };
+
+  const handleSave = async () => {
     if (!form.title.trim() || !form.date) return;
     try {
-      const meeting = await create.mutateAsync({ id: projectId, data: { ...form, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null } });
+      const data = { ...form, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null };
+      const meeting = editingMeetingId
+        ? await update.mutateAsync({ id: projectId, mid: editingMeetingId, data })
+        : await create.mutateAsync({ id: projectId, data });
       if (meetingFile) {
         await attachment.add.mutateAsync({
           entityType: "meeting",
@@ -636,16 +679,16 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           customType: "مرفق اجتماع",
         });
       }
-      setShowCreate(false); setForm(defaultMeetingForm); setMeetingFile(null);
-      setToast({ message: "تم إضافة الاجتماع", type: "success" });
-    } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
+      closeForm();
+      setToast({ message: editingMeetingId ? "تم تحديث الاجتماع" : "تم إضافة الاجتماع", type: "success" });
+    } catch { setToast({ message: editingMeetingId ? "فشل في التحديث" : "فشل في الإضافة", type: "error" }); }
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">الاجتماعات ({list.data?.length ?? 0})</h2>
-        {canEdit && <button onClick={() => { setForm(defaultMeetingForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة اجتماع</button>}
+        {canEdit && <button onClick={openCreate} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة اجتماع</button>}
       </div>
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="🤝" title="لا توجد اجتماعات" description="أضف أول اجتماع لهذا المشروع" />
@@ -667,13 +710,16 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               )}
               {m.agenda && <p className="text-sm text-muted-foreground mt-2"><strong>الأجندة:</strong> {m.agenda}</p>}
               {m.notes && <p className="text-sm text-muted-foreground mt-1 italic">{m.notes}</p>}
-              {canDelete && <button onClick={() => setDeleteId(m.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
+              {(canEdit || canDelete) && <div className="flex items-center gap-4 mt-3 text-sm">
+                {canEdit && <button onClick={() => openEdit(m)} className="text-primary hover:underline">تعديل</button>}
+                {canDelete && <button onClick={() => setDeleteId(m.id)} className="text-destructive hover:underline">حذف</button>}
+              </div>}
               <AttachmentsPanel projectId={projectId} entityType="meeting" entityId={m.id} compact />
             </div>
           ))}
         </div>
       )}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة اجتماع" size="lg">
+      <Modal isOpen={showCreate || !!editingMeetingId} onClose={closeForm} title={editingMeetingId ? "تعديل الاجتماع" : "إضافة اجتماع"} size="lg">
         <div className="space-y-3">
           <FormField label="عنوان الاجتماع *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الاجتماع" className={inputCls} dir="rtl" /></FormField>
           <div className="grid grid-cols-2 gap-3">
@@ -702,7 +748,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
             <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setMeetingFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
             <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
           </FormField>
-          <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || !form.title.trim() || !form.date} className={btnCls}>{create.isPending || attachment.add.isPending ? "جاري..." : "إضافة الاجتماع"}</button>
+          <button onClick={handleSave} disabled={create.isPending || update.isPending || attachment.add.isPending || !form.title.trim() || !form.date} className={btnCls}>{create.isPending || update.isPending || attachment.add.isPending ? "جاري..." : editingMeetingId ? "حفظ التعديلات" : "إضافة الاجتماع"}</button>
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, mid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الاجتماع", type: "success" }); }} title="حذف الاجتماع" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
