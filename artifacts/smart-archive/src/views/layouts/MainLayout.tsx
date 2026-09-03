@@ -35,7 +35,6 @@ const NAV_KEYS = [
   { to: "/projects",      key: "projects"      as const, Icon: FolderOpen       },
   { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
   { to: "/email-archive", key: "emailArchive"  as const, Icon: Inbox            },
-  { to: "/notifications", key: "notifications" as const, Icon: Bell             },
   { to: "/chat",          key: "chat"          as const, Icon: MessageCircle   },
   { to: "/faq",           key: "faq"           as const, Icon: HelpCircle       },
   { to: "/hr",            key: "hr"            as const, Icon: UserCog          },
