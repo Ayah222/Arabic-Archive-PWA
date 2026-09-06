@@ -293,6 +293,21 @@
   direction: rtl !important;
   text-align: right !important;
 }
+
+/* تواريخ الأرشيف المالي: أرقام إنجليزية من اليسار إلى اليمين */
+.finance-date-input {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: isolate;
+}
+.finance-date-input::-webkit-datetime-edit,
+.finance-date-input::-webkit-datetime-edit-fields-wrapper,
+.finance-date-input::-webkit-datetime-edit-day-field,
+.finance-date-input::-webkit-datetime-edit-month-field,
+.finance-date-input::-webkit-datetime-edit-year-field {
+  direction: ltr !important;
+  text-align: left !important;
+}
 .dark select:focus {
   outline: none !important;
   border-color: rgba(0, 240, 255, 0.40) !important;
