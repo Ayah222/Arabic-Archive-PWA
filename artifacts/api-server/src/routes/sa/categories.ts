@@ -24,9 +24,17 @@ router.post("/sa/projects/:id/categories", async (req, res): Promise<void> => {
 // DELETE a category (also removes its attachments)
 router.delete("/sa/projects/:id/categories/:cid", async (req, res): Promise<void> => {
   const { id, cid } = req.params;
-  const deleted = await deleteCategory(id, cid);
-  if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  const categories = await listCategories(id);
+  if (!categories.some((category) => category.id === cid)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   const attachmentsRemoved = await deleteAttachmentsByCategory(id, cid);
+  const deleted = await deleteCategory(id, cid);
+  if (!deleted) {
+    res.status(409).json({ error: "Category could not be deleted" });
+    return;
+  }
   res.json({ deleted: 1, attachmentsRemoved });
 });
 
