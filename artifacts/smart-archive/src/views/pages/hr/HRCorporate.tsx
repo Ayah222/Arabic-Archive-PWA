@@ -10,7 +10,7 @@ import FileUpload from "../../components/shared/FileUpload";
 import EmptyState from "../../components/shared/EmptyState";
 import { getArchivePermissions } from "../../../controllers/permissions";
 
-const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
+const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const addBtnStyle = { background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff" };
 
 function daysUntil(dateStr: string | null): number | null {
@@ -21,7 +21,7 @@ function daysUntil(dateStr: string | null): number | null {
 function AddModal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
-      <div className="w-full max-w-md rounded-2xl border border-border p-6 relative max-h-[90vh] overflow-y-auto" style={{ background: "rgba(12,10,25,0.97)" }}>
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card text-card-foreground p-6 relative max-h-[90vh] overflow-y-auto shadow-2xl">
         <button onClick={onClose} className="absolute left-4 top-4 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         <h2 className="font-bold text-lg mb-4 text-center">{title}</h2>
         {children}

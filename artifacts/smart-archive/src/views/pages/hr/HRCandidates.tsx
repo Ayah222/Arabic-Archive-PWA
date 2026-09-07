@@ -9,7 +9,7 @@ import FileUpload from "../../components/shared/FileUpload";
 import EmptyState from "../../components/shared/EmptyState";
 import { getArchivePermissions } from "../../../controllers/permissions";
 
-const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
+const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const addBtnStyle = { background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff" };
 
 const STATUS_LABEL: Record<string, string> = {

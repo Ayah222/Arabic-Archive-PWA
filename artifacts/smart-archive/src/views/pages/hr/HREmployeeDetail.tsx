@@ -11,7 +11,7 @@ import FileUpload from "../../components/shared/FileUpload";
 import EmptyState from "../../components/shared/EmptyState";
 import { getArchivePermissions } from "../../../controllers/permissions";
 
-const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm";
+const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
 const addBtnStyle = { background: "linear-gradient(90deg, #00f0ff 0%, #7000ff 100%)", color: "#fff" };
 
 const CATEGORIES: { key: HRDocumentCategory; label: string }[] = [
@@ -204,7 +204,7 @@ export default function HREmployeeDetail() {
           </div>
           {canEdit && (
             <select value={emp.status} onChange={e => updateEmployee.mutate({ id: emp.id, status: e.target.value as any })}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border bg-background">
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border bg-background text-foreground">
               <option value="active">نشط</option>
               <option value="on_leave">في إجازة</option>
               <option value="terminated">منتهي الخدمة</option>
