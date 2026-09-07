@@ -525,12 +525,13 @@ export function useAttachmentActions(projectId: string) {
     },
   });
   const addFolderZip = useMutation({
-    mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string }) => {
+    mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string; targetPath?: string }) => {
       const form = new FormData();
       form.append("file", data.file);
       form.append("entityType", data.entityType);
       form.append("entityId", data.entityId);
       form.append("customType", data.customType);
+      if (data.targetPath) form.append("targetPath", data.targetPath);
       return postForm<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, form);
     },
     onSuccess: (_d, vars) => {

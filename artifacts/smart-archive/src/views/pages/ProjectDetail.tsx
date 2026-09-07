@@ -1110,6 +1110,7 @@ function AttachmentsPanel({
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("مستند");
+  const [currentPath, setCurrentPath] = useState("");
 
   const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1119,12 +1120,13 @@ function AttachmentsPanel({
     }
     try {
       for (const file of Array.from(files)) {
-        const relativePath = preserveFolders ? file.webkitRelativePath || file.name : undefined;
+        const selectedPath = preserveFolders ? file.webkitRelativePath || file.name : file.name;
+        const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
         await add.mutateAsync({
           entityType,
           entityId,
           file,
-          name: files.length === 1 && attName ? attName : relativePath || file.name,
+          name: files.length === 1 && attName && !currentPath ? attName : relativePath,
           customType: attType,
           relativePath,
         });
@@ -1140,7 +1142,7 @@ function AttachmentsPanel({
   const uploadFolderZip = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const uploaded = await addFolderZip.mutateAsync({ entityType, entityId, file, customType: attType });
+      const uploaded = await addFolderZip.mutateAsync({ entityType, entityId, file, customType: attType, targetPath: currentPath });
       window.alert(`تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`);
       setShowAdd(false);
     } catch {
@@ -1208,36 +1210,19 @@ function AttachmentsPanel({
               <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void uploadFolderZip(e.target.files?.[0])} />
             </label>
           </div>
-          <p className="text-[11px] text-muted-foreground">سيُحفظ المجلد داخل قسم المرفقات الحالي مع جميع مساراته الفرعية.</p>
+          <p className="text-[11px] text-muted-foreground">مكان الحفظ: {currentPath || "جذر قسم المرفقات الحالي"} — مع الاحتفاظ بجميع المجلدات الفرعية.</p>
         </div>
       )}
 
-      {attachments.length > 0 && (
-        <div className="space-y-1">
-          {attachments.map((att: SAAttachment) => (
-            <div key={att.id} className="flex items-center gap-2 text-xs bg-secondary/40 rounded-lg px-2 py-1.5">
-              <span className="text-base">{mimeIcon(att.mimeType)}</span>
-              <div className="flex-1 min-w-0">
-                <span className="font-medium truncate block">{att.name}</span>
-                <span className="text-muted-foreground">{att.customType}</span>
-              </div>
-              <a
-                href={att.dataUrl}
-                download={att.name}
-                className="text-primary hover:underline shrink-0"
-              >
-                تنزيل
-              </a>
-              {canDelete && <button
-                onClick={() => remove.mutateAsync({ aid: att.id, entityType, entityId })}
-                className="text-destructive hover:text-red-400 shrink-0"
-              >
-                ✕
-              </button>}
-            </div>
-          ))}
-        </div>
-      )}
+      {attachments.length > 0 && <AttachmentFolderBrowser
+        attachments={attachments}
+        currentPath={currentPath}
+        onPathChange={setCurrentPath}
+        canDelete={canDelete}
+        onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
+        mimeIcon={mimeIcon}
+        compact
+      />}
     </div>
   );
 }
@@ -1251,6 +1236,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("");
   const [search, setSearch] = useState("");
+  const [currentPath, setCurrentPath] = useState("");
 
   const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1260,12 +1246,13 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
     }
     try {
       for (const file of Array.from(files)) {
-        const relativePath = preserveFolders ? file.webkitRelativePath || file.name : undefined;
+        const selectedPath = preserveFolders ? file.webkitRelativePath || file.name : file.name;
+        const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
         await add.mutateAsync({
           entityType: "custom_doc",
           entityId: projectId,
           file,
-          name: files.length === 1 && attName.trim() ? attName : relativePath || file.name,
+          name: files.length === 1 && attName.trim() && !currentPath ? attName : relativePath,
           customType: attType || "مستند حر",
           relativePath,
         });
@@ -1287,6 +1274,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         entityId: projectId,
         file,
         customType: attType || "مجلد مستندات",
+        targetPath: currentPath,
       });
       setShowAdd(false);
       _setToast({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً`, type: "success" });
@@ -1342,41 +1330,23 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           description={search ? "جرّب كلمة بحث أخرى" : "أضف أي مستند بأي نوع واسمّه كما تشاء"}
         />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((d) => (
-            <div key={d.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex items-center gap-3">
-              <span className="text-3xl">{mimeIcon(d.mimeType)}</span>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{d.name}</p>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  {d.customType}
-                </span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(d.uploadedAt).toLocaleDateString("ar-SA")}
-                  {d.size ? ` · ${(d.size / 1024).toFixed(0)} KB` : ""}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
-                <a
-                  href={d.dataUrl}
-                  download={d.name}
-                  className="text-xs text-primary hover:underline text-left"
-                >
-                  تنزيل
-                </a>
-                {canDelete && <button
-                  onClick={async () => {
-                    await remove.mutateAsync({ aid: d.id, entityType: "custom_doc", entityId: projectId });
-                    _setToast({ message: "تم حذف المستند", type: "success" });
-                  }}
-                  className="text-xs text-destructive hover:underline"
-                >
-                  حذف
-                </button>}
-              </div>
-            </div>
-          ))}
-        </div>
+        search ? <div className="space-y-2">
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} mimeIcon={mimeIcon}
+            onDelete={async (att) => {
+              await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
+              _setToast({ message: "تم حذف المستند", type: "success" });
+            }} />)}
+        </div> : <AttachmentFolderBrowser
+          attachments={docs}
+          currentPath={currentPath}
+          onPathChange={setCurrentPath}
+          canDelete={canDelete}
+          onDelete={async (att) => {
+            await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
+            _setToast({ message: "تم حذف المستند", type: "success" });
+          }}
+          mimeIcon={mimeIcon}
+        />
       )}
 
       {/* Add Modal */}
@@ -1440,12 +1410,104 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                   onChange={(e) => void uploadFolderZip(e.target.files?.[0])}
                 />
               </label>
-              <p className="text-xs text-muted-foreground mt-2">يُحفظ المجلد داخل هذا المشروع تحت التصنيف المكتوب أعلاه، مع الاحتفاظ بمجلداته الفرعية.</p>
+              <p className="text-xs text-muted-foreground mt-2">مكان الحفظ: {currentPath || "جذر مستندات المشروع"} — تحت التصنيف المكتوب أعلاه.</p>
             </div>
             <button onClick={() => setShowAdd(false)} className="w-full py-2 rounded-xl border border-border text-sm hover:bg-muted transition-colors">إلغاء</button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function AttachmentFileRow({
+  attachment,
+  canDelete,
+  onDelete,
+  mimeIcon,
+  compact = false,
+}: {
+  attachment: SAAttachment;
+  canDelete: boolean;
+  onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
+  mimeIcon: (mime: string) => string;
+  compact?: boolean;
+}) {
+  const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
+  return (
+    <div className={`flex items-center gap-3 bg-card border border-border shadow-sm ${compact ? "rounded-lg px-2 py-1.5 text-xs" : "rounded-2xl p-4"}`}>
+      <span className={compact ? "text-base" : "text-3xl"}>{mimeIcon(attachment.mimeType)}</span>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold truncate">{fileName}</p>
+        <span className="text-muted-foreground text-xs">{attachment.customType}</span>
+        {!compact && <p className="text-xs text-muted-foreground mt-0.5">
+          {new Date(attachment.uploadedAt).toLocaleDateString("ar-SA")}
+          {attachment.size ? ` · ${(attachment.size / 1024).toFixed(0)} KB` : ""}
+        </p>}
+      </div>
+      <a href={attachment.dataUrl} download={fileName} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
+      {canDelete && <button onClick={() => void onDelete(attachment)} className="text-xs text-destructive hover:underline shrink-0">حذف</button>}
+    </div>
+  );
+}
+
+function AttachmentFolderBrowser({
+  attachments,
+  currentPath,
+  onPathChange,
+  canDelete,
+  onDelete,
+  mimeIcon,
+  compact = false,
+}: {
+  attachments: SAAttachment[];
+  currentPath: string;
+  onPathChange: (path: string) => void;
+  canDelete: boolean;
+  onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
+  mimeIcon: (mime: string) => string;
+  compact?: boolean;
+}) {
+  const prefix = currentPath ? `${currentPath}/` : "";
+  const children = attachments.filter((att) => att.name.startsWith(prefix));
+  const folders = new Map<string, number>();
+  const files: SAAttachment[] = [];
+  for (const attachment of children) {
+    const remainder = attachment.name.slice(prefix.length);
+    const slash = remainder.indexOf("/");
+    if (slash >= 0) {
+      const folder = remainder.slice(0, slash);
+      folders.set(folder, (folders.get(folder) || 0) + 1);
+    } else {
+      files.push(attachment);
+    }
+  }
+  const pathParts = currentPath.split("/").filter(Boolean);
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground" dir="rtl">
+        <button onClick={() => onPathChange("")} className="text-primary hover:underline">الرئيسية</button>
+        {pathParts.map((part, index) => {
+          const path = pathParts.slice(0, index + 1).join("/");
+          return <span key={path} className="flex items-center gap-1"><span>/</span><button onClick={() => onPathChange(path)} className="text-primary hover:underline">{part}</button></span>;
+        })}
+      </div>
+      {[...folders.entries()].sort(([a], [b]) => a.localeCompare(b, "ar")).map(([folder, count]) => (
+        <button
+          key={folder}
+          onClick={() => onPathChange([currentPath, folder].filter(Boolean).join("/"))}
+          className={`w-full flex items-center gap-3 bg-primary/5 border border-primary/20 text-right hover:bg-primary/10 transition-colors ${compact ? "rounded-lg px-2 py-2" : "rounded-2xl p-4"}`}
+        >
+          <span className={compact ? "text-xl" : "text-3xl"}>📁</span>
+          <span className="flex-1 min-w-0 font-semibold truncate">{folder}</span>
+          <span className="text-xs text-muted-foreground">{count} ملف</span>
+          <span className="text-primary">‹</span>
+        </button>
+      ))}
+      {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
+        <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} mimeIcon={mimeIcon} compact={compact} />
+      ))}
+      {!folders.size && !files.length && <p className="text-xs text-muted-foreground text-center py-4">هذا المجلد فارغ</p>}
     </div>
   );
 }

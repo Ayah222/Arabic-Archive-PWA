@@ -139,8 +139,8 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
 
 router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), async (req, res): Promise<void> => {
   const projectId = String(req.params.id);
-  const { entityType, entityId, customType } = req.body as {
-    entityType?: string; entityId?: string; customType?: string;
+  const { entityType, entityId, customType, targetPath } = req.body as {
+    entityType?: string; entityId?: string; customType?: string; targetPath?: string;
   };
   if (!entityType || !req.file || extname(req.file.originalname).toLowerCase() !== ".zip") {
     res.status(400).json({ error: "A ZIP folder and destination are required" });
@@ -157,7 +157,11 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
 
     const results = [];
     let totalBytes = 0;
-    for (const { relativePath, bytes } of files) {
+    const safeTargetPath = targetPath ? safeArchivePath(`${targetPath}/placeholder`)?.split("/").slice(0, -1).join("/") : "";
+    if (targetPath && !safeTargetPath) throw new Error("مسار الحفظ غير آمن");
+    for (const file of files) {
+      const relativePath = [safeTargetPath, file.relativePath].filter(Boolean).join("/");
+      const { bytes } = file;
       totalBytes += bytes.length;
       if (bytes.length > 20 * 1024 * 1024 || totalBytes > 200 * 1024 * 1024) {
         throw new Error("Extracted folder exceeds the allowed size");
