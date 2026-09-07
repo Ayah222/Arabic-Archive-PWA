@@ -53,6 +53,7 @@ export default function ProjectDetail() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [categoryToDelete, setCategoryToDelete] = useState<SACategory | null>(null);
   const { data: categories = [] } = useCategories(id);
   const { create: createCat, remove: removeCat } = useCategoryActions(id);
   const { canEdit, canDelete } = getArchivePermissions();
@@ -264,12 +265,7 @@ export default function ProjectDetail() {
                   <p className="text-xs text-muted-foreground mt-0.5">أرفق أي نوع من الملفات لهذه الفئة</p>
                 </div>
                 {canDelete && <button
-                  onClick={async () => {
-                    if (!confirm(`حذف فئة "${cat.name}" وجميع ملفاتها؟`)) return;
-                    await removeCat.mutateAsync(cat.id);
-                    setActiveTab("contracts");
-                    setToast({ message: `تم حذف فئة "${cat.name}"`, type: "success" });
-                  }}
+                  onClick={() => setCategoryToDelete(cat)}
                   className="text-xs text-destructive hover:underline"
                 >
                   🗑️ حذف الفئة
@@ -280,6 +276,23 @@ export default function ProjectDetail() {
           );
         })()}
       </div>
+      <ConfirmDialog
+        isOpen={!!categoryToDelete}
+        onClose={() => setCategoryToDelete(null)}
+        onConfirm={async () => {
+          if (!categoryToDelete) return;
+          const name = categoryToDelete.name;
+          await removeCat.mutateAsync(categoryToDelete.id);
+          setCategoryToDelete(null);
+          setActiveTab("contracts");
+          setToast({ message: `تم حذف فئة "${name}"`, type: "success" });
+        }}
+        title="حذف الفئة"
+        message={`سيتم حذف فئة "${categoryToDelete?.name || ""}" وجميع ملفاتها نهائياً. هل تريد المتابعة؟`}
+        confirmLabel="حذف"
+        danger
+        loading={removeCat.isPending}
+      />
     </div>
   );
 }
@@ -1111,11 +1124,12 @@ function AttachmentsPanel({
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("مستند");
   const [currentPath, setCurrentPath] = useState("");
+  const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
     if (!files?.length) return;
     if (files.length > 200) {
-      window.alert("الحد الأقصى لرفع المجلد هو 200 ملف في المرة الواحدة");
+      setNotice({ message: "الحد الأقصى لرفع المجلد هو 200 ملف في المرة الواحدة", type: "error" });
       return;
     }
     try {
@@ -1135,7 +1149,7 @@ function AttachmentsPanel({
       setAttName("");
       setAttType("مستند");
     } catch {
-      window.alert("تعذر رفع بعض ملفات المجلد");
+      setNotice({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
     }
   };
 
@@ -1143,10 +1157,10 @@ function AttachmentsPanel({
     if (!file) return;
     try {
       const uploaded = await addFolderZip.mutateAsync({ entityType, entityId, file, customType: attType, targetPath: currentPath });
-      window.alert(`تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`);
+      setNotice({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`, type: "success" });
       setShowAdd(false);
     } catch {
-      window.alert("تعذر فتح ملف ZIP. تأكد أنه مجلد مضغوط صالح ولا يتجاوز 200 ملف");
+      setNotice({ message: "تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز 200 ملف", type: "error" });
     }
   };
 
@@ -1162,6 +1176,7 @@ function AttachmentsPanel({
 
   return (
     <div className={compact ? "mt-3 border-t border-border pt-3" : "mt-4"}>
+      {notice && <Toast message={notice.message} type={notice.type} onClose={() => setNotice(null)} />}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-muted-foreground">
           📎 المرفقات ({isLoading ? "…" : attachments.length})

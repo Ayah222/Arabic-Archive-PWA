@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuditLog, getCurrentUser, getUserRequestHeaders } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
+import ConfirmDialog from "../components/shared/ConfirmDialog";
+import Toast from "../components/shared/Toast";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api/sa";
 
@@ -108,6 +110,9 @@ export default function UsersPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
+  const [profileToDelete, setProfileToDelete] = useState<Profile | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const handleSaveRole = async (id: string) => {
     if (!newRole) return;
@@ -115,14 +120,21 @@ export default function UsersPage() {
     setEditingId(null);
   };
 
-  const rejectInvitation = async (profile: Profile) => {
-    if (!window.confirm(`سيتم حذف طلب الدعوة وحساب ${profile.email} نهائيًا. هل تريد المتابعة؟`)) return;
-    const res = await fetch(`${API}/profiles/${profile.id}`, {
+  const rejectInvitation = async () => {
+    if (!profileToDelete) return;
+    setDeleteLoading(true);
+    const res = await fetch(`${API}/profiles/${profileToDelete.id}`, {
       method: "DELETE",
       headers: getUserRequestHeaders(),
     });
-    if (!res.ok) return;
-    setProfiles((current) => current.filter((item) => item.id !== profile.id));
+    if (res.ok) {
+      setProfiles((current) => current.filter((item) => item.id !== profileToDelete.id));
+      setToast({ message: "تم حذف طلب الدعوة والحساب", type: "success" });
+      setProfileToDelete(null);
+    } else {
+      setToast({ message: "تعذر حذف طلب الدعوة", type: "error" });
+    }
+    setDeleteLoading(false);
   };
 
   if (!isAdmin) {
@@ -136,6 +148,17 @@ export default function UsersPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <ConfirmDialog
+        isOpen={!!profileToDelete}
+        onClose={() => setProfileToDelete(null)}
+        onConfirm={() => void rejectInvitation()}
+        title="حذف طلب الدعوة"
+        message={`سيتم حذف طلب الدعوة وحساب ${profileToDelete?.email || ""} نهائياً. هل تريد المتابعة؟`}
+        confirmLabel="حذف"
+        danger
+        loading={deleteLoading}
+      />
 
       {/* Invite Modal */}
       {inviteOpen && (
@@ -255,7 +278,7 @@ export default function UsersPage() {
                         className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors">
                         ✅ تفعيل
                       </button>
-                      <button onClick={() => rejectInvitation(profile)}
+                      <button onClick={() => setProfileToDelete(profile)}
                         className="px-3 py-1.5 bg-red-500/15 text-red-600 border border-red-500/25 rounded-lg text-xs font-semibold hover:bg-red-500/25 transition-colors">
                         ✖ رفض
                       </button>
