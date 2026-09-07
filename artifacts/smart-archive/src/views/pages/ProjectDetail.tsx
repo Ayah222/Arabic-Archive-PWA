@@ -1111,21 +1111,30 @@ function AttachmentsPanel({
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("مستند");
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    void add.mutateAsync({
-        entityType, entityId,
-        file,
-        name: attName || file.name,
-        customType: attType,
-      }).then(() => {
+  const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
+    if (!files?.length) return;
+    if (files.length > 200) {
+      window.alert("الحد الأقصى لرفع المجلد هو 200 ملف في المرة الواحدة");
+      return;
+    }
+    try {
+      for (const file of Array.from(files)) {
+        const relativePath = preserveFolders ? file.webkitRelativePath || file.name : undefined;
+        await add.mutateAsync({
+          entityType,
+          entityId,
+          file,
+          name: files.length === 1 && attName ? attName : relativePath || file.name,
+          customType: attType,
+          relativePath,
+        });
+      }
       setShowAdd(false);
       setAttName("");
       setAttType("مستند");
-      }).catch(() => {
-        window.alert("فشل رفع المرفق");
-      });
+    } catch {
+      window.alert("تعذر رفع بعض ملفات المجلد");
+    }
   };
 
   const mimeIcon = (mime: string) => {
@@ -1168,10 +1177,22 @@ function AttachmentsPanel({
             className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs"
             dir="rtl"
           />
-          <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
-            📂 اختر أي ملف (Word، Excel، PDF، صورة، نص...)
-            <input type="file" className="hidden" onChange={handleFile} />
-          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
+              📄 اختر ملفات
+              <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files)} />
+            </label>
+            <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
+              📂 اختر مجلداً كاملاً
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+                onChange={(e) => void uploadFiles(e.target.files, true)}
+              />
+            </label>
+          </div>
         </div>
       )}
 
@@ -1215,24 +1236,31 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [attType, setAttType] = useState("");
   const [search, setSearch] = useState("");
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!attName.trim()) return;
-    void add.mutateAsync({
-        entityType: "custom_doc",
-        entityId: projectId,
-        file,
-        name: attName,
-        customType: attType || "مستند حر",
-      }).then(() => {
+  const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
+    if (!files?.length) return;
+    if (files.length > 200) {
+      _setToast({ message: "الحد الأقصى للمجلد 200 ملف", type: "error" });
+      return;
+    }
+    try {
+      for (const file of Array.from(files)) {
+        const relativePath = preserveFolders ? file.webkitRelativePath || file.name : undefined;
+        await add.mutateAsync({
+          entityType: "custom_doc",
+          entityId: projectId,
+          file,
+          name: files.length === 1 && attName.trim() ? attName : relativePath || file.name,
+          customType: attType || "مستند حر",
+          relativePath,
+        });
+      }
       setShowAdd(false);
       setAttName("");
       setAttType("");
-      _setToast({ message: "تم إضافة المستند", type: "success" });
-      }).catch(() => {
-        _setToast({ message: "فشل رفع المستند", type: "error" });
-      });
+      _setToast({ message: files.length > 1 ? `تم رفع ${files.length} ملفاً` : "تم إضافة المستند", type: "success" });
+    } catch {
+      _setToast({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
+    }
   };
 
   const filtered = search
@@ -1351,17 +1379,26 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">الملف *</label>
-              <label className={`block text-center py-4 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors ${!attName.trim() ? "opacity-50 cursor-not-allowed" : ""}`}>
+              <label className="block text-center py-4 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
                 <span className="text-3xl block mb-1">📂</span>
-                <span className="text-sm text-muted-foreground">اختر أي ملف (Word، Excel، PDF، صورة، نص...)</span>
+                <span className="text-sm text-muted-foreground">اختر ملفاً أو عدة ملفات</span>
                 <input
                   type="file"
+                  multiple
                   className="hidden"
-                  disabled={!attName.trim()}
-                  onChange={handleFile}
+                  onChange={(e) => void uploadFiles(e.target.files)}
                 />
               </label>
-              {!attName.trim() && <p className="text-xs text-muted-foreground mt-1">أدخل اسم المستند أولاً</p>}
+              <label className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
+                <span className="text-sm text-muted-foreground">📁 اختر مجلداً كاملاً مع مجلداته الفرعية</span>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+                  onChange={(e) => void uploadFiles(e.target.files, true)}
+                />
+              </label>
             </div>
             <button onClick={() => setShowAdd(false)} className="w-full py-2 rounded-xl border border-border text-sm hover:bg-muted transition-colors">إلغاء</button>
           </div>

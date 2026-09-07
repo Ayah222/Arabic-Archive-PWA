@@ -116,6 +116,7 @@ export function setCurrentUser(user: CurrentUser | null) {
     localStorage.removeItem("sa_user");
     sessionStorage.removeItem("sa_user");
   }
+  window.dispatchEvent(new CustomEvent("sa-auth-updated"));
 }
 
 export function useCurrentUser() {
@@ -509,13 +510,14 @@ export function useEntityAttachments(projectId: string, entityType: string, enti
 export function useAttachmentActions(projectId: string) {
   const qc = useQueryClient();
   const add = useMutation({
-    mutationFn: (data: { entityType: string; entityId: string; file: File; name: string; customType: string }) => {
+    mutationFn: (data: { entityType: string; entityId: string; file: File; name: string; customType: string; relativePath?: string }) => {
       const form = new FormData();
       form.append("file", data.file);
       form.append("entityType", data.entityType);
       form.append("entityId", data.entityId);
       form.append("name", data.name);
       form.append("customType", data.customType);
+      if (data.relativePath) form.append("relativePath", data.relativePath);
       return postForm<SAAttachment>(`${API}/projects/${projectId}/attachments`, form);
     },
     onSuccess: (_d, vars) => {

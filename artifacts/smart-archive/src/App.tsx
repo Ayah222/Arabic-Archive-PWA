@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { getCurrentUser } from "./controllers/useGlobal";
+import { getCurrentUser, setCurrentUser } from "./controllers/useGlobal";
 import { getArchivePermissions } from "./controllers/permissions";
+import { supabase } from "./lib/supabase";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
@@ -48,6 +50,58 @@ function LoginRoute() {
 }
 
 export default function App() {
+  const [, setAuthRevision] = useState(0);
+
+  useEffect(() => {
+    const handleAuthUpdate = () => setAuthRevision((value) => value + 1);
+    window.addEventListener("sa-auth-updated", handleAuthUpdate);
+
+    const refreshAccount = async () => {
+      const storedUser = getCurrentUser();
+      if (!storedUser || storedUser.role === "admin") return;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (!session) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, email, role, status, hr_access")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!profile || profile.status !== "active") {
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+        return;
+      }
+
+      await Promise.all([
+        fetch("/api/sa/auth/supabase-email-archive-session", {
+          method: "POST",
+          credentials: "include",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+        fetch("/api/sa/auth/supabase-hr-session", {
+          method: "POST",
+          credentials: "include",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+      ]);
+
+      setCurrentUser({
+        id: profile.id,
+        username: profile.email,
+        name: profile.email.split("@")[0],
+        role: profile.role as "employee" | "data_entry" | "viewer",
+        hrAccess: profile.role === "admin" || profile.hr_access === true,
+      });
+    };
+
+    void refreshAccount();
+    return () => window.removeEventListener("sa-auth-updated", handleAuthUpdate);
+  }, []);
+
   return (
     <LanguageProvider>
     <QueryClientProvider client={queryClient}>

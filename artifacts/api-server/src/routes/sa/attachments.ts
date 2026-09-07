@@ -18,27 +18,33 @@ router.get("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
 router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, res): Promise<void> => {
   const { id } = req.params;
   const projectId = String(id);
-  const { entityType, entityId, name, customType } = req.body as {
-    entityType?: string; entityId?: string; name?: string; customType?: string;
+  const { entityType, entityId, name, customType, relativePath } = req.body as {
+    entityType?: string; entityId?: string; name?: string; customType?: string; relativePath?: string;
   };
   if (!entityType || !req.file) {
     res.status(400).json({ error: "entityType and file are required" });
     return;
   }
 
+  const relativeParts = String(relativePath || "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .slice(0, -1)
+    .filter((part) => part && part !== "." && part !== "..")
+    .slice(0, 20);
   const saved = await savePrivateObject({
     namespace: "attachments",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    segments: [projectId, entityType],
+    segments: [projectId, entityType, ...relativeParts],
   });
   try {
     const attachment = await createAttachment(projectId, {
       entityType,
       entityId,
       objectPath: saved.objectName,
-      name: name || req.file.originalname,
+      name: name || relativePath || req.file.originalname,
       customType,
       mimeType: req.file.mimetype,
       size: req.file.size,
