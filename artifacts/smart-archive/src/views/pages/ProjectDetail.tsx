@@ -1105,7 +1105,7 @@ function AttachmentsPanel({
   compact?: boolean;
 }) {
   const { data: attachments = [], isLoading } = useEntityAttachments(projectId, entityType, entityId);
-  const { add, remove } = useAttachmentActions(projectId);
+  const { add, addFolderZip, remove } = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
@@ -1134,6 +1134,17 @@ function AttachmentsPanel({
       setAttType("مستند");
     } catch {
       window.alert("تعذر رفع بعض ملفات المجلد");
+    }
+  };
+
+  const uploadFolderZip = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const uploaded = await addFolderZip.mutateAsync({ entityType, entityId, file, customType: attType });
+      window.alert(`تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`);
+      setShowAdd(false);
+    } catch {
+      window.alert("تعذر فتح ملف ZIP. تأكد أنه مجلد مضغوط صالح ولا يتجاوز 200 ملف");
     }
   };
 
@@ -1177,7 +1188,7 @@ function AttachmentsPanel({
             className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs"
             dir="rtl"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
               📄 اختر ملفات
               <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files)} />
@@ -1192,7 +1203,12 @@ function AttachmentsPanel({
                 onChange={(e) => void uploadFiles(e.target.files, true)}
               />
             </label>
+            <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
+              🗜️ رفع مجلد ZIP للجوال
+              <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void uploadFolderZip(e.target.files?.[0])} />
+            </label>
           </div>
+          <p className="text-[11px] text-muted-foreground">سيُحفظ المجلد داخل قسم المرفقات الحالي مع جميع مساراته الفرعية.</p>
         </div>
       )}
 
@@ -1229,7 +1245,7 @@ function AttachmentsPanel({
 /* ===== CUSTOM DOCS TAB ===== */
 function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const { data: docs = [], isLoading } = useEntityAttachments(projectId, "custom_doc", projectId);
-  const { add, remove } = useAttachmentActions(projectId);
+  const { add, addFolderZip, remove } = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
@@ -1260,6 +1276,22 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       _setToast({ message: files.length > 1 ? `تم رفع ${files.length} ملفاً` : "تم إضافة المستند", type: "success" });
     } catch {
       _setToast({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
+    }
+  };
+
+  const uploadFolderZip = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const uploaded = await addFolderZip.mutateAsync({
+        entityType: "custom_doc",
+        entityId: projectId,
+        file,
+        customType: attType || "مجلد مستندات",
+      });
+      setShowAdd(false);
+      _setToast({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً`, type: "success" });
+    } catch {
+      _setToast({ message: "تعذر فتح ZIP أو تجاوز المجلد الحدود المسموحة", type: "error" });
     }
   };
 
@@ -1399,6 +1431,16 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                   onChange={(e) => void uploadFiles(e.target.files, true)}
                 />
               </label>
+              <label className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
+                <span className="text-sm text-muted-foreground">🗜️ رفع المجلد كـ ZIP — يعمل على الجوال ونسخة PWA</span>
+                <input
+                  type="file"
+                  accept=".zip,application/zip"
+                  className="hidden"
+                  onChange={(e) => void uploadFolderZip(e.target.files?.[0])}
+                />
+              </label>
+              <p className="text-xs text-muted-foreground mt-2">يُحفظ المجلد داخل هذا المشروع تحت التصنيف المكتوب أعلاه، مع الاحتفاظ بمجلداته الفرعية.</p>
             </div>
             <button onClick={() => setShowAdd(false)} className="w-full py-2 rounded-xl border border-border text-sm hover:bg-muted transition-colors">إلغاء</button>
           </div>

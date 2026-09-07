@@ -524,6 +524,19 @@ export function useAttachmentActions(projectId: string) {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
     },
   });
+  const addFolderZip = useMutation({
+    mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string }) => {
+      const form = new FormData();
+      form.append("file", data.file);
+      form.append("entityType", data.entityType);
+      form.append("entityId", data.entityId);
+      form.append("customType", data.customType);
+      return postForm<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, form);
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
+    },
+  });
   const remove = useMutation({
     mutationFn: ({ aid, entityType, entityId }: { aid: string; entityType: string; entityId: string }) =>
       del(`${API}/projects/${projectId}/attachments/${aid}`).then(() => ({ aid, entityType, entityId })),
@@ -531,7 +544,7 @@ export function useAttachmentActions(projectId: string) {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
     },
   });
-  return { add, remove };
+  return { add, addFolderZip, remove };
 }
 
 /* ─── Categories (named folders per project) ─── */
