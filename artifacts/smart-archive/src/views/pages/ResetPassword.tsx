@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FolderOpen } from "lucide-react";
+import { Eye, EyeOff, FolderOpen } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 export default function ResetPassword() {
@@ -11,6 +11,8 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -95,30 +97,44 @@ export default function ResetPassword() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
-              <input
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="كلمة المرور الجديدة"
-                dir="ltr"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none"
-                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,240,255,0.25)" }}
-              />
-              <input
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="تأكيد كلمة المرور الجديدة"
-                dir="ltr"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none"
-                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="كلمة المرور الجديدة"
+                  dir="ltr"
+                  className="w-full px-4 pl-12 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none"
+                  style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,240,255,0.25)" }}
+                />
+                <button type="button" onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/45 hover:text-white">
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="تأكيد كلمة المرور الجديدة"
+                  dir="ltr"
+                  className="w-full px-4 pl-12 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none"
+                  style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}
+                />
+                <button type="button" onClick={() => setShowConfirmPassword((value) => !value)}
+                  aria-label={showConfirmPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/45 hover:text-white">
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
               {error && (
                 <div className="rounded-xl p-3 text-sm" style={{ background:"rgba(255,60,60,0.10)", border:"1px solid rgba(255,60,60,0.25)", color:"#ff8080" }}>
                   {error}

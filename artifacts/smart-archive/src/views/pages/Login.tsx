@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthActions, setCurrentUser } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { supabase } from "../../lib/supabase";
-import { FolderOpen } from "lucide-react";
+import { Eye, EyeOff, FolderOpen } from "lucide-react";
 
 const Aurora = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
@@ -25,11 +25,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingBlocked, setPendingBlocked] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const switchTab = (newTab: Tab) => {
     setTab(newTab);
     setError(null);
     setPendingBlocked(false);
+    setShowPassword(false);
     setForm({ username: "", password: "" });
   };
 
@@ -186,14 +188,21 @@ export default function LoginPage() {
               dir="ltr"
               onFocus={e => e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.20)"}
               onBlur={e => e.currentTarget.style.boxShadow="none"} />
-            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder={t("passwordField")}
-              className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
-              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}
-              dir="ltr"
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              onFocus={e => { e.currentTarget.style.border="1px solid rgba(0,240,255,0.30)"; e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.15)"; }}
-              onBlur={e => { e.currentTarget.style.border="1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow="none"; }} />
+            <div className="relative">
+              <input type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder={t("passwordField")}
+                className="w-full px-4 pl-12 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
+                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}
+                dir="ltr"
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                onFocus={e => { e.currentTarget.style.border="1px solid rgba(0,240,255,0.30)"; e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.15)"; }}
+                onBlur={e => { e.currentTarget.style.border="1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow="none"; }} />
+              <button type="button" onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/45 hover:text-white">
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           {tab === "user" && (
