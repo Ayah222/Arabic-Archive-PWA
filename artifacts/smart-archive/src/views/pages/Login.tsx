@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthActions, setCurrentUser } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { supabase } from "../../lib/supabase";
@@ -17,6 +17,7 @@ type Tab = "user" | "admin";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuthActions();
   const { lang, dir, t, toggle } = useLanguage();
   const [tab, setTab] = useState<Tab>("user");
@@ -194,6 +195,20 @@ export default function LoginPage() {
               onFocus={e => { e.currentTarget.style.border="1px solid rgba(0,240,255,0.30)"; e.currentTarget.style.boxShadow="0 0 16px rgba(0,240,255,0.15)"; }}
               onBlur={e => { e.currentTarget.style.border="1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow="none"; }} />
           </div>
+
+          {tab === "user" && (
+            <div className="text-start">
+              <Link to="/forgot-password" className="text-sm font-semibold hover:underline" style={{ color:"#00f0ff" }}>
+                هل نسيت كلمة المرور؟
+              </Link>
+            </div>
+          )}
+
+          {searchParams.get("reset") === "success" && (
+            <div className="rounded-xl p-3 text-sm" style={{ background:"rgba(0,220,139,0.10)", border:"1px solid rgba(0,220,139,0.25)", color:"#58e8ae" }}>
+              تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl p-3 text-sm" style={{ background:"rgba(255,60,60,0.10)", border:"1px solid rgba(255,60,60,0.25)", color:"#ff8080" }}>

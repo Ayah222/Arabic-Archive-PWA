@@ -9,6 +9,9 @@ description: How employee and manager login works in Smart Archive
 - Logs in with: **email** (the one invited by admin) + **password** (set during accept-invite page)
 - Uses Supabase Auth
 - After login: if `status = pending` → blocked, sees waiting screen. If `status = active` → enters system.
+- Forgotten-password recovery uses Supabase Auth recovery links and applies only to employee email accounts. The separate local manager login is intentionally excluded.
+**Why:** Supabase provides expiring, single-use recovery tokens tied to the employee account, while the local manager account follows a separate authentication design.
+**How to apply:** Keep employee password recovery on the public recovery pages; do not route the local manager credentials through Supabase recovery.
 
 ### Manager Side ("جهة داري")
 - Separate login using **username + password** (not email)

@@ -21,6 +21,8 @@ import NotFound from "./views/pages/NotFound";
 import ReportsPage from "./views/pages/Reports";
 import FAQPage from "./views/pages/FAQ";
 import LoginPage from "./views/pages/Login";
+import ForgotPassword from "./views/pages/ForgotPassword";
+import ResetPassword from "./views/pages/ResetPassword";
 import UsersPage from "./views/pages/Users";
 import AcceptInvite from "./views/pages/AcceptInvite";
 import OnboardingTour from "./views/components/shared/OnboardingTour";
@@ -110,6 +112,8 @@ export default function App() {
         <Routes>
           {/* Public pages — no layout, no auth */}
           <Route path="/login" element={<LoginRoute />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
 
           {/* All other pages — protected */}
