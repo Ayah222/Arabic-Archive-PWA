@@ -231,6 +231,15 @@ export default function ProjectDetail() {
 
       {/* Tab Content */}
       <div className="p-4 md:p-8 pt-4">
+        {STATIC_TABS.some((tab) => tab.id === activeTab) && (
+          <div className="mb-5">
+            <AttachmentsPanel
+              projectId={id}
+              entityType="custom_doc"
+              entityId={`project_category_${activeTab}`}
+            />
+          </div>
+        )}
         {activeTab === "contracts" && (
           <ContractsTab projectId={id} setToast={setToast} />
         )}
