@@ -190,6 +190,7 @@ export default function LoginPage() {
               onBlur={e => e.currentTarget.style.boxShadow="none"} />
             <div className="relative">
               <input type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                autoComplete="new-password"
                 placeholder={t("passwordField")}
                 className="w-full px-4 pl-12 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all"
                 style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)" }}

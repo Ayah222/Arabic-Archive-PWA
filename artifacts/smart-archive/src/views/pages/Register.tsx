@@ -112,6 +112,7 @@ export default function RegisterPage() {
               />
               <input
                 type="password"
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="كلمة المرور (6 أحرف على الأقل)"
@@ -121,6 +122,7 @@ export default function RegisterPage() {
               />
               <input
                 type="password"
+                autoComplete="new-password"
                 value={form.confirm}
                 onChange={(e) => setForm({ ...form, confirm: e.target.value })}
                 placeholder="تأكيد كلمة المرور"

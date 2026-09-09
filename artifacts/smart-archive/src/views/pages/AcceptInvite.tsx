@@ -97,6 +97,7 @@ export default function AcceptInvite() {
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -116,6 +117,7 @@ export default function AcceptInvite() {
             <div className="relative">
               <input
                 type={showConfirm ? "text" : "password"}
+                autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
