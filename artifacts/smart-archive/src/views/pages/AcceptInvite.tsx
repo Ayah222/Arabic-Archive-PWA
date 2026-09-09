@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { Eye, EyeOff } from "lucide-react";
 
 type Step = "form" | "pending" | "error";
 
 export default function AcceptInvite() {
+  const navigate = useNavigate();
   const [step, setStep] = useState<Step>("form");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -29,15 +31,23 @@ export default function AcceptInvite() {
     setLoading(true);
     setErrorMsg("");
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { data: updateData, error } = await supabase.auth.updateUser({ password });
     if (error) {
       setErrorMsg(error.message);
       setLoading(false);
       return;
     }
 
-    // Sign out — account is pending approval
+    const profileResponse = updateData.user
+      ? await fetch(`/api/sa/profiles/${updateData.user.id}`)
+      : null;
+    const profile = profileResponse?.ok ? await profileResponse.json() as { status?: string } : null;
+
     await supabase.auth.signOut();
+    if (profile?.status === "active") {
+      navigate("/login", { replace: true });
+      return;
+    }
     setStep("pending");
     setLoading(false);
   };

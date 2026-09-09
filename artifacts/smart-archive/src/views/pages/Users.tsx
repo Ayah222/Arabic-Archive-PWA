@@ -103,8 +103,16 @@ export default function UsersPage() {
       body: JSON.stringify(updates),
     });
     if (res.ok) {
-      const updated: Profile = await res.json();
+      const updated: Profile & { activationEmailSent?: boolean } = await res.json();
       setProfiles(prev => prev.map(p => p.id === id ? updated : p));
+      if (updates.status === "active") {
+        setToast({
+          message: updated.activationEmailSent === false
+            ? "تم تفعيل المستخدم، لكن تعذر إرسال رسالة التفعيل"
+            : "تم تفعيل المستخدم وإرسال رسالة التفعيل",
+          type: updated.activationEmailSent === false ? "error" : "success",
+        });
+      }
     }
   };
 

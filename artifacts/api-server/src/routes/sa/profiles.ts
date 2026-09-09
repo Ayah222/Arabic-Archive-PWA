@@ -1,13 +1,65 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { ReplitConnectors } from "@replit/connectors-sdk";
 import { deleteNotificationsContaining } from "./notificationDb";
 
 const router = Router();
+const gmail = new ReplitConnectors();
 
 function adminClient() {
   const url = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"] ?? "";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+function appOrigin(req: Request): string {
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+  if (origin) return origin.replace(/\/$/, "");
+  const hostHeader = req.headers["x-forwarded-host"] ?? req.headers.host;
+  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
+  const protoHeader = req.headers["x-forwarded-proto"];
+  const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
+  return host ? `${proto ?? "https"}://${host}` : "";
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  })[char] ?? char);
+}
+
+async function sendActivationEmail(email: string, name: string, loginUrl: string): Promise<void> {
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(loginUrl);
+  const subject = "تم تفعيل حسابك في نظام الأرشيف الداخلي";
+  const html = `
+    <div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8;color:#172033">
+      <p>مرحباً ${safeName}،</p>
+      <p>تمت الموافقة على حسابك وتفعيله بنجاح في نظام الأرشيف الداخلي.</p>
+      <p><a href="${safeUrl}" style="display:inline-block;padding:12px 22px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px">الدخول إلى النظام</a></p>
+      <p style="color:#667085;font-size:13px">يمكنك تسجيل الدخول باستخدام بريدك الإلكتروني وكلمة المرور التي قمت بتعيينها.</p>
+    </div>`;
+  const rawMessage = [
+    `To: ${email}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "",
+    html,
+  ].join("\r\n");
+  const raw = Buffer.from(rawMessage).toString("base64url");
+  const response = await gmail.proxy("google-mail", "/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: { raw },
+  });
+  if (!response.ok) {
+    throw new Error(`Activation email failed (${response.status}): ${await response.text()}`);
+  }
 }
 
 // GET /api/sa/profiles  — all profiles
@@ -53,17 +105,38 @@ router.patch("/sa/profiles/:id", async (req, res) => {
   if (status) updates.status = status;
   if (typeof hr_access === "boolean") updates.hr_access = hr_access;
 
-  const { data, error } = await adminClient()
+  const admin = adminClient();
+  const { data: previousProfile } = await admin
+    .from("profiles")
+    .select("email,status")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { data, error } = await admin
     .from("profiles")
     .update(updates)
     .eq("id", id)
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
+  let activationEmailSent: boolean | undefined;
   if (status === "active") {
     await deleteNotificationsContaining(`[pending-user:${id}]`);
+    if (previousProfile?.status !== "active" && data.email) {
+      try {
+        const { data: authUser } = await admin.auth.admin.getUserById(id);
+        const name = String(authUser.user?.user_metadata?.name ?? data.email.split("@")[0]);
+        const origin = appOrigin(req);
+        if (!origin) throw new Error("Application origin is unavailable");
+        await sendActivationEmail(data.email, name, `${origin}/login`);
+        activationEmailSent = true;
+      } catch (emailError) {
+        activationEmailSent = false;
+        console.error("Unable to send activation email", emailError);
+      }
+    }
   }
-  res.json(data);
+  res.json({ ...data, activationEmailSent });
 });
 
 // Reject a pending invitation and completely remove the auth account/profile.
