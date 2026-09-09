@@ -45,6 +45,56 @@ const STATIC_TABS: { id: StaticTab; label: string; icon: string }[] = [
   { id: "photos",      label: "الصور",            icon: "🖼️" },
 ];
 
+type PendingFolderUploadProps = {
+  folderFiles: FileList | null;
+  zipFile: File | null;
+  onFolderChange: (files: FileList | null) => void;
+  onZipChange: (file: File | null) => void;
+};
+
+function PendingFolderUpload({ folderFiles, zipFile, onFolderChange, onZipChange }: PendingFolderUploadProps) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <label className="block px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
+        📂 إضافة مجلد كامل
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+          onChange={(e) => onFolderChange(e.target.files)}
+        />
+        {folderFiles && <span className="block text-[10px] text-primary mt-1">{folderFiles.length} ملف</span>}
+      </label>
+      <label className="block px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
+        🗜️ إضافة ZIP
+        <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => onZipChange(e.target.files?.[0] ?? null)} />
+        {zipFile && <span className="block text-[10px] text-primary mt-1 truncate">{zipFile.name}</span>}
+      </label>
+    </div>
+  );
+}
+
+async function uploadPendingFolder(
+  actions: ReturnType<typeof useAttachmentActions>,
+  entityType: "contract" | "meeting" | "letter" | "custom_doc",
+  entityId: string,
+  folderFiles: FileList | null,
+  zipFile: File | null,
+  customType: string,
+) {
+  if (folderFiles?.length) {
+    if (folderFiles.length > 200) throw new Error("الحد الأقصى للمجلد هو 200 ملف");
+    for (const file of Array.from(folderFiles)) {
+      const relativePath = file.webkitRelativePath || file.name;
+      await actions.add.mutateAsync({ entityType, entityId, file, name: relativePath, customType, relativePath });
+    }
+  }
+  if (zipFile) {
+    await actions.addFolderZip.mutateAsync({ entityType, entityId, file: zipFile, customType, targetPath: "" });
+  }
+}
+
 export default function ProjectDetail() {
   const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -231,15 +281,6 @@ export default function ProjectDetail() {
 
       {/* Tab Content */}
       <div className="p-4 md:p-8 pt-4">
-        {STATIC_TABS.some((tab) => tab.id === activeTab) && (
-          <div className="mb-5">
-            <AttachmentsPanel
-              projectId={id}
-              entityType="custom_doc"
-              entityId={`project_category_${activeTab}`}
-            />
-          </div>
-        )}
         {activeTab === "contracts" && (
           <ContractsTab projectId={id} setToast={setToast} />
         )}
@@ -317,17 +358,31 @@ const defaultContractForm: ContractFormData = {
 
 function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, update, remove } = useContracts(projectId);
+  const attachment = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ContractFormData>(defaultContractForm);
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [contractFolder, setContractFolder] = useState<FileList | null>(null);
+  const [contractZip, setContractZip] = useState<File | null>(null);
 
   const handleCreate = async () => {
-    if (!form.title.trim() || !form.party.trim()) return;
+    if (!form.title.trim()) return;
     try {
-      await create.mutateAsync({ id: projectId, data: { ...form, value: Number(form.value), notes: form.notes || null, fileUrl: null } });
-      setShowCreate(false); setForm(defaultContractForm);
+      const contract = await create.mutateAsync({ id: projectId, data: {
+        ...form,
+        party: form.party.trim() || "غير محدد",
+        value: Number(form.value) || 0,
+        startDate: form.startDate || new Date().toISOString().slice(0, 10),
+        endDate: form.endDate || new Date().toISOString().slice(0, 10),
+        notes: form.notes || null,
+        fileUrl: null,
+      } });
+      if (contractFile) await attachment.add.mutateAsync({ entityType: "contract", entityId: contract.id, file: contractFile, name: contractFile.name, customType: "مرفق عقد" });
+      await uploadPendingFolder(attachment, "contract", contract.id, contractFolder, contractZip, "مرفق عقد");
+      setShowCreate(false); setForm(defaultContractForm); setContractFile(null); setContractFolder(null); setContractZip(null);
       setToast({ message: "تم إضافة العقد", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -379,7 +434,8 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
         </div>
       )}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة عقد">
-        <ContractForm data={form} onChange={setForm} onSubmit={handleCreate} loading={create.isPending} submitLabel="إضافة العقد" />
+         <ContractForm data={form} onChange={setForm} onSubmit={handleCreate} loading={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending} submitLabel="إضافة العقد"
+           file={contractFile} onFileChange={setContractFile} folderFiles={contractFolder} zipFile={contractZip} onFolderChange={setContractFolder} onZipChange={setContractZip} />
       </Modal>
       {editItem && (
         <Modal isOpen onClose={() => setEditItem(null)} title="تعديل العقد">
@@ -391,12 +447,16 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
   );
 }
 
-function ContractForm({ data, onChange, onSubmit, loading, submitLabel }: { data: ContractFormData; onChange: (d: ContractFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string }) {
+function ContractForm({ data, onChange, onSubmit, loading, submitLabel, file, onFileChange, folderFiles, zipFile, onFolderChange, onZipChange }: {
+  data: ContractFormData; onChange: (d: ContractFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string;
+  file?: File | null; onFileChange?: (file: File | null) => void; folderFiles?: FileList | null; zipFile?: File | null;
+  onFolderChange?: (files: FileList | null) => void; onZipChange?: (file: File | null) => void;
+}) {
   const set = (k: keyof ContractFormData, v: string) => onChange({ ...data, [k]: v });
   return (
     <div className="space-y-3">
       <FormField label="عنوان العقد *"><input value={data.title} onChange={(e) => set("title", e.target.value)} placeholder="عنوان العقد" className={inputCls} dir="rtl" /></FormField>
-      <FormField label="الطرف الآخر *"><input value={data.party} onChange={(e) => set("party", e.target.value)} placeholder="اسم الشركة أو المقاول" className={inputCls} dir="rtl" /></FormField>
+       <FormField label="الطرف الآخر (اختياري)"><input value={data.party} onChange={(e) => set("party", e.target.value)} placeholder="اسم الشركة أو المقاول" className={inputCls} dir="rtl" /></FormField>
       <FormField label="قيمة العقد (ريال)"><input type="number" value={data.value} onChange={(e) => set("value", e.target.value)} placeholder="0" className={inputCls} /></FormField>
       <div className="grid grid-cols-2 gap-3">
         <FormField label="تاريخ البداية"><input type="date" lang="en-GB" dir="rtl" value={data.startDate} onChange={(e) => set("startDate", e.target.value)} className={`${inputCls} archive-date-input`} /></FormField>
@@ -412,18 +472,11 @@ function ContractForm({ data, onChange, onSubmit, loading, submitLabel }: { data
         <label className="block w-full py-3 border-2 border-dashed border-primary/30 rounded-xl text-center cursor-pointer hover:bg-primary/5 transition-colors text-sm text-muted-foreground">
           📎 أرفق أي ملف (PDF، Word، Excel، صورة...)
           <input type="file" className="hidden" onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              onChange({ ...data, _attachFile: { dataUrl: ev.target?.result as string, name: file.name, mimeType: file.type, size: file.size } } as typeof data & { _attachFile?: object });
-            };
-            reader.readAsDataURL(file);
+             onFileChange?.(e.target.files?.[0] ?? null);
           }} />
         </label>
-        {"_attachFile" in data && (data as { _attachFile?: { name: string } })._attachFile && (
-          <p className="text-xs text-primary mt-1">✅ {(data as { _attachFile: { name: string } })._attachFile.name}</p>
-        )}
+         {file && <p className="text-xs text-primary mt-1">✅ {file.name}</p>}
+         {onFolderChange && onZipChange && <PendingFolderUpload folderFiles={folderFiles ?? null} zipFile={zipFile ?? null} onFolderChange={onFolderChange} onZipChange={onZipChange} />}
       </FormField>
       <button onClick={onSubmit} disabled={loading || !data.title.trim()} className={btnCls}>{loading ? "جاري..." : submitLabel}</button>
     </div>
@@ -436,17 +489,21 @@ const defaultContractorForm: ContractorTabFormData = { name: "", specialty: "", 
 
 function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, update, remove } = useProjectContractors(projectId);
+  const attachment = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractorTabFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ContractorTabFormData>(defaultContractorForm);
+  const [contractorFolder, setContractorFolder] = useState<FileList | null>(null);
+  const [contractorZip, setContractorZip] = useState<File | null>(null);
 
   const handleCreate = async () => {
-    if (!form.name.trim() || !form.specialty.trim()) return;
+    if (!form.name.trim()) return;
     try {
-      await create.mutateAsync({ id: projectId, data: { ...form, phone: form.phone || null, email: form.email || null, notes: form.notes || null } });
-      setShowCreate(false); setForm(defaultContractorForm);
+      const contractor = await create.mutateAsync({ id: projectId, data: { ...form, specialty: form.specialty.trim() || "غير محدد", phone: form.phone || null, email: form.email || null, notes: form.notes || null } });
+      await uploadPendingFolder(attachment, "custom_doc", contractor.id, contractorFolder, contractorZip, "مرفق مقاول");
+      setShowCreate(false); setForm(defaultContractorForm); setContractorFolder(null); setContractorZip(null);
       setToast({ message: "تم إضافة المقاول", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -482,12 +539,14 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
                 }
               </div>
               }
+              <AttachmentsPanel projectId={projectId} entityType="custom_doc" entityId={c.id} compact />
             </div>
           ))}
         </div>
       )}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة مقاول">
-        <ContractorForm data={form} onChange={setForm} onSubmit={handleCreate} loading={create.isPending} submitLabel="إضافة المقاول" />
+         <ContractorForm data={form} onChange={setForm} onSubmit={handleCreate} loading={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending} submitLabel="إضافة المقاول"
+           folderFiles={contractorFolder} zipFile={contractorZip} onFolderChange={setContractorFolder} onZipChange={setContractorZip} />
       </Modal>
       {editItem && (
         <Modal isOpen onClose={() => setEditItem(null)} title="تعديل المقاول">
@@ -510,12 +569,15 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
   );
 }
 
-function ContractorForm({ data, onChange, onSubmit, loading, submitLabel }: { data: ContractorTabFormData; onChange: (d: ContractorTabFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string }) {
+function ContractorForm({ data, onChange, onSubmit, loading, submitLabel, folderFiles, zipFile, onFolderChange, onZipChange }: {
+  data: ContractorTabFormData; onChange: (d: ContractorTabFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string;
+  folderFiles?: FileList | null; zipFile?: File | null; onFolderChange?: (files: FileList | null) => void; onZipChange?: (file: File | null) => void;
+}) {
   const set = (k: keyof ContractorTabFormData, v: string) => onChange({ ...data, [k]: v });
   return (
     <div className="space-y-3">
       <FormField label="الاسم *"><input value={data.name} onChange={(e) => set("name", e.target.value)} placeholder="اسم المقاول" className={inputCls} dir="rtl" /></FormField>
-      <FormField label="التخصص *"><input value={data.specialty} onChange={(e) => set("specialty", e.target.value)} placeholder="مهندس مدني، كهربائي..." className={inputCls} dir="rtl" /></FormField>
+       <FormField label="التخصص (اختياري)"><input value={data.specialty} onChange={(e) => set("specialty", e.target.value)} placeholder="مهندس مدني، كهربائي..." className={inputCls} dir="rtl" /></FormField>
       <div className="grid grid-cols-2 gap-3">
         <FormField label="الهاتف"><input value={data.phone} onChange={(e) => set("phone", e.target.value)} placeholder="05XXXXXXXX" className={inputCls} dir="ltr" /></FormField>
         <FormField label="البريد الإلكتروني"><input type="email" value={data.email} onChange={(e) => set("email", e.target.value)} placeholder="email@example.com" className={inputCls} dir="ltr" /></FormField>
@@ -527,6 +589,7 @@ function ContractorForm({ data, onChange, onSubmit, loading, submitLabel }: { da
         </select>
       </FormField>
       <FormField label="ملاحظات"><textarea value={data.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
+      {onFolderChange && onZipChange && <FormField label="مرفقات اختيارية"><PendingFolderUpload folderFiles={folderFiles ?? null} zipFile={zipFile ?? null} onFolderChange={onFolderChange} onZipChange={onZipChange} /></FormField>}
       <button onClick={onSubmit} disabled={loading || !data.name.trim()} className={btnCls}>{loading ? "جاري..." : submitLabel}</button>
     </div>
   );
@@ -535,11 +598,14 @@ function ContractorForm({ data, onChange, onSubmit, loading, submitLabel }: { da
 /* ===== DOCUMENTS TAB ===== */
 function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { list, create, remove } = useDocuments(projectId);
+  const attachment = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [docName, setDocName] = useState("");
   const [docNotes, setDocNotes] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ url: string; filename: string; size: number; mimetype: string } | null>(null);
+  const [documentFolder, setDocumentFolder] = useState<FileList | null>(null);
+  const [documentZip, setDocumentZip] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const getTypeFromMime = (mime: string): DocumentType => {
@@ -551,10 +617,17 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
   };
 
   const handleCreate = async () => {
-    if (!docName.trim() || !uploadedFile) return;
+    if (!docName.trim()) return;
     try {
-      await create.mutateAsync({ id: projectId, data: { name: docName, type: getTypeFromMime(uploadedFile.mimetype), url: uploadedFile.url, size: uploadedFile.size, notes: docNotes || null } });
-      setShowCreate(false); setDocName(""); setDocNotes(""); setUploadedFile(null);
+      const document = await create.mutateAsync({ id: projectId, data: {
+        name: docName,
+        type: getTypeFromMime(uploadedFile?.mimetype ?? ""),
+        url: uploadedFile?.url ?? "",
+        size: uploadedFile?.size ?? null,
+        notes: docNotes || null,
+      } });
+      await uploadPendingFolder(attachment, "custom_doc", document.id, documentFolder, documentZip, "مرفق مخطط");
+      setShowCreate(false); setDocName(""); setDocNotes(""); setUploadedFile(null); setDocumentFolder(null); setDocumentZip(null);
       setToast({ message: "تم إضافة المستند", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -602,20 +675,22 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
                   )}
                 </div>
               </div>
-               {canDelete && <button onClick={() => setDeleteId(d.id)} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>}
+                {canDelete && <button onClick={() => setDeleteId(d.id)} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>}
+                <AttachmentsPanel projectId={projectId} entityType="custom_doc" entityId={d.id} compact />
             </div>
           ))}
         </div>
       )}
-      {canEdit && <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="رفع مستند">
+      {canEdit && <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="إضافة مخطط">
         <div className="space-y-4">
           <FormField label="اسم المستند *">
             <input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="اسم المستند" className={inputCls} dir="rtl" />
           </FormField>
-          <FileUpload projectId={projectId} section="documents" label="رفع الملف" onUpload={(f) => { setUploadedFile(f); if (!docName) setDocName(f.filename.replace(/^\d+-/, "")); }} />
+          <FileUpload projectId={projectId} section="documents" label="رفع الملف (اختياري)" onUpload={(f) => { setUploadedFile(f); if (!docName) setDocName(f.filename.replace(/^\d+-/, "")); }} />
           {uploadedFile && <p className="text-sm text-green-600">✅ تم رفع: {uploadedFile.filename}</p>}
+          <PendingFolderUpload folderFiles={documentFolder} zipFile={documentZip} onFolderChange={setDocumentFolder} onZipChange={setDocumentZip} />
           <FormField label="ملاحظات"><textarea value={docNotes} onChange={(e) => setDocNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
-          <button onClick={handleCreate} disabled={create.isPending || !docName.trim() || !uploadedFile} className={btnCls}>{create.isPending ? "جاري..." : "إضافة المستند"}</button>
+          <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !docName.trim()} className={btnCls}>{create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : "إضافة المخطط"}</button>
         </div>
       </Modal>}
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, did: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف المستند", type: "success" }); }} title="حذف المستند" message="هل أنت متأكد من حذف هذا المستند؟" confirmLabel="حذف" danger loading={remove.isPending} />
@@ -635,6 +710,8 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
   const [form, setForm] = useState<MeetingFormData>(defaultMeetingForm);
   const [meetingFile, setMeetingFile] = useState<File | null>(null);
+  const [meetingFolder, setMeetingFolder] = useState<FileList | null>(null);
+  const [meetingZip, setMeetingZip] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [attendeeInput, setAttendeeInput] = useState("");
 
@@ -650,6 +727,8 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
     setEditingMeetingId(null);
     setForm(defaultMeetingForm);
     setMeetingFile(null);
+    setMeetingFolder(null);
+    setMeetingZip(null);
     setAttendeeInput("");
     setShowCreate(true);
   };
@@ -673,6 +752,8 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
       attendees: [...meeting.attendees],
     });
     setMeetingFile(null);
+    setMeetingFolder(null);
+    setMeetingZip(null);
     setAttendeeInput("");
     setShowCreate(false);
   };
@@ -686,9 +767,9 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   };
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.date) return;
+    if (!form.title.trim()) return;
     try {
-      const data = { ...form, location: form.location || null, agenda: form.agenda || null, notes: form.notes || null };
+       const data = { ...form, date: form.date || new Date().toISOString().slice(0, 10), location: form.location || null, agenda: form.agenda || null, notes: form.notes || null };
       const meeting = editingMeetingId
         ? await update.mutateAsync({ id: projectId, mid: editingMeetingId, data })
         : await create.mutateAsync({ id: projectId, data });
@@ -701,6 +782,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           customType: "مرفق اجتماع",
         });
       }
+      await uploadPendingFolder(attachment, "meeting", meeting.id, meetingFolder, meetingZip, "مرفق اجتماع");
       closeForm();
       setToast({ message: editingMeetingId ? "تم تحديث الاجتماع" : "تم إضافة الاجتماع", type: "success" });
     } catch { setToast({ message: editingMeetingId ? "فشل في التحديث" : "فشل في الإضافة", type: "error" }); }
@@ -745,7 +827,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <div className="space-y-3">
           <FormField label="عنوان الاجتماع *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الاجتماع" className={inputCls} dir="rtl" /></FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} text-right archive-date-input`} style={{ direction: "rtl", textAlign: "right" }} /></FormField>
+             <FormField label="التاريخ (اختياري)"><input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} text-right archive-date-input`} style={{ direction: "rtl", textAlign: "right" }} /></FormField>
             <FormField label="الموقع"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="مكتب، موقع..." className={inputCls} dir="rtl" /></FormField>
           </div>
           <FormField label="الحضور">
@@ -766,11 +848,12 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           </FormField>
           <FormField label="الأجندة"><textarea value={form.agenda} onChange={(e) => setForm({ ...form, agenda: e.target.value })} rows={2} placeholder="اكتب محاور ونقاط الاجتماع الرئيسية هنا" className={`${inputCls} resize-none`} dir="rtl" /></FormField>
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
-          <FormField label="إرفاق ملف">
+           <FormField label="مرفقات اختيارية">
             <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setMeetingFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
             <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+             <PendingFolderUpload folderFiles={meetingFolder} zipFile={meetingZip} onFolderChange={setMeetingFolder} onZipChange={setMeetingZip} />
           </FormField>
-          <button onClick={handleSave} disabled={create.isPending || update.isPending || attachment.add.isPending || !form.title.trim() || !form.date} className={btnCls}>{create.isPending || update.isPending || attachment.add.isPending ? "جاري..." : editingMeetingId ? "حفظ التعديلات" : "إضافة الاجتماع"}</button>
+           <button onClick={handleSave} disabled={create.isPending || update.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !form.title.trim()} className={btnCls}>{create.isPending || update.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : editingMeetingId ? "حفظ التعديلات" : "إضافة الاجتماع"}</button>
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, mid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الاجتماع", type: "success" }); }} title="حذف الاجتماع" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
@@ -789,12 +872,22 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<LetterFormData>(defaultLetterForm);
   const [letterFile, setLetterFile] = useState<File | null>(null);
+  const [letterFolder, setLetterFolder] = useState<FileList | null>(null);
+  const [letterZip, setLetterZip] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date) return;
+    if (!form.subject.trim()) return;
     try {
-      const letter = await create.mutateAsync({ id: projectId, data: { ...form, reference: form.reference || null, notes: form.notes || null, fileUrl: null } });
+      const letter = await create.mutateAsync({ id: projectId, data: {
+        ...form,
+        from: form.from.trim() || "غير محدد",
+        to: form.to.trim() || "غير محدد",
+        date: form.date || new Date().toISOString().slice(0, 10),
+        reference: form.reference || null,
+        notes: form.notes || null,
+        fileUrl: null,
+      } });
       if (letterFile) {
         await attachment.add.mutateAsync({
           entityType: "letter",
@@ -804,7 +897,8 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
           customType: "مرفق خطاب",
         });
       }
-      setShowCreate(false); setForm(defaultLetterForm); setLetterFile(null);
+      await uploadPendingFolder(attachment, "letter", letter.id, letterFolder, letterZip, "مرفق خطاب");
+      setShowCreate(false); setForm(defaultLetterForm); setLetterFile(null); setLetterFolder(null); setLetterZip(null);
       setToast({ message: "تم إضافة الخطاب", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -865,11 +959,11 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
             </select>
           </FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="من *"><input value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} placeholder="المرسل" className={inputCls} dir="rtl" /></FormField>
-            <FormField label="إلى *"><input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="المستلم" className={inputCls} dir="rtl" /></FormField>
+             <FormField label="من (اختياري)"><input value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} placeholder="المرسل" className={inputCls} dir="rtl" /></FormField>
+             <FormField label="إلى (اختياري)"><input value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="المستلم" className={inputCls} dir="rtl" /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="التاريخ *"><input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} archive-date-input`} /></FormField>
+             <FormField label="التاريخ (اختياري)"><input type="date" lang="en-GB" dir="rtl" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={`${inputCls} archive-date-input`} /></FormField>
             <FormField label="رقم المرجع"><input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="SA-2025-001" className={inputCls} dir="ltr" /></FormField>
           </div>
           <FormField label="حالة التوزيع (Prompt 1)">
@@ -898,12 +992,13 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
             </div>
           </FormField>
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
-          <FormField label="إرفاق ملف">
+           <FormField label="مرفقات اختيارية">
             <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setLetterFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
             <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+             <PendingFolderUpload folderFiles={letterFolder} zipFile={letterZip} onFolderChange={setLetterFolder} onZipChange={setLetterZip} />
           </FormField>
           <p className="text-xs text-muted-foreground">سيتم توليد رقم مرجعي تلقائي (LTR-XXXX-XXX) عند الحفظ</p>
-          <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnCls}>{create.isPending || attachment.add.isPending ? "جاري..." : "إضافة الخطاب"}</button>
+           <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !form.subject.trim()} className={btnCls}>{create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : "إضافة الخطاب"}</button>
         </div>
       </Modal>
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, lid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الخطاب", type: "success" }); }} title="حذف الخطاب" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
@@ -915,10 +1010,13 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
 function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t: { message: string; type: "success" | "error" } | null) => void }) {
   const { data, isLoading } = useContacts(projectId);
   const { create, remove } = useContactActions(projectId);
+  const attachment = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", role: "consultant", phone: "", email: "", notes: "" });
+  const [contactFolder, setContactFolder] = useState<FileList | null>(null);
+  const [contactZip, setContactZip] = useState<File | null>(null);
 
   const ROLE_LABELS: Record<string, string> = {
     owner: "مالك",
@@ -931,9 +1029,12 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const handleCreate = async () => {
     if (!form.name.trim()) return;
     try {
-      await create.mutateAsync({ name: form.name, role: form.role as "owner" | "consultant" | "contractor" | "technical_office" | "other", phone: form.phone || null, email: form.email || null, notes: form.notes || null });
+      const contact = await create.mutateAsync({ name: form.name, role: form.role as "owner" | "consultant" | "contractor" | "technical_office" | "other", phone: form.phone || null, email: form.email || null, notes: form.notes || null });
+      await uploadPendingFolder(attachment, "custom_doc", contact.id, contactFolder, contactZip, "مرفق جهة اتصال");
       setShowCreate(false);
       setForm({ name: "", role: "consultant", phone: "", email: "", notes: "" });
+      setContactFolder(null);
+      setContactZip(null);
       setToast({ message: "تم إضافة جهة الاتصال", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
@@ -960,6 +1061,7 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               {c.email && <p className="text-xs text-muted-foreground">✉️ {c.email}</p>}
               {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
               {canDelete && <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
+              <AttachmentsPanel projectId={projectId} entityType="custom_doc" entityId={c.id} compact />
             </div>
           ))}
         </div>
@@ -979,7 +1081,8 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           <FormField label="الهاتف"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="05XXXXXXXX" className={inputCls} dir="ltr" /></FormField>
           <FormField label="البريد الإلكتروني"><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="example@email.com" className={inputCls} dir="ltr" /></FormField>
           <FormField label="ملاحظات"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inputCls} resize-none`} dir="rtl" /></FormField>
-          <button onClick={handleCreate} disabled={create.isPending || !form.name.trim()} className={btnCls}>{create.isPending ? "جاري..." : "إضافة الجهة"}</button>
+          <FormField label="مرفقات اختيارية"><PendingFolderUpload folderFiles={contactFolder} zipFile={contactZip} onFolderChange={setContactFolder} onZipChange={setContactZip} /></FormField>
+          <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !form.name.trim()} className={btnCls}>{create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : "إضافة الجهة"}</button>
         </div>
       </Modal>}
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync(deleteId!); setDeleteId(null); setToast({ message: "تم حذف جهة الاتصال", type: "success" }); }} title="حذف جهة الاتصال" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
@@ -1036,6 +1139,17 @@ function PhotosTab({ projectId, setToast }: TabProps) {
           className="hidden"
           onChange={e => handleFiles(e.target.files)}
         />
+        <label className="inline-block mt-3 text-xs text-primary cursor-pointer hover:underline">
+          📂 رفع مجلد صور كامل
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+            onChange={e => handleFiles(e.target.files)}
+          />
+        </label>
       </div>}
 
       {/* Grid */}
@@ -1404,7 +1518,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">الملف *</label>
+             <label className="block text-sm font-medium mb-1.5">الملف (اختياري)</label>
               <label className="block text-center py-4 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
                 <span className="text-3xl block mb-1">📂</span>
                 <span className="text-sm text-muted-foreground">اختر ملفاً أو عدة ملفات</span>
