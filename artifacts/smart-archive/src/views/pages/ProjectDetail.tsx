@@ -155,7 +155,7 @@ async function uploadPendingFolder(
   customType: string,
 ) {
   if (folderFiles?.length) {
-    if (folderFiles.length > 5000) throw new Error("الحد الأقصى للمجلد هو 5000 ملف");
+    if (folderFiles.length > 10000) throw new Error("الحد الأقصى للمجلد هو 10000 ملف");
     for (const file of folderFiles) {
       const relativePath = file.webkitRelativePath || file.name;
       await actions.add.mutateAsync({ entityType, entityId, file, name: relativePath, customType, relativePath });
@@ -1318,8 +1318,9 @@ function AttachmentsPanel({
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
-    if (files.length > 5000) {
-      setNotice({ message: "الحد الأقصى لرفع المجلد هو 5000 ملف في المرة الواحدة", type: "error" });
+    const totalBytes = files.reduce((total, file) => total + file.size, 0);
+    if (files.length > 10000 || files.some((file) => file.size > 500 * 1024 * 1024) || totalBytes > 5 * 1024 * 1024 * 1024) {
+      setNotice({ message: "المجلد يجب ألا يتجاوز 10000 ملف أو 5GB، وألا يتجاوز أي ملف 500MB", type: "error" });
       return;
     }
     try {
@@ -1345,12 +1346,16 @@ function AttachmentsPanel({
 
   const uploadFolderZip = async (file: File | undefined) => {
     if (!file) return;
+    if (file.size > 1024 * 1024 * 1024) {
+      setNotice({ message: "ملف ZIP يجب ألا يتجاوز 1GB؛ أما محتواه بعد الفك فيسمح حتى 5GB", type: "error" });
+      return;
+    }
     try {
       const uploaded = await addFolderZip.mutateAsync({ entityType, entityId, file, customType: attType, targetPath: currentPath });
       setNotice({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`, type: "success" });
       setShowAdd(false);
     } catch {
-      setNotice({ message: "تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز 5000 ملف أو 5GB بعد فك الضغط", type: "error" });
+      setNotice({ message: "تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز 10000 ملف أو 5GB بعد فك الضغط", type: "error" });
     }
   };
 
@@ -1444,8 +1449,9 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
-    if (files.length > 5000) {
-      _setToast({ message: "الحد الأقصى للمجلد 5000 ملف", type: "error" });
+    const totalBytes = files.reduce((total, file) => total + file.size, 0);
+    if (files.length > 10000 || files.some((file) => file.size > 500 * 1024 * 1024) || totalBytes > 5 * 1024 * 1024 * 1024) {
+      _setToast({ message: "المجلد يجب ألا يتجاوز 10000 ملف أو 5GB، وألا يتجاوز أي ملف 500MB", type: "error" });
       return;
     }
     try {
@@ -1472,6 +1478,10 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
 
   const uploadFolderZip = async (file: File | undefined) => {
     if (!file) return;
+    if (file.size > 1024 * 1024 * 1024) {
+      _setToast({ message: "ملف ZIP يجب ألا يتجاوز 1GB؛ أما محتواه بعد الفك فيسمح حتى 5GB", type: "error" });
+      return;
+    }
     try {
       const uploaded = await addFolderZip.mutateAsync({
         entityType: "custom_doc",

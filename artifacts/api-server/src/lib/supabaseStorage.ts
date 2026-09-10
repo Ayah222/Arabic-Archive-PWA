@@ -76,10 +76,11 @@ export async function uploadSupabaseObject(input: {
   return supabaseObjectPath(input.storagePath);
 }
 
-export async function downloadSupabaseObject(storagePath: string) {
+export async function downloadSupabaseObject(storagePath: string, maxBytes?: number) {
   await ensureBucket();
   const { data, error } = await supabaseAdmin().storage.from(SUPABASE_STORAGE_BUCKET).download(storagePath);
   if (error || !data) throw new Error(error?.message || "تعذر قراءة الملف");
+  if (maxBytes && data.size > maxBytes) throw new Error("حجم الملف المضغوط يتجاوز الحد المسموح");
   return Buffer.from(await data.arrayBuffer());
 }
 

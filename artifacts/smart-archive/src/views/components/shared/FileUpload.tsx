@@ -19,7 +19,7 @@ interface FileUploadProps {
 export default function FileUpload({
   onUpload,
   accept = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx",
-  maxSizeMB = 20,
+  maxSizeMB = 500,
   label = "رفع ملف",
   projectId,
   section,

@@ -48,7 +48,7 @@ const SAFE_EXTENSIONS: Record<string, string> = {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 250 * 1024 * 1024 },
+  limits: { fileSize: 500 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!(ext in SAFE_EXTENSIONS)) {
