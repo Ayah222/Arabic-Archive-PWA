@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useProject } from "../../controllers/useProjects";
 import {
@@ -89,7 +89,6 @@ function FolderPicker({
   accept?: string;
   label?: string;
 }) {
-  const fallbackInputRef = useRef<HTMLInputElement>(null);
   const chooseFolder = async () => {
     const picker = (window as Window & {
       showDirectoryPicker?: () => Promise<DirectoryEntry>;
@@ -102,19 +101,18 @@ function FolderPicker({
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
       }
-      return;
     }
-    fallbackInputRef.current?.click();
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <label
       className={className}
-      onClick={() => void chooseFolder()}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+      onClick={(event) => {
+        event.stopPropagation();
+        const picker = (window as Window & {
+          showDirectoryPicker?: () => Promise<DirectoryEntry>;
+        }).showDirectoryPicker;
+        if (picker) {
           event.preventDefault();
           void chooseFolder();
         }
@@ -122,17 +120,15 @@ function FolderPicker({
     >
       {label}
       <input
-        ref={fallbackInputRef}
         type="file"
         multiple
         accept={accept}
         className="hidden"
         {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-        onClick={(event) => event.stopPropagation()}
         onChange={(event) => onFiles(event.target.files ? Array.from(event.target.files) : null)}
       />
       {files?.length ? <span className="block text-[10px] text-primary mt-1">{files.length} ملف</span> : null}
-    </div>
+    </label>
   );
 }
 
