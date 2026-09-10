@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useProject } from "../../controllers/useProjects";
 import {
@@ -52,20 +52,94 @@ type PendingFolderUploadProps = {
   onZipChange: (file: File | null) => void;
 };
 
+type DirectoryEntry = {
+  kind: "file" | "directory";
+  name: string;
+  getFile?: () => Promise<File>;
+  values?: () => AsyncIterable<DirectoryEntry>;
+};
+
+async function readDirectoryFiles(directory: DirectoryEntry, parentPath = ""): Promise<File[]> {
+  const files: File[] = [];
+  if (!directory.values) return files;
+  for await (const entry of directory.values()) {
+    const relativePath = [parentPath, entry.name].filter(Boolean).join("/");
+    if (entry.kind === "directory") {
+      files.push(...await readDirectoryFiles(entry, relativePath));
+    } else if (entry.getFile) {
+      const source = await entry.getFile();
+      const file = new File([source], source.name, { type: source.type, lastModified: source.lastModified });
+      Object.defineProperty(file, "webkitRelativePath", { value: relativePath, configurable: true });
+      files.push(file);
+    }
+  }
+  return files;
+}
+
+function FolderPicker({
+  files,
+  onFiles,
+  className = "block px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors",
+  accept,
+  label = "📂 إضافة مجلد كامل",
+}: {
+  files?: File[] | null;
+  onFiles: (files: File[] | null) => void;
+  className?: string;
+  accept?: string;
+  label?: string;
+}) {
+  const fallbackInputRef = useRef<HTMLInputElement>(null);
+  const chooseFolder = async () => {
+    const picker = (window as Window & {
+      showDirectoryPicker?: () => Promise<DirectoryEntry>;
+    }).showDirectoryPicker;
+    if (picker) {
+      try {
+        const directory = await picker();
+        const selectedFiles = await readDirectoryFiles(directory);
+        onFiles(selectedFiles.length ? selectedFiles : null);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+      return;
+    }
+    fallbackInputRef.current?.click();
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className={className}
+      onClick={() => void chooseFolder()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          void chooseFolder();
+        }
+      }}
+    >
+      {label}
+      <input
+        ref={fallbackInputRef}
+        type="file"
+        multiple
+        accept={accept}
+        className="hidden"
+        {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => onFiles(event.target.files ? Array.from(event.target.files) : null)}
+      />
+      {files?.length ? <span className="block text-[10px] text-primary mt-1">{files.length} ملف</span> : null}
+    </div>
+  );
+}
+
 function PendingFolderUpload({ folderFiles, zipFile, onFolderChange, onZipChange }: PendingFolderUploadProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
-      <label className="block px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
-        📂 إضافة مجلد كامل
-        <input
-          type="file"
-          multiple
-          className="hidden"
-          {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-          onChange={(e) => onFolderChange(e.target.files ? Array.from(e.target.files) : null)}
-        />
-        {folderFiles && <span className="block text-[10px] text-primary mt-1">{folderFiles.length} ملف</span>}
-      </label>
+      <FolderPicker files={folderFiles} onFiles={onFolderChange} />
       <label className="block px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
         🗜️ إضافة ZIP
         <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => onZipChange(e.target.files?.[0] ?? null)} />
@@ -1099,9 +1173,9 @@ function PhotosTab({ projectId, setToast }: TabProps) {
   const [desc, setDesc] = useState("");
   const inputRef = useState<HTMLInputElement | null>(null);
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = (files: File[] | null) => {
     if (!files) return;
-    Array.from(files).forEach(file => {
+    files.forEach(file => {
       if (!file.type.startsWith("image/")) return;
       void add.mutateAsync({ file, name: file.name, description: desc }).then(() => {
         setToast({ message: "تم رفع الصورة", type: "success" });
@@ -1126,7 +1200,7 @@ function PhotosTab({ projectId, setToast }: TabProps) {
         style={{ borderColor: "rgba(0,240,255,0.30)", background: "rgba(0,240,255,0.03)" }}
         onClick={() => document.getElementById("photo-upload-input")?.click()}
         onDragOver={e => e.preventDefault()}
-        onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+        onDrop={e => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files)); }}
       >
         <div className="text-4xl mb-2">🖼️</div>
         <p className="text-sm font-semibold" style={{ color: "#00f0ff" }}>اسحب الصور هنا أو انقر للاختيار</p>
@@ -1137,19 +1211,14 @@ function PhotosTab({ projectId, setToast }: TabProps) {
           accept="image/*"
           multiple
           className="hidden"
-          onChange={e => handleFiles(e.target.files)}
+           onChange={e => handleFiles(e.target.files ? Array.from(e.target.files) : null)}
         />
-        <label className="inline-block mt-3 text-xs text-primary cursor-pointer hover:underline">
-          📂 رفع مجلد صور كامل
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            className="hidden"
-            {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-            onChange={e => handleFiles(e.target.files)}
-          />
-        </label>
+        <FolderPicker
+          accept="image/*"
+          label="📂 رفع مجلد صور كامل"
+          onFiles={handleFiles}
+          className="inline-block mt-3 text-xs text-primary cursor-pointer hover:underline"
+        />
       </div>}
 
       {/* Grid */}
@@ -1334,16 +1403,11 @@ function AttachmentsPanel({
               📄 اختر ملفات
               <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)} />
             </label>
-            <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
-              📂 اختر مجلداً كاملاً
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-                onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null, true)}
-              />
-            </label>
+            <FolderPicker
+              label="📂 اختر مجلداً كاملاً"
+              onFiles={(files) => void uploadFiles(files, true)}
+              className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors"
+            />
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
               🗜️ رفع مجلد ZIP للجوال
               <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void uploadFolderZip(e.target.files?.[0])} />
@@ -1535,16 +1599,11 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                   onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)}
                 />
               </label>
-              <label className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
-                <span className="text-sm text-muted-foreground">📁 اختر مجلداً كاملاً مع مجلداته الفرعية</span>
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-                  onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null, true)}
-                />
-              </label>
+              <FolderPicker
+                label="📁 اختر مجلداً كاملاً مع مجلداته الفرعية"
+                onFiles={(files) => void uploadFiles(files, true)}
+                className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors"
+              />
               <label className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
                 <span className="text-sm text-muted-foreground">🗜️ رفع المجلد كـ ZIP — يعمل على الجوال ونسخة PWA</span>
                 <input
