@@ -6,9 +6,12 @@ import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage"
 import { listAttachments, createAttachment, deleteAttachment } from "./archiveDb";
 
 const router: IRouter = Router();
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const MAX_FOLDER_FILES = 2000;
+const MAX_FOLDER_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES },
 });
 
 const mimeByExtension: Record<string, string> = {
@@ -77,13 +80,13 @@ function extractZipFiles(zip: Buffer) {
     if (!relativePath) throw new Error("يحتوي ZIP على مسار غير آمن");
     if (flags & 1) throw new Error("ملفات ZIP المشفرة بكلمة مرور غير مدعومة");
     if (method !== 0 && method !== 8) throw new Error("نوع ضغط ZIP غير مدعوم");
-    if (uncompressedSize > 20 * 1024 * 1024) throw new Error("أحد الملفات أكبر من 20MB");
+    if (uncompressedSize > MAX_UPLOAD_BYTES) throw new Error("أحد الملفات أكبر من 100MB");
     if (zip.readUInt32LE(localOffset) !== 0x04034b50) throw new Error("بيانات ZIP غير صالحة");
     const localNameLength = zip.readUInt16LE(localOffset + 26);
     const localExtraLength = zip.readUInt16LE(localOffset + 28);
     const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
     const compressed = zip.subarray(dataOffset, dataOffset + compressedSize);
-    const bytes = method === 0 ? Buffer.from(compressed) : inflateRawSync(compressed, { maxOutputLength: 20 * 1024 * 1024 });
+    const bytes = method === 0 ? Buffer.from(compressed) : inflateRawSync(compressed, { maxOutputLength: MAX_UPLOAD_BYTES });
     if (bytes.length !== uncompressedSize) throw new Error("حجم ملف ZIP غير متطابق");
     files.push({ relativePath, bytes });
   }
@@ -150,8 +153,8 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
   const createdIds: string[] = [];
   try {
     const files = extractZipFiles(req.file.buffer);
-    if (!files.length || files.length > 200) {
-      res.status(400).json({ error: files.length ? "ZIP folders are limited to 200 files" : "The ZIP folder is empty" });
+    if (!files.length || files.length > MAX_FOLDER_FILES) {
+      res.status(400).json({ error: files.length ? `ZIP folders are limited to ${MAX_FOLDER_FILES} files` : "The ZIP folder is empty" });
       return;
     }
 
@@ -163,7 +166,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       const relativePath = [safeTargetPath, file.relativePath].filter(Boolean).join("/");
       const { bytes } = file;
       totalBytes += bytes.length;
-      if (bytes.length > 20 * 1024 * 1024 || totalBytes > 200 * 1024 * 1024) {
+      if (bytes.length > MAX_UPLOAD_BYTES || totalBytes > MAX_FOLDER_TOTAL_BYTES) {
         throw new Error("Extracted folder exceeds the allowed size");
       }
       const relativeParts = relativePath.split("/").slice(0, -1);

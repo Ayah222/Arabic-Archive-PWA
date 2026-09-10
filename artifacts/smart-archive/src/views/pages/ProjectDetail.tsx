@@ -46,9 +46,9 @@ const STATIC_TABS: { id: StaticTab; label: string; icon: string }[] = [
 ];
 
 type PendingFolderUploadProps = {
-  folderFiles: FileList | null;
+  folderFiles: File[] | null;
   zipFile: File | null;
-  onFolderChange: (files: FileList | null) => void;
+  onFolderChange: (files: File[] | null) => void;
   onZipChange: (file: File | null) => void;
 };
 
@@ -62,7 +62,7 @@ function PendingFolderUpload({ folderFiles, zipFile, onFolderChange, onZipChange
           multiple
           className="hidden"
           {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-          onChange={(e) => onFolderChange(e.target.files)}
+          onChange={(e) => onFolderChange(e.target.files ? Array.from(e.target.files) : null)}
         />
         {folderFiles && <span className="block text-[10px] text-primary mt-1">{folderFiles.length} ملف</span>}
       </label>
@@ -79,13 +79,13 @@ async function uploadPendingFolder(
   actions: ReturnType<typeof useAttachmentActions>,
   entityType: "contract" | "meeting" | "letter" | "custom_doc",
   entityId: string,
-  folderFiles: FileList | null,
+  folderFiles: File[] | null,
   zipFile: File | null,
   customType: string,
 ) {
   if (folderFiles?.length) {
-    if (folderFiles.length > 200) throw new Error("الحد الأقصى للمجلد هو 200 ملف");
-    for (const file of Array.from(folderFiles)) {
+    if (folderFiles.length > 2000) throw new Error("الحد الأقصى للمجلد هو 2000 ملف");
+    for (const file of folderFiles) {
       const relativePath = file.webkitRelativePath || file.name;
       await actions.add.mutateAsync({ entityType, entityId, file, name: relativePath, customType, relativePath });
     }
@@ -365,7 +365,7 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ContractFormData>(defaultContractForm);
   const [contractFile, setContractFile] = useState<File | null>(null);
-  const [contractFolder, setContractFolder] = useState<FileList | null>(null);
+  const [contractFolder, setContractFolder] = useState<File[] | null>(null);
   const [contractZip, setContractZip] = useState<File | null>(null);
 
   const handleCreate = async () => {
@@ -449,8 +449,8 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
 
 function ContractForm({ data, onChange, onSubmit, loading, submitLabel, file, onFileChange, folderFiles, zipFile, onFolderChange, onZipChange }: {
   data: ContractFormData; onChange: (d: ContractFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string;
-  file?: File | null; onFileChange?: (file: File | null) => void; folderFiles?: FileList | null; zipFile?: File | null;
-  onFolderChange?: (files: FileList | null) => void; onZipChange?: (file: File | null) => void;
+  file?: File | null; onFileChange?: (file: File | null) => void; folderFiles?: File[] | null; zipFile?: File | null;
+  onFolderChange?: (files: File[] | null) => void; onZipChange?: (file: File | null) => void;
 }) {
   const set = (k: keyof ContractFormData, v: string) => onChange({ ...data, [k]: v });
   return (
@@ -495,7 +495,7 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
   const [editItem, setEditItem] = useState<{ id: string; data: ContractorTabFormData } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<ContractorTabFormData>(defaultContractorForm);
-  const [contractorFolder, setContractorFolder] = useState<FileList | null>(null);
+  const [contractorFolder, setContractorFolder] = useState<File[] | null>(null);
   const [contractorZip, setContractorZip] = useState<File | null>(null);
 
   const handleCreate = async () => {
@@ -571,7 +571,7 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
 
 function ContractorForm({ data, onChange, onSubmit, loading, submitLabel, folderFiles, zipFile, onFolderChange, onZipChange }: {
   data: ContractorTabFormData; onChange: (d: ContractorTabFormData) => void; onSubmit: () => void; loading: boolean; submitLabel: string;
-  folderFiles?: FileList | null; zipFile?: File | null; onFolderChange?: (files: FileList | null) => void; onZipChange?: (file: File | null) => void;
+  folderFiles?: File[] | null; zipFile?: File | null; onFolderChange?: (files: File[] | null) => void; onZipChange?: (file: File | null) => void;
 }) {
   const set = (k: keyof ContractorTabFormData, v: string) => onChange({ ...data, [k]: v });
   return (
@@ -604,7 +604,7 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
   const [docName, setDocName] = useState("");
   const [docNotes, setDocNotes] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ url: string; filename: string; size: number; mimetype: string } | null>(null);
-  const [documentFolder, setDocumentFolder] = useState<FileList | null>(null);
+  const [documentFolder, setDocumentFolder] = useState<File[] | null>(null);
   const [documentZip, setDocumentZip] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -710,7 +710,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
   const [form, setForm] = useState<MeetingFormData>(defaultMeetingForm);
   const [meetingFile, setMeetingFile] = useState<File | null>(null);
-  const [meetingFolder, setMeetingFolder] = useState<FileList | null>(null);
+  const [meetingFolder, setMeetingFolder] = useState<File[] | null>(null);
   const [meetingZip, setMeetingZip] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [attendeeInput, setAttendeeInput] = useState("");
@@ -872,7 +872,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<LetterFormData>(defaultLetterForm);
   const [letterFile, setLetterFile] = useState<File | null>(null);
-  const [letterFolder, setLetterFolder] = useState<FileList | null>(null);
+  const [letterFolder, setLetterFolder] = useState<File[] | null>(null);
   const [letterZip, setLetterZip] = useState<File | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -1015,7 +1015,7 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", role: "consultant", phone: "", email: "", notes: "" });
-  const [contactFolder, setContactFolder] = useState<FileList | null>(null);
+  const [contactFolder, setContactFolder] = useState<File[] | null>(null);
   const [contactZip, setContactZip] = useState<File | null>(null);
 
   const ROLE_LABELS: Record<string, string> = {
@@ -1248,15 +1248,16 @@ function AttachmentsPanel({
   const [attType, setAttType] = useState("مستند");
   const [currentPath, setCurrentPath] = useState("");
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [preview, setPreview] = useState<SAAttachment | null>(null);
 
-  const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
+  const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
-    if (files.length > 200) {
-      setNotice({ message: "الحد الأقصى لرفع المجلد هو 200 ملف في المرة الواحدة", type: "error" });
+    if (files.length > 2000) {
+      setNotice({ message: "الحد الأقصى لرفع المجلد هو 2000 ملف في المرة الواحدة", type: "error" });
       return;
     }
     try {
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         const selectedPath = preserveFolders ? file.webkitRelativePath || file.name : file.name;
         const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
         await add.mutateAsync({
@@ -1283,7 +1284,7 @@ function AttachmentsPanel({
       setNotice({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`, type: "success" });
       setShowAdd(false);
     } catch {
-      setNotice({ message: "تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز 200 ملف", type: "error" });
+      setNotice({ message: "تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز 2000 ملف", type: "error" });
     }
   };
 
@@ -1331,7 +1332,7 @@ function AttachmentsPanel({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
               📄 اختر ملفات
-              <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files)} />
+              <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)} />
             </label>
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
               📂 اختر مجلداً كاملاً
@@ -1340,7 +1341,7 @@ function AttachmentsPanel({
                 multiple
                 className="hidden"
                 {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-                onChange={(e) => void uploadFiles(e.target.files, true)}
+                onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null, true)}
               />
             </label>
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
@@ -1358,9 +1359,11 @@ function AttachmentsPanel({
         onPathChange={setCurrentPath}
         canDelete={canDelete}
         onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
+        onPreview={setPreview}
         mimeIcon={mimeIcon}
         compact
       />}
+      <AttachmentPreview attachment={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
@@ -1375,15 +1378,16 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [attType, setAttType] = useState("");
   const [search, setSearch] = useState("");
   const [currentPath, setCurrentPath] = useState("");
+  const [preview, setPreview] = useState<SAAttachment | null>(null);
 
-  const uploadFiles = async (files: FileList | null, preserveFolders = false) => {
+  const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
-    if (files.length > 200) {
-      _setToast({ message: "الحد الأقصى للمجلد 200 ملف", type: "error" });
+    if (files.length > 2000) {
+      _setToast({ message: "الحد الأقصى للمجلد 2000 ملف", type: "error" });
       return;
     }
     try {
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         const selectedPath = preserveFolders ? file.webkitRelativePath || file.name : file.name;
         const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
         await add.mutateAsync({
@@ -1469,7 +1473,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         />
       ) : (
         search ? <div className="space-y-2">
-          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} mimeIcon={mimeIcon}
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={setPreview} mimeIcon={mimeIcon}
             onDelete={async (att) => {
               await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
               _setToast({ message: "تم حذف المستند", type: "success" });
@@ -1479,6 +1483,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           currentPath={currentPath}
           onPathChange={setCurrentPath}
           canDelete={canDelete}
+           onPreview={setPreview}
           onDelete={async (att) => {
             await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
             _setToast({ message: "تم حذف المستند", type: "success" });
@@ -1486,6 +1491,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           mimeIcon={mimeIcon}
         />
       )}
+      <AttachmentPreview attachment={preview} onClose={() => setPreview(null)} />
 
       {/* Add Modal */}
       {canEdit && showAdd && (
@@ -1526,7 +1532,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                   type="file"
                   multiple
                   className="hidden"
-                  onChange={(e) => void uploadFiles(e.target.files)}
+                  onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)}
                 />
               </label>
               <label className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
@@ -1536,7 +1542,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
                   multiple
                   className="hidden"
                   {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-                  onChange={(e) => void uploadFiles(e.target.files, true)}
+                  onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null, true)}
                 />
               </label>
               <label className="block text-center py-3 mt-2 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
@@ -1562,18 +1568,31 @@ function AttachmentFileRow({
   attachment,
   canDelete,
   onDelete,
+  onPreview,
   mimeIcon,
   compact = false,
 }: {
   attachment: SAAttachment;
   canDelete: boolean;
   onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
+  onPreview?: (attachment: SAAttachment) => void;
   mimeIcon: (mime: string) => string;
   compact?: boolean;
 }) {
   const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
   return (
-    <div className={`flex items-center gap-3 bg-card border border-border shadow-sm ${compact ? "rounded-lg px-2 py-1.5 text-xs" : "rounded-2xl p-4"}`}>
+    <div
+      className={`flex items-center gap-3 bg-card border border-border shadow-sm ${compact ? "rounded-lg px-2 py-1.5 text-xs" : "rounded-2xl p-4"} ${onPreview ? "cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors" : ""}`}
+      role={onPreview ? "button" : undefined}
+      tabIndex={onPreview ? 0 : undefined}
+      onClick={() => onPreview?.(attachment)}
+      onKeyDown={(event) => {
+        if (onPreview && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onPreview(attachment);
+        }
+      }}
+    >
       <span className={compact ? "text-base" : "text-3xl"}>{mimeIcon(attachment.mimeType)}</span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold truncate">{fileName}</p>
@@ -1583,8 +1602,8 @@ function AttachmentFileRow({
           {attachment.size ? ` · ${(attachment.size / 1024).toFixed(0)} KB` : ""}
         </p>}
       </div>
-      <a href={attachment.dataUrl} download={fileName} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
-      {canDelete && <button onClick={() => void onDelete(attachment)} className="text-xs text-destructive hover:underline shrink-0">حذف</button>}
+      <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
+      {canDelete && <button onClick={(event) => { event.stopPropagation(); void onDelete(attachment); }} className="text-xs text-destructive hover:underline shrink-0">حذف</button>}
     </div>
   );
 }
@@ -1595,6 +1614,7 @@ function AttachmentFolderBrowser({
   onPathChange,
   canDelete,
   onDelete,
+  onPreview,
   mimeIcon,
   compact = false,
 }: {
@@ -1603,6 +1623,7 @@ function AttachmentFolderBrowser({
   onPathChange: (path: string) => void;
   canDelete: boolean;
   onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
+  onPreview?: (attachment: SAAttachment) => void;
   mimeIcon: (mime: string) => string;
   compact?: boolean;
 }) {
@@ -1643,9 +1664,46 @@ function AttachmentFolderBrowser({
         </button>
       ))}
       {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
-        <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} mimeIcon={mimeIcon} compact={compact} />
+        <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon} compact={compact} />
       ))}
       {!folders.size && !files.length && <p className="text-xs text-muted-foreground text-center py-4">هذا المجلد فارغ</p>}
+    </div>
+  );
+}
+
+function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment | null; onClose: () => void }) {
+  if (!attachment) return null;
+  const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
+  const mime = attachment.mimeType || "application/octet-stream";
+  const isImage = mime.startsWith("image/");
+  const isPdf = mime === "application/pdf";
+  const isText = mime.startsWith("text/") || mime === "application/json";
+  const isVideo = mime.startsWith("video/");
+  const isAudio = mime.startsWith("audio/");
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border" dir="rtl">
+          <div className="min-w-0">
+            <h3 className="font-semibold truncate">{fileName}</h3>
+            <p className="text-xs text-muted-foreground">انقر خارج النافذة للإغلاق</p>
+          </div>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">إغلاق</button>
+        </div>
+        <div className="p-4 overflow-auto min-h-[220px] flex items-center justify-center bg-black/5">
+          {isImage && <img src={attachment.dataUrl} alt={fileName} className="max-w-full max-h-[70vh] object-contain rounded-lg" />}
+          {isPdf && <iframe src={attachment.dataUrl} title={fileName} className="w-full h-[70vh] rounded-lg bg-white" />}
+          {isText && <iframe src={attachment.dataUrl} title={fileName} className="w-full h-[70vh] rounded-lg bg-white" />}
+          {isVideo && <video src={attachment.dataUrl} controls className="max-w-full max-h-[70vh] rounded-lg" />}
+          {isAudio && <audio src={attachment.dataUrl} controls />}
+          {!isImage && !isPdf && !isText && !isVideo && !isAudio && (
+            <div className="text-center space-y-3">
+              <p className="text-sm text-muted-foreground">هذا النوع لا يعرض داخل المتصفح، ويمكن فتحه أو تنزيله.</p>
+              <a href={attachment.dataUrl} target="_blank" rel="noreferrer" className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">فتح الملف</a>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
