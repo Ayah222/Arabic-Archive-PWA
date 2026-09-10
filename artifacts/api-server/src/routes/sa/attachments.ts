@@ -6,9 +6,9 @@ import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage"
 import { listAttachments, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const MAX_FOLDER_FILES = 2000;
-const MAX_FOLDER_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 250 * 1024 * 1024;
+const MAX_FOLDER_FILES = 5000;
+const MAX_FOLDER_TOTAL_BYTES = 5 * 1024 * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_BYTES },
@@ -80,7 +80,7 @@ function extractZipFiles(zip: Buffer) {
     if (!relativePath) throw new Error("يحتوي ZIP على مسار غير آمن");
     if (flags & 1) throw new Error("ملفات ZIP المشفرة بكلمة مرور غير مدعومة");
     if (method !== 0 && method !== 8) throw new Error("نوع ضغط ZIP غير مدعوم");
-    if (uncompressedSize > MAX_UPLOAD_BYTES) throw new Error("أحد الملفات أكبر من 100MB");
+    if (uncompressedSize > MAX_UPLOAD_BYTES) throw new Error("أحد الملفات أكبر من 250MB");
     if (zip.readUInt32LE(localOffset) !== 0x04034b50) throw new Error("بيانات ZIP غير صالحة");
     const localNameLength = zip.readUInt16LE(localOffset + 26);
     const localExtraLength = zip.readUInt16LE(localOffset + 28);
