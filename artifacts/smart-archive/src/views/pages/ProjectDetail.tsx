@@ -1777,7 +1777,16 @@ function AttachmentFolderBrowser({
 function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment | null; onClose: () => void }) {
   if (!attachment) return null;
   const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
-  const mime = attachment.mimeType || "application/octet-stream";
+  const declaredMime = attachment.mimeType || "application/octet-stream";
+  const extensionMime: Record<string, string> = {
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+    pdf: "application/pdf", txt: "text/plain", csv: "text/csv", json: "application/json",
+    mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", wav: "audio/wav",
+  };
+  const extension = fileName.toLowerCase().split(".").pop() || "";
+  const mime = declaredMime !== "application/octet-stream"
+    ? declaredMime
+    : extensionMime[extension] || declaredMime;
   const isImage = mime.startsWith("image/");
   const isPdf = mime === "application/pdf";
   const isText = mime.startsWith("text/") || mime === "application/json";
