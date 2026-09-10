@@ -83,7 +83,7 @@ function extractZipFiles(zip: Buffer) {
     if (!relativePath) throw new Error("يحتوي ZIP على مسار غير آمن");
     if (flags & 1) throw new Error("ملفات ZIP المشفرة بكلمة مرور غير مدعومة");
     if (method !== 0 && method !== 8) throw new Error("نوع ضغط ZIP غير مدعوم");
-    if (uncompressedSize > MAX_UPLOAD_BYTES) throw new Error("أحد الملفات أكبر من 500MB");
+    if (uncompressedSize > MAX_UPLOAD_BYTES) throw new Error(`أحد الملفات أكبر من ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`);
     if (zip.readUInt32LE(localOffset) !== 0x04034b50) throw new Error("بيانات ZIP غير صالحة");
     const localNameLength = zip.readUInt16LE(localOffset + 26);
     const localExtraLength = zip.readUInt16LE(localOffset + 28);
@@ -114,7 +114,7 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
   }
   if (!req.file && req.body.storagePath) {
     if (Number(req.body.size || 0) > MAX_UPLOAD_BYTES) {
-      res.status(400).json({ error: "حجم الملف يتجاوز 500MB" });
+      res.status(400).json({ error: `حجم الملف يتجاوز ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB` });
       return;
     }
     const attachment = await createAttachment(projectId, {

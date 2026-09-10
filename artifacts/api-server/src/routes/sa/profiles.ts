@@ -72,7 +72,7 @@ router.get("/sa/profiles", async (_req, res) => {
     .select("*")
     .order("email");
   if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  return res.json(data);
 });
 
 // Fallback profile lookup used after a Supabase employee login.
@@ -83,7 +83,7 @@ router.get("/sa/profiles/:id", async (req, res) => {
     .eq("id", req.params.id)
     .single();
   if (error || !data) return res.status(404).json({ error: "Profile not found" });
-  res.json(
+  return res.json(
     data.role === "super_admin"
       ? { ...data, role: "admin" }
       : data.role === "employee"
@@ -136,7 +136,7 @@ router.patch("/sa/profiles/:id", async (req, res) => {
       }
     }
   }
-  res.json({ ...data, activationEmailSent });
+  return res.json({ ...data, activationEmailSent });
 });
 
 // Reject a pending invitation and completely remove the auth account/profile.
@@ -159,7 +159,7 @@ router.delete("/sa/profiles/:id", async (req, res) => {
 
   await admin.from("profiles").delete().eq("id", id);
   await deleteNotificationsContaining(`[pending-user:${id}]`);
-  res.json({ id });
+  return res.json({ id });
 });
 
 export default router;

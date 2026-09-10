@@ -957,7 +957,7 @@ export async function deleteAttachmentFolder(
 
 export async function allAttachments(): Promise<SAAttachment[]> {
   const rows = unwrap(await supabaseAdmin().from("attachments").select("*"));
-  return (rows ?? []).map(toAttachment);
+  return Promise.all((rows ?? []).map(toAttachment));
 }
 
 export async function allCategories(): Promise<SACategory[]> {

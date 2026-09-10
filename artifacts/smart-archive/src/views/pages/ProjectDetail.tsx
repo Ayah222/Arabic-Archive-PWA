@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -1308,6 +1308,7 @@ function AttachmentsPanel({
 }) {
   const { data: attachments = [], isLoading } = useEntityAttachments(projectId, entityType, entityId);
   const { add, addFolderZip, remove, removeFolder } = useAttachmentActions(projectId);
+  const { data: fileLimits } = useFileLimits();
   const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
@@ -1319,8 +1320,8 @@ function AttachmentsPanel({
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
-    if (files.length > 10000 || files.some((file) => file.size > 500 * 1024 * 1024) || totalBytes > 5 * 1024 * 1024 * 1024) {
-      setNotice({ message: "المجلد يجب ألا يتجاوز 10000 ملف أو 5GB، وألا يتجاوز أي ملف 500MB", type: "error" });
+    if (files.length > fileLimits.maxFolderFiles || files.some((file) => file.size > fileLimits.maxFileBytes) || totalBytes > fileLimits.maxFolderBytes) {
+      setNotice({ message: `المجلد يجب ألا يتجاوز ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
       return;
     }
     try {
@@ -1346,8 +1347,8 @@ function AttachmentsPanel({
 
   const uploadFolderZip = async (file: File | undefined) => {
     if (!file) return;
-    if (file.size > 1024 * 1024 * 1024) {
-      setNotice({ message: "ملف ZIP يجب ألا يتجاوز 1GB؛ أما محتواه بعد الفك فيسمح حتى 5GB", type: "error" });
+    if (file.size > fileLimits.maxZipArchiveBytes) {
+      setNotice({ message: `ملف ZIP يجب ألا يتجاوز ${fileLimits.maxZipArchiveBytes / (1024 * 1024 * 1024)}GB؛ أما محتواه بعد الفك فيسمح حتى ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB`, type: "error" });
       return;
     }
     try {
@@ -1355,7 +1356,7 @@ function AttachmentsPanel({
       setNotice({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`, type: "success" });
       setShowAdd(false);
     } catch {
-      setNotice({ message: "تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز 10000 ملف أو 5GB بعد فك الضغط", type: "error" });
+      setNotice({ message: `تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB بعد فك الضغط`, type: "error" });
     }
   };
 
@@ -1439,6 +1440,7 @@ function AttachmentsPanel({
 function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const { data: docs = [], isLoading } = useEntityAttachments(projectId, "custom_doc", projectId);
   const { add, addFolderZip, remove, removeFolder } = useAttachmentActions(projectId);
+  const { data: fileLimits } = useFileLimits();
   const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
@@ -1450,8 +1452,8 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
-    if (files.length > 10000 || files.some((file) => file.size > 500 * 1024 * 1024) || totalBytes > 5 * 1024 * 1024 * 1024) {
-      _setToast({ message: "المجلد يجب ألا يتجاوز 10000 ملف أو 5GB، وألا يتجاوز أي ملف 500MB", type: "error" });
+    if (files.length > fileLimits.maxFolderFiles || files.some((file) => file.size > fileLimits.maxFileBytes) || totalBytes > fileLimits.maxFolderBytes) {
+      _setToast({ message: `المجلد يجب ألا يتجاوز ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
       return;
     }
     try {
@@ -1478,8 +1480,8 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
 
   const uploadFolderZip = async (file: File | undefined) => {
     if (!file) return;
-    if (file.size > 1024 * 1024 * 1024) {
-      _setToast({ message: "ملف ZIP يجب ألا يتجاوز 1GB؛ أما محتواه بعد الفك فيسمح حتى 5GB", type: "error" });
+    if (file.size > fileLimits.maxZipArchiveBytes) {
+      _setToast({ message: `ملف ZIP يجب ألا يتجاوز ${fileLimits.maxZipArchiveBytes / (1024 * 1024 * 1024)}GB؛ أما محتواه بعد الفك فيسمح حتى ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB`, type: "error" });
       return;
     }
     try {

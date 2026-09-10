@@ -98,7 +98,7 @@ export function useFileLimits() {
   });
 }
 
-async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = 500 * 1024 * 1024) {
+async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes) {
   if (file.size > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
   const target = await post<{ bucket: string; path: string; token: string }>("/api/sa/storage/upload-url", {
     filename: file.name,

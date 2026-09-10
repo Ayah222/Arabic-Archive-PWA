@@ -60,7 +60,7 @@ router.post("/sa/invite", async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
 
-  res.json({ success: true });
+  return res.json({ success: true });
 });
 
 export default router;
