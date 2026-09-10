@@ -1,7 +1,12 @@
 import { Router, type IRouter } from "express";
 import { createSupabaseUploadTarget, decodeSupabasePath, encodeSupabasePath, signedSupabaseUrl } from "../../lib/supabaseStorage";
+import { publicFileLimits } from "../../lib/fileLimits";
 
 const router: IRouter = Router();
+
+router.get("/sa/storage/config", (_req, res) => {
+  res.json(publicFileLimits());
+});
 
 router.post("/sa/storage/upload-url", async (req, res): Promise<void> => {
   const { filename, namespace } = req.body as { filename?: string; namespace?: string };

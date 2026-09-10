@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { getUserRequestHeaders } from "../../../controllers/useGlobal";
+import { getUserRequestHeaders, useFileLimits } from "../../../controllers/useGlobal";
 import { supabase } from "../../../lib/supabase";
 
 interface FileUploadProps {
@@ -19,7 +19,7 @@ interface FileUploadProps {
 export default function FileUpload({
   onUpload,
   accept = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx",
-  maxSizeMB = 500,
+  maxSizeMB,
   label = "رفع ملف",
   projectId,
   section,
@@ -29,11 +29,13 @@ export default function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const { data: fileLimits } = useFileLimits();
+  const effectiveMaxSizeMB = maxSizeMB ?? Math.floor(fileLimits.maxFileBytes / (1024 * 1024));
 
   const uploadFile = async (file: File) => {
     setError(null);
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      setError(`حجم الملف يتجاوز ${maxSizeMB}MB`);
+    if (file.size > effectiveMaxSizeMB * 1024 * 1024) {
+      setError(`حجم الملف يتجاوز ${effectiveMaxSizeMB}MB`);
       return;
     }
     setUploading(true);
@@ -104,7 +106,7 @@ export default function FileUpload({
             <div className="text-3xl mb-2">📂</div>
             <p className="text-sm font-medium text-foreground">{label}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              PDF، صورة، Word، Excel — حجم أقصى {maxSizeMB}MB
+               PDF، صورة، Word، Excel — حجم أقصى {effectiveMaxSizeMB}MB
             </p>
             <p className="text-xs text-muted-foreground">اضغط أو اسحب الملف هنا</p>
           </div>

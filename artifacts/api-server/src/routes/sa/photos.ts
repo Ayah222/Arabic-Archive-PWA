@@ -2,12 +2,13 @@ import { Router } from "express";
 import multer from "multer";
 import { deletePrivateObject, savePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { createSupabaseUploadTarget, deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl, supabaseObjectPath } from "../../lib/supabaseStorage";
+import { FILE_LIMITS } from "../../lib/fileLimits";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 500 * 1024 * 1024 },
+  limits: { fileSize: FILE_LIMITS.maxFileBytes },
   fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith("image/")),
 });
 
@@ -51,7 +52,7 @@ router.get("/sa/projects/:id/photos", async (req, res): Promise<void> => {
 
 router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file && req.body.storagePath) {
-    if (Number(req.body.size || 0) > 500 * 1024 * 1024) {
+    if (Number(req.body.size || 0) > FILE_LIMITS.maxFileBytes) {
       res.status(400).json({ error: "حجم الصورة يتجاوز 500MB" });
       return;
     }

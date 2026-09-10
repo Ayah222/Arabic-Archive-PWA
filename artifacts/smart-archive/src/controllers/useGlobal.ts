@@ -2,6 +2,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 
 const API = "/api/sa";
+const MB = 1024 * 1024;
+const GB = 1024 * MB;
+
+export interface SAFileLimits {
+  maxFileBytes: number;
+  maxFolderFiles: number;
+  maxFolderBytes: number;
+  maxZipArchiveBytes: number;
+}
+
+export const DEFAULT_FILE_LIMITS: SAFileLimits = {
+  maxFileBytes: 500 * MB,
+  maxFolderFiles: 10000,
+  maxFolderBytes: 5 * GB,
+  maxZipArchiveBytes: 1 * GB,
+};
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { headers: getUserRequestHeaders(), credentials: "include" });
@@ -71,6 +87,15 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
+}
+
+export function useFileLimits() {
+  return useQuery<SAFileLimits>({
+    queryKey: ["storage-config"],
+    queryFn: () => get<SAFileLimits>(`${API}/storage/config`),
+    staleTime: 5 * 60 * 1000,
+    initialData: DEFAULT_FILE_LIMITS,
+  });
 }
 
 async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = 500 * 1024 * 1024) {
@@ -478,9 +503,10 @@ export function useProjectPhotos(projectId: string) {
 
 export function usePhotoActions(projectId: string) {
   const qc = useQueryClient();
+  const fileLimits = useFileLimits();
   const add = useMutation({
     mutationFn: (data: { file: File; name: string; description: string }) => {
-      return uploadDirectToSupabase(data.file, `project-photos/${projectId}`).then((target) =>
+      return uploadDirectToSupabase(data.file, `project-photos/${projectId}`, fileLimits.data.maxFileBytes).then((target) =>
         post<SAPhoto>(`${API}/projects/${projectId}/photos`, {
           storagePath: target.path,
           filename: data.file.name,
@@ -526,9 +552,10 @@ export function useEntityAttachments(projectId: string, entityType: string, enti
 
 export function useAttachmentActions(projectId: string) {
   const qc = useQueryClient();
+  const fileLimits = useFileLimits();
   const add = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; name: string; customType: string; relativePath?: string }) => {
-      return uploadDirectToSupabase(data.file, `attachments/${projectId}/${data.entityType}`).then((target) =>
+      return uploadDirectToSupabase(data.file, `attachments/${projectId}/${data.entityType}`, fileLimits.data.maxFileBytes).then((target) =>
         post<SAAttachment>(`${API}/projects/${projectId}/attachments`, {
           storagePath: target.path,
           filename: data.file.name,
@@ -548,7 +575,7 @@ export function useAttachmentActions(projectId: string) {
   });
   const addFolderZip = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string; targetPath?: string }) => {
-      return uploadDirectToSupabase(data.file, `zip-inbox/${projectId}`, 1024 * 1024 * 1024).then((target) =>
+      return uploadDirectToSupabase(data.file, `zip-inbox/${projectId}`, fileLimits.data.maxZipArchiveBytes).then((target) =>
         post<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, {
           storagePath: target.path,
           entityType: data.entityType,

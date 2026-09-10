@@ -4,13 +4,14 @@ import { basename, extname } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage";
 import { deleteSupabaseObject, downloadSupabaseObject, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
+import { FILE_LIMITS } from "../../lib/fileLimits";
 import { listAttachments, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
-const MAX_FOLDER_FILES = 10000;
-const MAX_FOLDER_TOTAL_BYTES = 5 * 1024 * 1024 * 1024;
-const MAX_ZIP_ARCHIVE_BYTES = 1 * 1024 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = FILE_LIMITS.maxFileBytes;
+const MAX_FOLDER_FILES = FILE_LIMITS.maxFolderFiles;
+const MAX_FOLDER_TOTAL_BYTES = FILE_LIMITS.maxFolderBytes;
+const MAX_ZIP_ARCHIVE_BYTES = FILE_LIMITS.maxZipArchiveBytes;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_BYTES },

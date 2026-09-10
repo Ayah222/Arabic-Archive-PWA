@@ -9,6 +9,7 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import { createSupabaseUploadTarget, decodeSupabasePath, encodeSupabasePath, signedSupabaseUrl } from "../../../lib/supabaseStorage";
+import { FILE_LIMITS } from "../../../lib/fileLimits";
 
 const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
   ? path.resolve(process.cwd(), "../..")
@@ -48,7 +49,7 @@ const SAFE_EXTENSIONS: Record<string, string> = {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 500 * 1024 * 1024 },
+  limits: { fileSize: FILE_LIMITS.maxFileBytes },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!(ext in SAFE_EXTENSIONS)) {

@@ -6,10 +6,11 @@ import {
   privateObjectLocation,
   savePrivateObject,
 } from "../../lib/objectStorage";
+import { FILE_LIMITS } from "../../lib/fileLimits";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 500 * 1024 * 1024 },
+  limits: { fileSize: FILE_LIMITS.maxFileBytes },
 });
 
 const router: IRouter = Router();
