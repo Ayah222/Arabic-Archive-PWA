@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../lib/supabase";
 
 const API = "/api/sa";
 
@@ -70,6 +71,16 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
+}
+
+async function uploadDirectToSupabase(file: File, namespace: string) {
+  const target = await post<{ bucket: string; path: string; token: string }>("/api/sa/storage/upload-url", {
+    filename: file.name,
+    namespace,
+  });
+  const { error } = await supabase.storage.from(target.bucket).uploadToSignedUrl(target.path, target.token, file);
+  if (error) throw new Error(error.message);
+  return target;
 }
 
 /* ─── Auth helpers (persistent device storage; logout removes it) ─── */
@@ -468,11 +479,16 @@ export function usePhotoActions(projectId: string) {
   const qc = useQueryClient();
   const add = useMutation({
     mutationFn: (data: { file: File; name: string; description: string }) => {
-      const form = new FormData();
-      form.append("file", data.file);
-      form.append("name", data.name);
-      form.append("description", data.description);
-      return postForm<SAPhoto>(`${API}/projects/${projectId}/photos`, form);
+      return uploadDirectToSupabase(data.file, `project-photos/${projectId}`).then((target) =>
+        post<SAPhoto>(`${API}/projects/${projectId}/photos`, {
+          storagePath: target.path,
+          filename: data.file.name,
+          mimeType: data.file.type,
+          size: data.file.size,
+          name: data.name,
+          description: data.description,
+        }),
+      );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", projectId] }),
   });
@@ -511,14 +527,19 @@ export function useAttachmentActions(projectId: string) {
   const qc = useQueryClient();
   const add = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; name: string; customType: string; relativePath?: string }) => {
-      const form = new FormData();
-      form.append("file", data.file);
-      form.append("entityType", data.entityType);
-      form.append("entityId", data.entityId);
-      form.append("name", data.name);
-      form.append("customType", data.customType);
-      if (data.relativePath) form.append("relativePath", data.relativePath);
-      return postForm<SAAttachment>(`${API}/projects/${projectId}/attachments`, form);
+      return uploadDirectToSupabase(data.file, `attachments/${projectId}/${data.entityType}`).then((target) =>
+        post<SAAttachment>(`${API}/projects/${projectId}/attachments`, {
+          storagePath: target.path,
+          filename: data.file.name,
+          mimeType: data.file.type,
+          size: data.file.size,
+          entityType: data.entityType,
+          entityId: data.entityId,
+          name: data.name,
+          customType: data.customType,
+          relativePath: data.relativePath,
+        }),
+      );
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
@@ -526,13 +547,15 @@ export function useAttachmentActions(projectId: string) {
   });
   const addFolderZip = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string; targetPath?: string }) => {
-      const form = new FormData();
-      form.append("file", data.file);
-      form.append("entityType", data.entityType);
-      form.append("entityId", data.entityId);
-      form.append("customType", data.customType);
-      if (data.targetPath) form.append("targetPath", data.targetPath);
-      return postForm<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, form);
+      return uploadDirectToSupabase(data.file, `zip-inbox/${projectId}`).then((target) =>
+        post<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, {
+          storagePath: target.path,
+          entityType: data.entityType,
+          entityId: data.entityId,
+          customType: data.customType,
+          targetPath: data.targetPath,
+        }),
+      );
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });

@@ -8,6 +8,7 @@ import { Router, type IRouter } from "express";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
+import { createSupabaseUploadTarget, decodeSupabasePath, encodeSupabasePath, signedSupabaseUrl } from "../../../lib/supabaseStorage";
 
 const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
   ? path.resolve(process.cwd(), "../..")
@@ -59,6 +60,20 @@ const upload = multer({
 });
 
 const router: IRouter = Router();
+
+router.post("/sa/hr/storage/upload-url", async (req, res): Promise<void> => {
+  const { filename } = req.body as { filename?: string };
+  if (!filename) {
+    res.status(400).json({ error: "filename is required" });
+    return;
+  }
+  const target = await createSupabaseUploadTarget({ filename, namespace: "hr" });
+  res.json({ ...target, fileUrl: `/api/sa/hr/storage/file/${encodeSupabasePath(target.path)}` });
+});
+
+router.get("/sa/hr/storage/file/:ref", async (req, res): Promise<void> => {
+  res.redirect(await signedSupabaseUrl(decodeSupabasePath(req.params.ref)));
+});
 
 router.post("/sa/hr/upload", (req, res, next) => {
   upload.single("file")(req, res, (err: unknown) => {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { deletePrivateObject, savePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
+import { createSupabaseUploadTarget, deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl, supabaseObjectPath } from "../../lib/supabaseStorage";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const router = Router();
@@ -22,12 +23,13 @@ export interface SAPhoto {
   uploadedAt: string;
 }
 
-function toPhoto(row: Record<string, unknown>): SAPhoto {
+async function toPhoto(row: Record<string, unknown>): Promise<SAPhoto> {
   const objectPath = row.object_path as string;
+  const supabasePath = parseSupabaseObjectPath(objectPath);
   return {
     id: row.id as string,
     projectId: row.project_id as string,
-    dataUrl: storageObjectUrl(objectPath),
+    dataUrl: supabasePath ? await signedSupabaseUrl(supabasePath) : storageObjectUrl(objectPath),
     objectPath,
     name: row.name as string,
     description: (row.description as string) ?? "",
@@ -44,10 +46,27 @@ router.get("/sa/projects/:id/photos", async (req, res): Promise<void> => {
     .eq("project_id", req.params.id)
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(error.message);
-  res.json((data ?? []).map(toPhoto));
+  res.json(await Promise.all((data ?? []).map(toPhoto)));
 });
 
 router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): Promise<void> => {
+  if (!req.file && req.body.storagePath) {
+    const { data, error } = await supabaseAdmin()
+      .from("project_photos")
+      .insert({
+        project_id: req.params.id,
+        object_path: supabaseObjectPath(String(req.body.storagePath)),
+        name: String(req.body.name || req.body.filename || "صورة"),
+        description: String(req.body.description || ""),
+        mime_type: String(req.body.mimeType || "application/octet-stream"),
+        size: Number(req.body.size || 0),
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    res.status(201).json(await toPhoto(data));
+    return;
+  }
   if (!req.file) {
     res.status(400).json({ error: "يرجى اختيار صورة" });
     return;
@@ -77,7 +96,7 @@ router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): 
     await deletePrivateObject(saved.objectName);
     throw new Error(error.message);
   }
-  res.status(201).json(toPhoto(data));
+  res.status(201).json(await toPhoto(data));
 });
 
 router.delete("/sa/projects/:id/photos/:pid", async (req, res): Promise<void> => {
@@ -93,7 +112,9 @@ router.delete("/sa/projects/:id/photos/:pid", async (req, res): Promise<void> =>
     res.status(404).json({ error: "not found" });
     return;
   }
-  await deletePrivateObject(data.object_path);
+  const supabasePath = parseSupabaseObjectPath(data.object_path);
+  if (supabasePath) await deleteSupabaseObject(supabasePath);
+  else await deletePrivateObject(data.object_path);
   res.json({ ok: true });
 });
 

@@ -3,6 +3,7 @@ import multer from "multer";
 import { basename, extname } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage";
+import { deleteSupabaseObject, downloadSupabaseObject, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { listAttachments, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
@@ -105,7 +106,24 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
   const { entityType, entityId, name, customType, relativePath } = req.body as {
     entityType?: string; entityId?: string; name?: string; customType?: string; relativePath?: string;
   };
-  if (!entityType || !req.file) {
+  if (!entityType) {
+    res.status(400).json({ error: "entityType and file are required" });
+    return;
+  }
+  if (!req.file && req.body.storagePath) {
+    const attachment = await createAttachment(projectId, {
+      entityType,
+      entityId,
+      objectPath: supabaseObjectPath(String(req.body.storagePath)),
+      name: name || relativePath || req.body.filename || "file",
+      customType,
+      mimeType: req.body.mimeType,
+      size: Number(req.body.size || 0),
+    });
+    res.status(201).json(attachment);
+    return;
+  }
+  if (!req.file) {
     res.status(400).json({ error: "entityType and file are required" });
     return;
   }
@@ -145,14 +163,16 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
   const { entityType, entityId, customType, targetPath } = req.body as {
     entityType?: string; entityId?: string; customType?: string; targetPath?: string;
   };
-  if (!entityType || !req.file || extname(req.file.originalname).toLowerCase() !== ".zip") {
+  const directStoragePath = !req.file && req.body.storagePath ? String(req.body.storagePath) : null;
+  if (!entityType || (!req.file && !directStoragePath) || (req.file && extname(req.file.originalname).toLowerCase() !== ".zip")) {
     res.status(400).json({ error: "A ZIP folder and destination are required" });
     return;
   }
 
   const createdIds: string[] = [];
+  const zipBytes = directStoragePath ? await downloadSupabaseObject(directStoragePath) : req.file!.buffer;
   try {
-    const files = extractZipFiles(req.file.buffer);
+    const files = extractZipFiles(zipBytes);
     if (!files.length || files.length > MAX_FOLDER_FILES) {
       res.status(400).json({ error: files.length ? `ZIP folders are limited to ${MAX_FOLDER_FILES} files` : "The ZIP folder is empty" });
       return;
@@ -172,18 +192,20 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       const relativeParts = relativePath.split("/").slice(0, -1);
       const filename = basename(relativePath);
       const mimeType = mimeByExtension[extname(filename).toLowerCase()] || "application/octet-stream";
-      const saved = await savePrivateObject({
-        namespace: "attachments",
-        filename,
-        bytes,
-        contentType: mimeType,
-        segments: [projectId, entityType, ...relativeParts],
-      });
+      const savedPath = directStoragePath
+        ? await uploadSupabaseObject({ storagePath: `attachments/${projectId}/${entityType}/${relativePath}`, bytes, contentType: mimeType })
+        : (await savePrivateObject({
+            namespace: "attachments",
+            filename,
+            bytes,
+            contentType: mimeType,
+            segments: [projectId, entityType, ...relativeParts],
+          })).objectName;
       try {
         const attachment = await createAttachment(projectId, {
           entityType,
           entityId,
-          objectPath: saved.objectName,
+          objectPath: savedPath,
           name: relativePath,
           customType: customType || "مجلد مستندات",
           mimeType,
@@ -192,13 +214,16 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
         createdIds.push(attachment.id);
         results.push(attachment);
       } catch (error) {
-        await deletePrivateObject(saved.objectName);
+        if (directStoragePath) await deleteSupabaseObject(savedPath.slice(`supabase://${process.env.SUPABASE_STORAGE_BUCKET || "smart-archive-files"}/`.length));
+        else await deletePrivateObject(savedPath);
         throw error;
       }
     }
+    if (directStoragePath) await deleteSupabaseObject(directStoragePath).catch(() => undefined);
     res.status(201).json(results);
   } catch (error) {
     for (const id of createdIds) await deleteAttachment(projectId, id).catch(() => undefined);
+    if (directStoragePath) await deleteSupabaseObject(directStoragePath).catch(() => undefined);
     res.status(400).json({ error: error instanceof Error ? error.message : "Could not extract ZIP folder" });
   }
 });

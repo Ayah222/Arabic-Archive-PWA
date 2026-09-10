@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { getUserRequestHeaders } from "../../../controllers/useGlobal";
+import { supabase } from "../../../lib/supabase";
 
 interface FileUploadProps {
   onUpload: (result: { url: string; filename: string; size: number; mimetype: string }) => void;
@@ -37,18 +38,22 @@ export default function FileUpload({
     }
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("projectId", projectId);
-      form.append("section", section);
-      const res = await fetch(endpoint, {
+      const storageBase = endpoint.includes("/hr/") ? "/api/sa/hr/storage" : "/api/sa/storage";
+      const targetResponse = await fetch(`${storageBase}/upload-url`, {
         method: "POST",
-        headers: getUserRequestHeaders(),
-        body: form,
+        headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
+        body: JSON.stringify({ filename: file.name, projectId, section }),
       });
-      if (!res.ok) throw new Error("فشل في رفع الملف");
-      const data = (await res.json()) as { url: string; filename: string; size: number; mimetype: string };
-      onUpload(data);
+      if (!targetResponse.ok) throw new Error("تعذر إنشاء رابط الرفع");
+      const target = (await targetResponse.json()) as { bucket: string; path: string; token: string; fileUrl: string };
+      const { error: uploadError } = await supabase.storage.from(target.bucket).uploadToSignedUrl(target.path, target.token, file);
+      if (uploadError) throw new Error(uploadError.message);
+      onUpload({
+        url: target.fileUrl,
+        filename: file.name,
+        size: file.size,
+        mimetype: file.type,
+      });
     } catch {
       setError("فشل في رفع الملف، يرجى المحاولة مجدداً");
     } finally {

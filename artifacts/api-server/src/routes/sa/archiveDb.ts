@@ -20,6 +20,7 @@ import type {
   SAAuditLog,
 } from "./store";
 import { deletePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
+import { deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl } from "../../lib/supabaseStorage";
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message);
@@ -177,14 +178,21 @@ function attachmentObjectPath(row: Record<string, unknown>): string | null {
   }
 }
 
-function toAttachment(row: Record<string, unknown>): SAAttachment {
+async function deleteStoredObject(objectPath: string) {
+  const supabasePath = parseSupabaseObjectPath(objectPath);
+  if (supabasePath) await deleteSupabaseObject(supabasePath);
+  else await deletePrivateObject(objectPath);
+}
+
+async function toAttachment(row: Record<string, unknown>): Promise<SAAttachment> {
   const objectPath = attachmentObjectPath(row);
+  const supabasePath = parseSupabaseObjectPath(objectPath);
   return {
     id: row.id as string,
     projectId: row.project_id as string,
     entityType: row.entity_type as SAAttachment["entityType"],
     entityId: row.entity_id as string,
-    dataUrl: objectPath ? storageObjectUrl(objectPath) : row.data_url as string,
+    dataUrl: supabasePath ? await signedSupabaseUrl(supabasePath) : objectPath ? storageObjectUrl(objectPath) : row.data_url as string,
     objectPath,
     name: row.name as string,
     customType: row.custom_type as string,
@@ -849,7 +857,7 @@ export async function listAttachments(
   if (filters.entityType) query = query.eq("entity_type", filters.entityType);
   if (filters.entityId) query = query.eq("entity_id", filters.entityId);
   const rows = unwrap(await query.order("uploaded_at", { ascending: false }));
-  return (rows ?? []).map(toAttachment);
+  return Promise.all((rows ?? []).map(toAttachment));
 }
 
 export async function createAttachment(
@@ -899,7 +907,7 @@ export async function deleteAttachmentsByCategory(projectId: string, categoryId:
   if (error) throw new Error(error.message);
   await Promise.all(existing.flatMap((item) => {
     const objectPath = attachmentObjectPath(item);
-    return objectPath ? [deletePrivateObject(objectPath)] : [];
+    return objectPath ? [deleteStoredObject(objectPath)] : [];
   }));
   return count ?? 0;
 }
@@ -915,7 +923,7 @@ export async function deleteAttachment(projectId: string, id: string): Promise<b
   if (error) throw new Error(error.message);
   if (!data) return false;
   const objectPath = attachmentObjectPath(data);
-  if (objectPath) await deletePrivateObject(objectPath);
+  if (objectPath) await deleteStoredObject(objectPath);
   return true;
 }
 
