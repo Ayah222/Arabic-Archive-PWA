@@ -545,7 +545,21 @@ export function useAttachmentActions(projectId: string) {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
     },
   });
-  return { add, addFolderZip, remove };
+  const removeFolder = useMutation({
+    mutationFn: (data: { entityType: string; entityId: string; folderPath: string }) =>
+      fetch(`${API}/projects/${projectId}/attachments/folder?entityType=${encodeURIComponent(data.entityType)}&entityId=${encodeURIComponent(data.entityId)}&folderPath=${encodeURIComponent(data.folderPath)}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getUserRequestHeaders(),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(await response.text());
+        return response.json() as Promise<{ deleted: number }>;
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
+    },
+  });
+  return { add, addFolderZip, remove, removeFolder };
 }
 
 /* ─── Categories (named folders per project) ─── */

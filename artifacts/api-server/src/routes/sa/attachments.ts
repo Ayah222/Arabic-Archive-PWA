@@ -203,16 +203,6 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
   }
 });
 
-router.delete("/sa/projects/:id/attachments/:aid", async (req, res): Promise<void> => {
-  const { id, aid } = req.params;
-  const deleted = await deleteAttachment(id, aid);
-  if (!deleted) {
-    res.status(404).json({ error: "Attachment not found" });
-    return;
-  }
-  res.sendStatus(204);
-});
-
 router.delete("/sa/projects/:id/attachments/folder", async (req, res): Promise<void> => {
   const { entityType, entityId, folderPath } = req.query as {
     entityType?: string; entityId?: string; folderPath?: string;
@@ -227,6 +217,16 @@ router.delete("/sa/projects/:id/attachments/folder", async (req, res): Promise<v
     folderPath: folderPath.replace(/\\/g, "/"),
   });
   res.json({ deleted });
+});
+
+router.delete("/sa/projects/:id/attachments/:aid", async (req, res): Promise<void> => {
+  const { id, aid } = req.params;
+  const deleted = await deleteAttachment(id, aid);
+  if (!deleted) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+  res.sendStatus(204);
 });
 
 export default router;

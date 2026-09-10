@@ -1307,7 +1307,7 @@ function AttachmentsPanel({
   compact?: boolean;
 }) {
   const { data: attachments = [], isLoading } = useEntityAttachments(projectId, entityType, entityId);
-  const { add, addFolderZip, remove } = useAttachmentActions(projectId);
+  const { add, addFolderZip, remove, removeFolder } = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
@@ -1420,6 +1420,7 @@ function AttachmentsPanel({
         onPathChange={setCurrentPath}
         canDelete={canDelete}
         onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
+        onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType, entityId, folderPath })}
         onPreview={setPreview}
         mimeIcon={mimeIcon}
         compact
@@ -1432,7 +1433,7 @@ function AttachmentsPanel({
 /* ===== CUSTOM DOCS TAB ===== */
 function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const { data: docs = [], isLoading } = useEntityAttachments(projectId, "custom_doc", projectId);
-  const { add, addFolderZip, remove } = useAttachmentActions(projectId);
+  const { add, addFolderZip, remove, removeFolder } = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
@@ -1545,6 +1546,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           onPathChange={setCurrentPath}
           canDelete={canDelete}
            onPreview={setPreview}
+           onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath })}
           onDelete={async (att) => {
             await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
             _setToast({ message: "تم حذف المستند", type: "success" });
@@ -1670,6 +1672,7 @@ function AttachmentFolderBrowser({
   onPathChange,
   canDelete,
   onDelete,
+  onDeleteFolder,
   onPreview,
   mimeIcon,
   compact = false,
@@ -1679,6 +1682,7 @@ function AttachmentFolderBrowser({
   onPathChange: (path: string) => void;
   canDelete: boolean;
   onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
+  onDeleteFolder?: (folderPath: string) => void | Promise<unknown>;
   onPreview?: (attachment: SAAttachment) => void;
   mimeIcon: (mime: string) => string;
   compact?: boolean;
@@ -1698,6 +1702,9 @@ function AttachmentFolderBrowser({
     }
   }
   const pathParts = currentPath.split("/").filter(Boolean);
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [deletingFolder, setDeletingFolder] = useState(false);
+  const folderDisplayName = folderToDelete?.split("/").filter(Boolean).pop() || "";
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground" dir="rtl">
@@ -1708,21 +1715,61 @@ function AttachmentFolderBrowser({
         })}
       </div>
       {[...folders.entries()].sort(([a], [b]) => a.localeCompare(b, "ar")).map(([folder, count]) => (
-        <button
+        <div
           key={folder}
-          onClick={() => onPathChange([currentPath, folder].filter(Boolean).join("/"))}
-          className={`w-full flex items-center gap-3 bg-primary/5 border border-primary/20 text-right hover:bg-primary/10 transition-colors ${compact ? "rounded-lg px-2 py-2" : "rounded-2xl p-4"}`}
+          className={`w-full flex items-center gap-2 bg-primary/5 border border-primary/20 text-right hover:bg-primary/10 transition-colors ${compact ? "rounded-lg px-2 py-2" : "rounded-2xl p-4"}`}
         >
-          <span className={compact ? "text-xl" : "text-3xl"}>📁</span>
-          <span className="flex-1 min-w-0 font-semibold truncate">{folder}</span>
-          <span className="text-xs text-muted-foreground">{count} ملف</span>
-          <span className="text-primary">‹</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => onPathChange([currentPath, folder].filter(Boolean).join("/"))}
+            className="flex items-center gap-3 flex-1 min-w-0 text-right"
+          >
+            <span className={compact ? "text-xl" : "text-3xl"}>📁</span>
+            <span className="flex-1 min-w-0 font-semibold truncate">{folder}</span>
+            <span className="text-xs text-muted-foreground">{count} ملف</span>
+            <span className="text-primary">‹</span>
+          </button>
+          {canDelete && onDeleteFolder && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setFolderToDelete([currentPath, folder].filter(Boolean).join("/"));
+              }}
+              className="text-xs text-destructive hover:underline shrink-0 px-1"
+              title="حذف المجلد ومحتوياته"
+            >
+              حذف المجلد
+            </button>
+          )}
+        </div>
       ))}
       {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
         <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon} compact={compact} />
       ))}
       {!folders.size && !files.length && <p className="text-xs text-muted-foreground text-center py-4">هذا المجلد فارغ</p>}
+      {onDeleteFolder && (
+        <ConfirmDialog
+          isOpen={!!folderToDelete}
+          onClose={() => setFolderToDelete(null)}
+          onConfirm={async () => {
+            if (!folderToDelete) return;
+            setDeletingFolder(true);
+            try {
+              await onDeleteFolder(folderToDelete);
+              if (currentPath === folderToDelete || currentPath.startsWith(`${folderToDelete}/`)) onPathChange("");
+              setFolderToDelete(null);
+            } finally {
+              setDeletingFolder(false);
+            }
+          }}
+          title="حذف المجلد"
+          message={`سيتم حذف المجلد "${folderDisplayName}" وكل الملفات والمجلدات الموجودة بداخله نهائياً. هل تريد المتابعة؟`}
+          confirmLabel="حذف المجلد"
+          danger
+          loading={deletingFolder}
+        />
+      )}
     </div>
   );
 }
