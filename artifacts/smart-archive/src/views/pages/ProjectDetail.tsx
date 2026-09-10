@@ -112,7 +112,8 @@ function FolderPicker({
         const picker = (window as Window & {
           showDirectoryPicker?: () => Promise<DirectoryEntry>;
         }).showDirectoryPicker;
-        if (picker) {
+        const canUseNativeDirectoryPicker = Boolean(picker && window.top === window.self);
+        if (canUseNativeDirectoryPicker) {
           event.preventDefault();
           void chooseFolder();
         }
