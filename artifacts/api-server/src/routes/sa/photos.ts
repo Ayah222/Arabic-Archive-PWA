@@ -51,6 +51,10 @@ router.get("/sa/projects/:id/photos", async (req, res): Promise<void> => {
 
 router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file && req.body.storagePath) {
+    if (Number(req.body.size || 0) > 500 * 1024 * 1024) {
+      res.status(400).json({ error: "حجم الصورة يتجاوز 500MB" });
+      return;
+    }
     const { data, error } = await supabaseAdmin()
       .from("project_photos")
       .insert({

@@ -73,7 +73,8 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   return r.json();
 }
 
-async function uploadDirectToSupabase(file: File, namespace: string) {
+async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = 500 * 1024 * 1024) {
+  if (file.size > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
   const target = await post<{ bucket: string; path: string; token: string }>("/api/sa/storage/upload-url", {
     filename: file.name,
     namespace,
@@ -547,7 +548,7 @@ export function useAttachmentActions(projectId: string) {
   });
   const addFolderZip = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string; targetPath?: string }) => {
-      return uploadDirectToSupabase(data.file, `zip-inbox/${projectId}`).then((target) =>
+      return uploadDirectToSupabase(data.file, `zip-inbox/${projectId}`, 1024 * 1024 * 1024).then((target) =>
         post<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, {
           storagePath: target.path,
           entityType: data.entityType,

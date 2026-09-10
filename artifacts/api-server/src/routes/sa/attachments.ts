@@ -112,6 +112,10 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     return;
   }
   if (!req.file && req.body.storagePath) {
+    if (Number(req.body.size || 0) > MAX_UPLOAD_BYTES) {
+      res.status(400).json({ error: "حجم الملف يتجاوز 500MB" });
+      return;
+    }
     const attachment = await createAttachment(projectId, {
       entityType,
       entityId,
