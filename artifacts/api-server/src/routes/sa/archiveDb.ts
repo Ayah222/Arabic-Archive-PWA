@@ -919,6 +919,32 @@ export async function deleteAttachment(projectId: string, id: string): Promise<b
   return true;
 }
 
+export async function deleteAttachmentFolder(
+  projectId: string,
+  input: { entityType: string; entityId: string; folderPath: string },
+): Promise<number> {
+  const prefix = `${input.folderPath.replace(/^\/+|\/+$/g, "")}/`;
+  const existing = unwrap(
+    await supabaseAdmin()
+      .from("attachments")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("entity_type", input.entityType)
+      .eq("entity_id", input.entityId),
+  ) as Array<Record<string, unknown>>;
+  const matching = existing.filter((item) => String(item.name ?? "").startsWith(prefix));
+  if (!matching.length) return 0;
+
+  const ids = matching.map((item) => String(item.id));
+  const { error } = await supabaseAdmin().from("attachments").delete().in("id", ids).eq("project_id", projectId);
+  if (error) throw new Error(error.message);
+  await Promise.all(matching.flatMap((item) => {
+    const objectPath = attachmentObjectPath(item);
+    return objectPath ? [deletePrivateObject(objectPath)] : [];
+  }));
+  return matching.length;
+}
+
 /* ─────────────── Search helpers (unfiltered lists for global/reports/voice) ── */
 
 export async function allAttachments(): Promise<SAAttachment[]> {

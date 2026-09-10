@@ -3,7 +3,7 @@ import multer from "multer";
 import { basename, extname } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage";
-import { listAttachments, createAttachment, deleteAttachment } from "./archiveDb";
+import { listAttachments, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -211,6 +211,22 @@ router.delete("/sa/projects/:id/attachments/:aid", async (req, res): Promise<voi
     return;
   }
   res.sendStatus(204);
+});
+
+router.delete("/sa/projects/:id/attachments/folder", async (req, res): Promise<void> => {
+  const { entityType, entityId, folderPath } = req.query as {
+    entityType?: string; entityId?: string; folderPath?: string;
+  };
+  if (!entityType || !entityId || !folderPath?.trim()) {
+    res.status(400).json({ error: "entityType, entityId and folderPath are required" });
+    return;
+  }
+  const deleted = await deleteAttachmentFolder(String(req.params.id), {
+    entityType,
+    entityId,
+    folderPath: folderPath.replace(/\\/g, "/"),
+  });
+  res.json({ deleted });
 });
 
 export default router;
