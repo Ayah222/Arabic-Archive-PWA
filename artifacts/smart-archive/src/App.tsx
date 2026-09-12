@@ -8,6 +8,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import MainLayout from "./views/layouts/MainLayout";
 import Dashboard from "./views/pages/Dashboard";
 import Projects from "./views/pages/Projects";
+import Agencies from "./views/pages/Agencies";
 import ProjectDetail from "./views/pages/ProjectDetail";
 import ProjectReport from "./views/pages/ProjectReport";
 import AllContractors from "./views/pages/AllContractors";
@@ -124,6 +125,7 @@ export default function App() {
               <Routes>
                 <Route path="/"               element={<Dashboard />} />
                 <Route path="/projects"       element={<Projects />} />
+                <Route path="/agencies"        element={<Agencies />} />
                 <Route path="/projects/:id/report" element={<ProjectReport />} />
                 <Route path="/projects/:id"   element={<ProjectDetail />} />
                 <Route path="/contractors"    element={<AllContractors />} />

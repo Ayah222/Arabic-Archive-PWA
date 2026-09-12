@@ -59,7 +59,7 @@ async function listAgencyRows(projectId?: string) {
   return (data ?? []).map((row) => ({
     ...(row as Record<string, unknown>),
     project_name: (row as { projects?: { name?: string } | null }).projects?.name ?? null,
-  }));
+  })) as Array<Record<string, unknown>>;
 }
 
 router.get("/sa/agencies", async (req, res): Promise<void> => {
@@ -108,7 +108,8 @@ router.post("/sa/agencies", async (req, res): Promise<void> => {
   }
   if (result.error) throw new Error(result.error.message);
   const rows = await listAgencyRows();
-  const row = rows.find((item) => item.id === result.data.id);
+  const resultId = (result.data as { id: string }).id;
+  const row = rows.find((item) => item.id === resultId);
   res.status(201).json(await toAgency(row ?? result.data));
 });
 
@@ -129,7 +130,8 @@ router.patch("/sa/agencies/:id", async (req, res): Promise<void> => {
     return;
   }
   const rows = await listAgencyRows();
-  res.json(await toAgency(rows.find((item) => item.id === result.data.id) ?? result.data));
+  const resultId = (result.data as { id: string }).id;
+  res.json(await toAgency(rows.find((item) => item.id === resultId) ?? result.data));
 });
 
 export default router;

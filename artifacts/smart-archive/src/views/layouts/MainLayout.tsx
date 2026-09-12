@@ -9,7 +9,7 @@ import Toast from "../components/shared/Toast";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert,
-  Mail, Inbox, Search, Wallet, HelpCircle, Users, LogOut, UserCog, MessageCircle,
+  Mail, Inbox, Search, Wallet, HelpCircle, Users, LogOut, UserCog, MessageCircle, BadgeCheck,
 } from "lucide-react";
 
 const DarkAurora = () => (
@@ -33,6 +33,7 @@ const LightAurora = () => (
 const NAV_KEYS = [
   { to: "/",              key: "dashboard"     as const, Icon: LayoutDashboard },
   { to: "/projects",      key: "projects"      as const, Icon: FolderOpen       },
+  { to: "/agencies",      key: "agencies"      as const, Icon: BadgeCheck        },
   { to: "/finance",       key: "finance"       as const, Icon: Wallet           },
   { to: "/email-archive", key: "emailArchive"  as const, Icon: Inbox            },
   { to: "/chat",          key: "chat"          as const, Icon: MessageCircle   },

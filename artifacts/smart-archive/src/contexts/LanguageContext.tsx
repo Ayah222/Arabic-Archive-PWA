@@ -7,6 +7,7 @@ const T = {
     // Nav
     dashboard: "لوحة التحكم",
     projects: "المشاريع",
+    agencies: "الوكالات",
     contracts: "العقود",
     contractors: "المقاولون",
     meetings: "الاجتماعات",
@@ -232,6 +233,7 @@ const T = {
     // Nav
     dashboard: "Dashboard",
     projects: "Projects",
+    agencies: "Agencies",
     contracts: "Contracts",
     contractors: "Contractors",
     meetings: "Meetings",
