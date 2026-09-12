@@ -33,7 +33,7 @@ import {
   type LetterDirection,
 } from "../../models/types";
 
-type StaticTab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos";
+type StaticTab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos" | "agency";
 type Tab = StaticTab | string; // dynamic: "cat_<id>"
 
 const STATIC_TABS: { id: StaticTab; label: string; icon: string }[] = [
@@ -44,6 +44,7 @@ const STATIC_TABS: { id: StaticTab; label: string; icon: string }[] = [
   { id: "letters",     label: "الخطابات",         icon: "✉️" },
   { id: "contacts",    label: "جهات الاتصال",     icon: "👤" },
   { id: "photos",      label: "الصور",            icon: "🖼️" },
+  { id: "agency",      label: "وكالة المشروع",    icon: "📜" },
 ];
 
 type PendingFolderUploadProps = {
@@ -176,7 +177,6 @@ export default function ProjectDetail() {
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [categoryToDelete, setCategoryToDelete] = useState<SACategory | null>(null);
-  const [agencyModalOpen, setAgencyModalOpen] = useState(false);
   const { data: categories = [] } = useCategories(id);
   const { create: createCat, remove: removeCat } = useCategoryActions(id);
   const { canEdit, canDelete } = getArchivePermissions();
@@ -261,38 +261,6 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
-
-      {/* Project agency */}
-      <section className="mx-4 md:mx-8 mt-4 rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="font-bold text-base">وكالة المشروع</h2>
-            {projectAgency ? (
-              <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                <p>العميل: <span className="text-foreground">{projectAgency.clientName || "—"}</span></p>
-                <p>رقم الوكالة: <span className="text-foreground">{projectAgency.authorizationNumber || "—"}</span></p>
-                <p>تاريخ الانتهاء: <span className="text-foreground">{projectAgency.expiresOn || "غير محدد"}</span></p>
-                <span className={`inline-block text-xs px-2 py-1 rounded-full ${projectAgency.status === "expired" ? "bg-red-500/15 text-red-500" : "bg-green-500/15 text-green-600"}`}>
-                  {projectAgency.status === "expired" ? "منتهية" : "سارية"}
-                </span>
-                {projectAgency.attachmentUrl && <a href={projectAgency.attachmentUrl} target="_blank" rel="noreferrer" className="block text-primary hover:underline text-xs mt-1">عرض المرفق: {projectAgency.attachmentName}</a>}
-              </div>
-            ) : <p className="text-sm text-muted-foreground mt-2">لم تتم إضافة بيانات الوكالة لهذا المشروع بعد.</p>}
-          </div>
-          {canEdit && <button onClick={() => setAgencyModalOpen(true)} className="shrink-0 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold">
-            {projectAgency ? "تعديل" : "إضافة الوكالة"}
-          </button>}
-        </div>
-      </section>
-
-      {canEdit && agencyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setAgencyModalOpen(false)}>
-          <div className="bg-card border border-border rounded-2xl p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-bold text-lg mb-4">بيانات وكالة المشروع</h2>
-            <AgencyForm projectId={id} agency={projectAgency} onDone={() => setAgencyModalOpen(false)} />
-          </div>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="px-4 md:px-8 pt-4">
@@ -408,6 +376,27 @@ export default function ProjectDetail() {
         )}
         {activeTab === "photos" && (
           <PhotosTab projectId={id} setToast={setToast} />
+        )}
+        {activeTab === "agency" && (
+          <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-lg">📜 وكالة المشروع</h2>
+                {projectAgency ? (
+                  <div className="mt-3 text-sm text-muted-foreground space-y-2">
+                    <p>العميل: <span className="text-foreground">{projectAgency.clientName || "—"}</span></p>
+                    <p>رقم الوكالة: <span className="text-foreground">{projectAgency.authorizationNumber || "—"}</span></p>
+                    <p dir="ltr" className="text-right">تاريخ الانتهاء: <span className="text-foreground">{projectAgency.expiresOn || "غير محدد"}</span></p>
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full ${projectAgency.status === "expired" ? "bg-red-500/15 text-red-500" : "bg-green-500/15 text-green-600"}`}>
+                      {projectAgency.status === "expired" ? "منتهية" : "سارية"}
+                    </span>
+                    {projectAgency.attachmentUrl && <a href={projectAgency.attachmentUrl} target="_blank" rel="noreferrer" className="block text-primary hover:underline text-xs">عرض المرفق: {projectAgency.attachmentName}</a>}
+                  </div>
+                ) : <p className="text-sm text-muted-foreground mt-3">لم تتم إضافة بيانات الوكالة لهذا المشروع بعد.</p>}
+              </div>
+              {canEdit && <AgencyForm projectId={id} agency={projectAgency} onDone={() => undefined} />}
+            </div>
+          </div>
         )}
         {/* Dynamic category tabs */}
         {activeTab.startsWith("cat_") && (() => {

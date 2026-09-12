@@ -40,7 +40,7 @@ function AgencyForm({ projectId, agency, onDone }: { projectId?: string; agency?
       <input className={input} placeholder="اسم العميل *" value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} />
       <input className={input} placeholder="رقم الوكالة / التفويض *" value={form.authorizationNumber} onChange={(e) => setForm({ ...form, authorizationNumber: e.target.value })} />
       <label className="block text-sm text-muted-foreground">تاريخ الانتهاء
-        <input type="date" className={`${input} mt-1`} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} />
+        <input type="date" dir="ltr" className={`${input} mt-1 text-left`} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} />
       </label>
       <label className="block text-sm text-muted-foreground">مرفق الوكالة
         <input type="file" className={`${input} mt-1`} accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] ?? null })} />
@@ -66,7 +66,7 @@ function AgencyRow({ agency, onEdit }: { agency: AgencyRecord; onEdit: () => voi
         <p className="text-sm text-muted-foreground mt-1">رقم الوكالة: {agency.authorizationNumber || "—"}</p>
         <p className="text-xs text-muted-foreground mt-1">
           {agency.projectId ? <Link className="text-primary hover:underline" to={`/projects/${agency.projectId}`}>{agency.projectName || "مشروع مرتبط"}</Link> : "وكالة عامة للمكتب"}
-          {agency.expiresOn ? ` · تنتهي في ${agency.expiresOn}` : ""}
+          {agency.expiresOn ? <span dir="ltr" className="inline-block mr-1">· تنتهي في {agency.expiresOn}</span> : ""}
         </p>
       </div>
       <div className="flex items-center gap-2">
