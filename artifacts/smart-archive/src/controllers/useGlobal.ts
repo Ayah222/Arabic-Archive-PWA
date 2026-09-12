@@ -98,6 +98,72 @@ export function useFileLimits() {
   });
 }
 
+export interface AgencyRecord {
+  id: string;
+  projectId: string | null;
+  projectName: string | null;
+  clientName: string;
+  authorizationNumber: string;
+  expiresOn: string | null;
+  status: "active" | "expired";
+  attachmentPath: string | null;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
+  attachmentMimeType: string | null;
+  attachmentSize: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useAgencies(projectId?: string) {
+  const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return useQuery<AgencyRecord[]>({
+    queryKey: ["agencies", projectId ?? "all"],
+    queryFn: () => get(`${API}/agencies${query}`),
+  });
+}
+
+export function useAgencyActions() {
+  const qc = useQueryClient();
+  const fileLimits = useFileLimits();
+  const save = useMutation({
+    mutationFn: async (input: {
+      id?: string;
+      projectId?: string | null;
+      clientName: string;
+      authorizationNumber: string;
+      expiresOn?: string | null;
+      file?: File | null;
+    }) => {
+      let attachmentPath: string | undefined;
+      let attachmentName: string | undefined;
+      let attachmentMimeType: string | undefined;
+      let attachmentSize: number | undefined;
+      if (input.file) {
+        const target = await uploadDirectToSupabase(input.file, `agencies/${input.projectId || "general"}`, fileLimits.data.maxFileBytes);
+        attachmentPath = target.path;
+        attachmentName = input.file.name;
+        attachmentMimeType = input.file.type || "application/octet-stream";
+        attachmentSize = input.file.size;
+      }
+      const payload = {
+        projectId: input.projectId ?? null,
+        clientName: input.clientName,
+        authorizationNumber: input.authorizationNumber,
+        expiresOn: input.expiresOn || null,
+        ...(attachmentPath ? { attachmentPath, attachmentName, attachmentMimeType, attachmentSize } : {}),
+      };
+      if (input.id) return patch<AgencyRecord>(`${API}/agencies/${input.id}`, payload);
+      return post<AgencyRecord>(`${API}/agencies`, payload);
+    },
+    onSuccess: (_data, input) => {
+      qc.invalidateQueries({ queryKey: ["agencies"] });
+      if (input.projectId) qc.invalidateQueries({ queryKey: ["agencies", input.projectId] });
+    },
+  });
+  return { save };
+}
+
 async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes) {
   if (file.size > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
   const target = await post<{ bucket: string; path: string; token: string }>("/api/sa/storage/upload-url", {

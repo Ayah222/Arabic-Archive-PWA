@@ -253,6 +253,11 @@ export async function createProject(input: {
       .select()
       .single(),
   );
+  try {
+    await supabaseAdmin().from("agencies").insert({ project_id: row.id }).select().single();
+  } catch (error) {
+    console.warn("Agency seed skipped:", error);
+  }
   return toProject(row);
 }
 

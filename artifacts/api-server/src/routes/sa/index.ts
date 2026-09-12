@@ -23,6 +23,7 @@ import profilesRouter from "./profiles";
 import emailArchiveRouter from "./emailArchive";
 import messagesRouter from "./messages";
 import storageRouter from "./storage";
+import agenciesRouter from "./agencies";
 import hrEmployeesRouter from "./hr/employees";
 import hrCandidatesRouter from "./hr/candidates";
 import hrCorporateRouter from "./hr/corporate";
@@ -62,5 +63,6 @@ router.use(profilesRouter);
 router.use(emailArchiveRouter);
 router.use(messagesRouter);
 router.use(storageRouter);
+router.use(agenciesRouter);
 
 export default router;

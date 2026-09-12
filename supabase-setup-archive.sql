@@ -151,6 +151,25 @@ CREATE TABLE IF NOT EXISTS public.attachments (
   uploaded_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 10. الوكالات (وكالة واحدة مرتبطة بكل مشروع، ووكالات عامة اختيارية)
+CREATE TABLE IF NOT EXISTS public.agencies (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id            UUID REFERENCES public.projects(id) ON DELETE CASCADE,
+  client_name           TEXT NOT NULL DEFAULT '',
+  authorization_number  TEXT NOT NULL DEFAULT '',
+  expires_on            DATE,
+  attachment_path       TEXT,
+  attachment_name       TEXT,
+  attachment_mime_type  TEXT,
+  attachment_size       BIGINT NOT NULL DEFAULT 0,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS agencies_project_unique
+  ON public.agencies(project_id) WHERE project_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS agencies_expires_on_idx ON public.agencies(expires_on);
+
 -- 12. صور المشاريع المخزنة في Supabase Object Storage
 CREATE TABLE IF NOT EXISTS public.project_photos (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -222,6 +241,7 @@ ALTER TABLE public.attachments    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_photos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agencies ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -230,7 +250,7 @@ BEGIN
   FOREACH archive_table IN ARRAY ARRAY[
     'projects', 'contracts', 'contractors', 'documents', 'meetings',
     'letters', 'finance_records', 'contacts', 'categories', 'attachments', 'audit_logs',
-    'project_photos', 'notifications'
+    'project_photos', 'notifications', 'agencies'
   ]
   LOOP
     -- PostgreSQL supports IF EXISTS for DROP POLICY, but not
