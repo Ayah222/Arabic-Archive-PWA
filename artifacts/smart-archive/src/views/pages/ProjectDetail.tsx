@@ -103,7 +103,7 @@ function FolderPicker({
     if (picker) {
       try {
         const directory = await picker();
-        const selectedFiles = await readDirectoryFiles(directory);
+        const selectedFiles = await readDirectoryFiles(directory, directory.name);
         onFiles(selectedFiles.length ? selectedFiles : null);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -198,6 +198,7 @@ async function uploadFilesReliably(
   upload: (file: File) => Promise<void>,
   onProgress?: (progress: FolderUploadProgress) => void,
 ): Promise<FolderUploadResult> {
+  const uploadAttemptTimeoutMs = 120_000;
   const failed: Array<{ file: File; error: unknown }> = [];
   let nextIndex = 0;
   let completed = 0;
@@ -213,7 +214,21 @@ async function uploadFilesReliably(
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          await upload(file);
+          await new Promise<void>((resolve, reject) => {
+            const timeout = window.setTimeout(() => {
+              reject(new Error(`انتهت مهلة رفع الملف بعد ${uploadAttemptTimeoutMs / 1000} ثانية`));
+            }, uploadAttemptTimeoutMs);
+            upload(file).then(
+              () => {
+                window.clearTimeout(timeout);
+                resolve();
+              },
+              (error) => {
+                window.clearTimeout(timeout);
+                reject(error);
+              },
+            );
+          });
           uploaded = true;
           break;
         } catch (error) {
