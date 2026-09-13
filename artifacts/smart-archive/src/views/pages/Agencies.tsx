@@ -39,18 +39,14 @@ function AgencyForm({ projectId, agency, onDone }: { projectId?: string; agency?
     <form onSubmit={submit} className="space-y-3">
       <input className={input} placeholder="اسم العميل *" value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} />
       <input className={input} placeholder="رقم الوكالة / التفويض *" value={form.authorizationNumber} onChange={(e) => setForm({ ...form, authorizationNumber: e.target.value })} />
-      <label className="block text-sm text-muted-foreground">تاريخ الانتهاء (سنة-شهر-يوم)
+      <label className="block text-sm text-muted-foreground">تاريخ الانتهاء
         <input
-          type="text"
-          inputMode="numeric"
+          type="date"
+          lang="en-GB"
           dir="ltr"
-          placeholder="YYYY-MM-DD"
-          maxLength={10}
-          pattern="\d{4}-\d{2}-\d{2}"
-          style={{ direction: "ltr", textAlign: "left" }}
-          className={`${input} mt-1 text-left`}
+          className={`${input} mt-1 agency-date-input`}
           value={form.expiresOn}
-          onChange={(e) => setForm({ ...form, expiresOn: e.target.value.replace(/[^\d-]/g, "").slice(0, 10) })}
+          onChange={(e) => setForm({ ...form, expiresOn: e.target.value })}
         />
       </label>
       <label className="block text-sm text-muted-foreground">مرفق الوكالة
