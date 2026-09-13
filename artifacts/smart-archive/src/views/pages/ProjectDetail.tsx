@@ -34,6 +34,7 @@ import {
 } from "../../models/types";
 
 const folderPathByFile = new WeakMap<File, string>();
+const uploadPathByFile = new WeakMap<File, string>();
 
 type StaticTab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos" | "agency";
 type Tab = StaticTab | string; // dynamic: "cat_<id>"
@@ -163,6 +164,7 @@ async function uploadPendingFolder(
     if (folderFiles.length > 10000) throw new Error("الحد الأقصى للمجلد هو 10000 ملف");
     const result = await uploadFilesReliably(folderFiles, async (file) => {
       const relativePath = folderPathByFile.get(file) || file.webkitRelativePath || file.name;
+      uploadPathByFile.set(file, relativePath);
       await actions.add.mutateAsync({ entityType, entityId, file, name: relativePath, customType, relativePath });
     });
     if (result.failed.length) {
@@ -1405,6 +1407,7 @@ function AttachmentsPanel({
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [preview, setPreview] = useState<SAAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
+  const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1414,12 +1417,14 @@ function AttachmentsPanel({
       return;
     }
     setUploadProgress({ completed: 0, total: files.length, failed: 0 });
+    setRetryableFiles([]);
     try {
       const result = await uploadFilesReliably(files, async (file) => {
         const selectedPath = preserveFolders
           ? folderPathByFile.get(file) || file.webkitRelativePath || file.name
           : file.name;
         const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
+        uploadPathByFile.set(file, relativePath);
         await add.mutateAsync({
           entityType,
           entityId,
@@ -1430,6 +1435,7 @@ function AttachmentsPanel({
         });
       }, setUploadProgress);
       if (result.failed.length) {
+        setRetryableFiles(result.failed.map(({ file }) => file));
         const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
         const suffix = result.failed.length > 3 ? "…" : "";
         setNotice({
@@ -1443,6 +1449,27 @@ function AttachmentsPanel({
       setAttType("مستند");
     } catch {
       setNotice({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
+    } finally {
+      setUploadProgress(null);
+    }
+  };
+
+  const retryFailedFiles = async () => {
+    if (!retryableFiles.length || uploadProgress) return;
+    const files = retryableFiles;
+    setUploadProgress({ completed: 0, total: files.length, failed: 0 });
+    try {
+      const result = await uploadFilesReliably(files, async (file) => {
+        const relativePath = uploadPathByFile.get(file) || file.webkitRelativePath || file.name;
+        await add.mutateAsync({ entityType, entityId, file, name: relativePath, customType: attType, relativePath });
+      }, setUploadProgress);
+      if (result.failed.length) {
+        setRetryableFiles(result.failed.map(({ file }) => file));
+        setNotice({ message: `تعذر رفع ${result.failed.length} ملفاً مرة أخرى`, type: "error" });
+      } else {
+        setRetryableFiles([]);
+        setNotice({ message: `تمت إعادة رفع ${files.length} ملفاً داخل مساراتها الأصلية`, type: "success" });
+      }
     } finally {
       setUploadProgress(null);
     }
@@ -1476,6 +1503,11 @@ function AttachmentsPanel({
   return (
     <div className={compact ? "mt-3 border-t border-border pt-3" : "mt-4"}>
       {notice && <Toast message={notice.message} type={notice.type} onClose={() => setNotice(null)} />}
+      {retryableFiles.length > 0 && !uploadProgress && (
+        <button type="button" onClick={() => void retryFailedFiles()} className="mb-2 text-xs text-primary hover:underline">
+          🔁 إعادة محاولة الملفات المتعثرة ({retryableFiles.length}) داخل مساراتها الأصلية
+        </button>
+      )}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-muted-foreground">
           📎 المرفقات ({isLoading ? "…" : attachments.length})
@@ -1558,6 +1590,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [currentPath, setCurrentPath] = useState("");
   const [preview, setPreview] = useState<SAAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
+  const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1567,12 +1600,14 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       return;
     }
     setUploadProgress({ completed: 0, total: files.length, failed: 0 });
+    setRetryableFiles([]);
     try {
       const result = await uploadFilesReliably(files, async (file) => {
         const selectedPath = preserveFolders
           ? folderPathByFile.get(file) || file.webkitRelativePath || file.name
           : file.name;
         const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
+        uploadPathByFile.set(file, relativePath);
         await add.mutateAsync({
           entityType: "custom_doc",
           entityId: projectId,
@@ -1583,6 +1618,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         });
       }, setUploadProgress);
       if (result.failed.length) {
+        setRetryableFiles(result.failed.map(({ file }) => file));
         const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
         const suffix = result.failed.length > 3 ? "…" : "";
         _setToast({
@@ -1597,6 +1633,27 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       _setToast({ message: files.length > 1 ? `تم رفع ${files.length} ملفاً` : "تم إضافة المستند", type: "success" });
     } catch {
       _setToast({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
+    } finally {
+      setUploadProgress(null);
+    }
+  };
+
+  const retryFailedFiles = async () => {
+    if (!retryableFiles.length || uploadProgress) return;
+    const files = retryableFiles;
+    setUploadProgress({ completed: 0, total: files.length, failed: 0 });
+    try {
+      const result = await uploadFilesReliably(files, async (file) => {
+        const relativePath = uploadPathByFile.get(file) || file.webkitRelativePath || file.name;
+        await add.mutateAsync({ entityType: "custom_doc", entityId: projectId, file, name: relativePath, customType: attType || "مستند حر", relativePath });
+      }, setUploadProgress);
+      if (result.failed.length) {
+        setRetryableFiles(result.failed.map(({ file }) => file));
+        _setToast({ message: `تعذر رفع ${result.failed.length} ملفاً مرة أخرى`, type: "error" });
+      } else {
+        setRetryableFiles([]);
+        _setToast({ message: `تمت إعادة رفع ${files.length} ملفاً داخل مساراتها الأصلية`, type: "success" });
+      }
     } finally {
       setUploadProgress(null);
     }
@@ -1702,6 +1759,11 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-bold text-lg">إضافة مستند حر</h3>
+            {retryableFiles.length > 0 && !uploadProgress && (
+              <button type="button" onClick={() => void retryFailedFiles()} className="text-xs text-primary hover:underline text-right">
+                🔁 إعادة محاولة الملفات المتعثرة ({retryableFiles.length}) داخل مساراتها الأصلية
+              </button>
+            )}
             {uploadProgress && (
               <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
                 جاري رفع {uploadProgress.completed} من {uploadProgress.total}
