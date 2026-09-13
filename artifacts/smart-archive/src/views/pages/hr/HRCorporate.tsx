@@ -8,6 +8,8 @@ import {
 } from "../../../controllers/useHr";
 import FileUpload from "../../components/shared/FileUpload";
 import EmptyState from "../../components/shared/EmptyState";
+import SelectionToolbar from "../../components/shared/SelectionToolbar";
+import ConfirmDialog from "../../components/shared/ConfirmDialog";
 import { getArchivePermissions } from "../../../controllers/permissions";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
@@ -36,6 +38,8 @@ function PoliciesTab() {
   const create = useCreatePolicy();
   const del = useDeletePolicy();
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [form, setForm] = useState({ title: "", category: "", description: "", effectiveDate: "" });
   const [file, setFile] = useState<{ url: string } | null>(null);
 
@@ -44,14 +48,29 @@ function PoliciesTab() {
     await create.mutateAsync({ title: form.title, category: form.category || null, description: form.description || null, effectiveDate: form.effectiveDate || null, fileUrl: file?.url || null });
     setShowAdd(false); setForm({ title: "", category: "", description: "", effectiveDate: "" }); setFile(null);
   };
+  const visibleIds = (data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await del.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+  };
 
   return (
     <div className="space-y-4">
       {canEdit && <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold" style={addBtnStyle}><Plus className="w-4 h-4" /> إضافة سياسة</button>}
+      {canEdit && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={del.isPending} />}
       {!data?.length ? <EmptyState icon="📘" title="لا توجد سياسات مضافة" /> : (
         <div className="space-y-2">
           {data.map(p => (
             <div key={p.id} className="liquid-glass-card rounded-xl p-4 flex items-center justify-between gap-3">
+              {canEdit && <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => setSelectedIds((current) => {
+                const next = new Set(current); if (next.has(p.id)) next.delete(p.id); else next.add(p.id); return next;
+              })} className="accent-primary shrink-0" aria-label={`تحديد ${p.title}`} />}
               <div className="flex items-center gap-3 min-w-0">
                 <FileText className="w-5 h-5 text-cyan-400 shrink-0" />
                 <div className="min-w-0">
@@ -61,7 +80,7 @@ function PoliciesTab() {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {p.fileUrl && <a href={p.fileUrl} target="_blank" rel="noreferrer" className="text-xs underline text-cyan-400">عرض الملف</a>}
-                {canEdit && <button onClick={() => del.mutate(p.id)} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+                {canEdit && <button onClick={() => setDeleteIds([p.id])} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
               </div>
             </div>
           ))}
@@ -81,6 +100,10 @@ function PoliciesTab() {
           </div>
         </AddModal>
       )}
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف السياسات المحددة" : "حذف السياسة"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} سياسات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذه السياسة؟"}
+        confirmLabel="حذف" danger loading={del.isPending} />
     </div>
   );
 }
@@ -91,6 +114,8 @@ function LicensesTab() {
   const create = useCreateLicense();
   const del = useDeleteLicense();
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [form, setForm] = useState({ name: "", licenseNumber: "", issuingAuthority: "", issueDate: "", expiryDate: "", notes: "" });
   const [file, setFile] = useState<{ url: string } | null>(null);
 
@@ -102,10 +127,22 @@ function LicensesTab() {
     });
     setShowAdd(false); setForm({ name: "", licenseNumber: "", issuingAuthority: "", issueDate: "", expiryDate: "", notes: "" }); setFile(null);
   };
+  const visibleIds = (data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await del.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+  };
 
   return (
     <div className="space-y-4">
       {canEdit && <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold" style={addBtnStyle}><Plus className="w-4 h-4" /> إضافة ترخيص</button>}
+      {canEdit && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={del.isPending} />}
       {!data?.length ? <EmptyState icon="🛡️" title="لا توجد تراخيص مضافة" /> : (
         <div className="space-y-2">
           {data.map(l => {
@@ -113,6 +150,9 @@ function LicensesTab() {
             const soon = d !== null && d <= 30;
             return (
               <div key={l.id} className="liquid-glass-card rounded-xl p-4 flex items-center justify-between gap-3">
+                {canEdit && <input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => setSelectedIds((current) => {
+                  const next = new Set(current); if (next.has(l.id)) next.delete(l.id); else next.add(l.id); return next;
+                })} className="accent-primary shrink-0" aria-label={`تحديد ${l.name}`} />}
                 <div className="flex items-center gap-3 min-w-0">
                   <ShieldCheck className={`w-5 h-5 shrink-0 ${soon ? "text-yellow-400" : "text-emerald-400"}`} />
                   <div className="min-w-0">
@@ -123,7 +163,7 @@ function LicensesTab() {
                 <div className="flex items-center gap-3 shrink-0">
                   {soon && <span className="px-2 py-0.5 rounded-md text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/25">قارب على الانتهاء</span>}
                   {l.fileUrl && <a href={l.fileUrl} target="_blank" rel="noreferrer" className="text-xs underline text-cyan-400">عرض الملف</a>}
-                  {canEdit && <button onClick={() => del.mutate(l.id)} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+                  {canEdit && <button onClick={() => setDeleteIds([l.id])} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
                 </div>
               </div>
             );
@@ -148,6 +188,10 @@ function LicensesTab() {
           </div>
         </AddModal>
       )}
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف التراخيص المحددة" : "حذف الترخيص"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} تراخيص نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا الترخيص؟"}
+        confirmLabel="حذف" danger loading={del.isPending} />
     </div>
   );
 }
@@ -158,6 +202,8 @@ function CorrespondenceTab() {
   const create = useCreateCorrespondence();
   const del = useDeleteCorrespondence();
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [form, setForm] = useState({ subject: "", direction: "outgoing", authority: "", date: "", reference: "", notes: "" });
   const [file, setFile] = useState<{ url: string } | null>(null);
 
@@ -169,14 +215,29 @@ function CorrespondenceTab() {
     });
     setShowAdd(false); setForm({ subject: "", direction: "outgoing", authority: "", date: "", reference: "", notes: "" }); setFile(null);
   };
+  const visibleIds = (data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await del.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+  };
 
   return (
     <div className="space-y-4">
       {canEdit && <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold" style={addBtnStyle}><Plus className="w-4 h-4" /> إضافة مراسلة</button>}
+      {canEdit && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={del.isPending} />}
       {!data?.length ? <EmptyState icon="✉️" title="لا توجد مراسلات مضافة" /> : (
         <div className="space-y-2">
           {data.map(c => (
             <div key={c.id} className="liquid-glass-card rounded-xl p-4 flex items-center justify-between gap-3">
+              {canEdit && <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => setSelectedIds((current) => {
+                const next = new Set(current); if (next.has(c.id)) next.delete(c.id); else next.add(c.id); return next;
+              })} className="accent-primary shrink-0" aria-label={`تحديد ${c.subject}`} />}
               <div className="flex items-center gap-3 min-w-0">
                 <MailIcon className="w-5 h-5 text-purple-400 shrink-0" />
                 <div className="min-w-0">
@@ -186,7 +247,7 @@ function CorrespondenceTab() {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {c.fileUrl && <a href={c.fileUrl} target="_blank" rel="noreferrer" className="text-xs underline text-cyan-400">عرض الملف</a>}
-                {canEdit && <button onClick={() => del.mutate(c.id)} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+                {canEdit && <button onClick={() => setDeleteIds([c.id])} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
               </div>
             </div>
           ))}
@@ -213,6 +274,10 @@ function CorrespondenceTab() {
           </div>
         </AddModal>
       )}
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف المراسلات المحددة" : "حذف المراسلة"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مراسلات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذه المراسلة؟"}
+        confirmLabel="حذف" danger loading={del.isPending} />
     </div>
   );
 }

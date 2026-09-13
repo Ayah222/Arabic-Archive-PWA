@@ -7,6 +7,7 @@ import Modal from "../components/shared/Modal";
 import ConfirmDialog from "../components/shared/ConfirmDialog";
 import EmptyState from "../components/shared/EmptyState";
 import Toast from "../components/shared/Toast";
+import SelectionToolbar from "../components/shared/SelectionToolbar";
 import { useLanguage } from "../../contexts/LanguageContext";
 import {
   getProjectStatusLabel,
@@ -53,7 +54,8 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editProject, setEditProject] = useState<{ id: string; data: ProjectFormData } | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<ProjectFormData>(defaultForm);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -101,12 +103,19 @@ export default function Projects() {
     }
   };
 
+  const visibleIds = (projects ?? []).map((project) => project.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteIds?.length) return;
     try {
-      await deleteProject.mutateAsync({ id: deleteId });
-      setDeleteId(null);
-      setToast({ message: t("projectDeleted"), type: "success" });
+      for (const id of deleteIds) {
+        await deleteProject.mutateAsync({ id });
+      }
+      setDeleteIds(null);
+      setSelectedIds(new Set());
+      setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} مشاريع` : t("projectDeleted"), type: "success" });
     } catch {
       setToast({ message: t("projectDeleteFail"), type: "error" });
     }
@@ -150,6 +159,16 @@ export default function Projects() {
         </select>
       </div>
 
+      {canDelete && <SelectionToolbar
+        total={visibleIds.length}
+        selected={selectedVisibleIds.length}
+        allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())}
+        onDelete={() => setDeleteIds(selectedVisibleIds)}
+        deleting={deleteProject.isPending}
+      />}
+
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
@@ -175,8 +194,20 @@ export default function Projects() {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="bg-card rounded-2xl border border-border shadow-sm hover:border-primary hover:shadow-md transition-all duration-200"
+               className="relative bg-card rounded-2xl border border-border shadow-sm hover:border-primary hover:shadow-md transition-all duration-200"
             >
+               {canDelete && <label className="absolute top-4 left-4 z-10 flex cursor-pointer items-center gap-1.5 rounded-md bg-card/90 px-1.5 py-1 text-xs shadow-sm" onClick={(event) => event.stopPropagation()}>
+                 <input
+                   type="checkbox"
+                   checked={selectedIds.has(project.id)}
+                   onChange={() => setSelectedIds((current) => {
+                     const next = new Set(current);
+                     if (next.has(project.id)) next.delete(project.id); else next.add(project.id);
+                     return next;
+                   })}
+                   className="accent-primary"
+                 />
+               </label>}
               <Link to={`/projects/${project.id}`} className="block p-5">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
@@ -217,7 +248,7 @@ export default function Projects() {
                 </>}
                 {canDelete &&
                 <button
-                  onClick={() => setDeleteId(project.id)}
+                   onClick={() => setDeleteIds([project.id])}
                   className="flex-1 py-3 text-sm text-destructive hover:bg-red-50 transition-colors rounded-br-2xl font-medium"
                 >
                   {t("delete")}
@@ -252,12 +283,12 @@ export default function Projects() {
         </Modal>
       )}
 
-      <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+       <ConfirmDialog
+         isOpen={!!deleteIds?.length}
+         onClose={() => setDeleteIds(null)}
         onConfirm={handleDelete}
-        title={t("deleteProject")}
-        message={t("deleteProjectMsg")}
+         title={deleteIds && deleteIds.length > 1 ? "حذف المشاريع المحددة" : t("deleteProject")}
+         message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مشاريع نهائياً. هل تريد المتابعة؟` : t("deleteProjectMsg")}
         confirmLabel={t("delete")}
         danger
         loading={deleteProject.isPending}

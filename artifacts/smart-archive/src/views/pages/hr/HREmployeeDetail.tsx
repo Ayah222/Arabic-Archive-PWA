@@ -9,6 +9,8 @@ import {
 } from "../../../controllers/useHr";
 import FileUpload from "../../components/shared/FileUpload";
 import EmptyState from "../../components/shared/EmptyState";
+import SelectionToolbar from "../../components/shared/SelectionToolbar";
+import ConfirmDialog from "../../components/shared/ConfirmDialog";
 import { getArchivePermissions } from "../../../controllers/permissions";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
@@ -35,6 +37,8 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
   const [expiryDate, setExpiryDate] = useState("");
   const [description, setDescription] = useState("");
   const [suggesting, setSuggesting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
 
   const handleUpload = async (result: { url: string; filename: string; size: number; mimetype: string }) => {
     setPendingFile(result);
@@ -63,6 +67,15 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
   };
 
   const catDocs = (docs ?? []).filter(d => d.category === activeCat);
+  const visibleIds = catDocs.map((doc) => doc.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await deleteDoc.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+  };
 
   return (
     <div className="space-y-4">
@@ -99,12 +112,19 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
         </div>
       )}
 
+      {canEdit && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={deleteDoc.isPending} />}
+
       {!catDocs.length ? (
         <EmptyState icon="📄" title="لا توجد مستندات في هذا التصنيف" />
       ) : (
         <div className="space-y-2">
           {catDocs.map(d => (
             <div key={d.id} className="liquid-glass-card rounded-xl p-4 flex items-center justify-between gap-3">
+              {canEdit && <input type="checkbox" checked={selectedIds.has(d.id)} onChange={() => setSelectedIds((current) => {
+                const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
+              })} className="accent-primary shrink-0" aria-label={`تحديد ${d.name}`} />}
               <a href={d.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 min-w-0 hover:underline">
                 <FileText className="w-5 h-5 text-cyan-400 shrink-0" />
                 <div className="min-w-0">
@@ -113,12 +133,16 @@ function DocumentsTab({ employeeId }: { employeeId: string }) {
                 </div>
               </a>
               {canEdit && (
-                <button onClick={() => deleteDoc.mutate(d.id)} className="text-red-400 hover:text-red-500 shrink-0"><Trash2 className="w-4 h-4" /></button>
+                 <button onClick={() => setDeleteIds([d.id])} className="text-red-400 hover:text-red-500 shrink-0"><Trash2 className="w-4 h-4" /></button>
               )}
             </div>
           ))}
         </div>
       )}
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف المستندات المحددة" : "حذف المستند"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مستندات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا المستند؟"}
+        confirmLabel="حذف" danger loading={deleteDoc.isPending} />
     </div>
   );
 }
@@ -129,11 +153,22 @@ function LeavesTab({ employeeId }: { employeeId: string }) {
   const createLeave = useCreateEmployeeLeave(employeeId);
   const deleteLeave = useDeleteEmployeeLeave(employeeId);
   const [form, setForm] = useState({ leaveType: "سنوية", startDate: "", endDate: "", notes: "" });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
 
   const handleAdd = async () => {
     if (!form.startDate || !form.endDate) return;
     await createLeave.mutateAsync({ leaveType: form.leaveType, startDate: form.startDate, endDate: form.endDate, notes: form.notes || null });
     setForm({ leaveType: "سنوية", startDate: "", endDate: "", notes: "" });
+  };
+  const visibleIds = (leaves ?? []).map((leave) => leave.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await deleteLeave.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
   };
 
   return (
@@ -157,12 +192,18 @@ function LeavesTab({ employeeId }: { employeeId: string }) {
           </button>
         </div>
       )}
+      {canEdit && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={deleteLeave.isPending} />}
       {!leaves?.length ? (
         <EmptyState icon="🏖️" title="لا توجد إجازات مسجلة" />
       ) : (
         <div className="space-y-2">
           {leaves.map(l => (
             <div key={l.id} className="liquid-glass-card rounded-xl p-4 flex items-center justify-between gap-3">
+              {canEdit && <input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => setSelectedIds((current) => {
+                const next = new Set(current); if (next.has(l.id)) next.delete(l.id); else next.add(l.id); return next;
+              })} className="accent-primary shrink-0" aria-label={`تحديد إجازة ${l.leaveType}`} />}
               <div className="flex items-center gap-3">
                 <CalendarDays className="w-5 h-5 text-purple-400" />
                 <div>
@@ -170,11 +211,15 @@ function LeavesTab({ employeeId }: { employeeId: string }) {
                   <p className="text-xs text-muted-foreground" dir="ltr">{l.startDate} → {l.endDate}</p>
                 </div>
               </div>
-              {canEdit && <button onClick={() => deleteLeave.mutate(l.id)} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+              {canEdit && <button onClick={() => setDeleteIds([l.id])} className="text-red-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
             </div>
           ))}
         </div>
       )}
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف الإجازات المحددة" : "حذف الإجازة"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} إجازات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذه الإجازة؟"}
+        confirmLabel="حذف" danger loading={deleteLeave.isPending} />
     </div>
   );
 }

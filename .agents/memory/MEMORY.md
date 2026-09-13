@@ -7,3 +7,4 @@
 - [Debugging silent AI-feature fallbacks](ai-fallback-debugging.md) — test the OpenAI key with a raw fetch before assuming a code bug when a graceful-fallback AI helper always returns its default.
 - [Large PDF downloads](bulk-downloads.md) — deliver large attachment batches as one server-side ZIP, not hundreds of browser-triggered downloads.
 - [Large folder uploads](large-folder-uploads.md) — one transient file failure must not abort a mixed PDF/Excel folder upload.
+- [Bulk deletion permissions](bulk-selection-permissions.md) — preserve each module's existing delete guard when adding selection and bulk confirmation.

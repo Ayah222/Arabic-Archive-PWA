@@ -16,6 +16,7 @@ import ConfirmDialog from "../components/shared/ConfirmDialog";
 import EmptyState from "../components/shared/EmptyState";
 import FileUpload from "../components/shared/FileUpload";
 import Toast from "../components/shared/Toast";
+import SelectionToolbar from "../components/shared/SelectionToolbar";
 import { AgencyForm } from "./Agencies";
 import { getArchivePermissions } from "../../controllers/permissions";
 import {
@@ -523,11 +524,12 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractFormData } | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [form, setForm] = useState<ContractFormData>(defaultContractForm);
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [contractFolder, setContractFolder] = useState<File[] | null>(null);
   const [contractZip, setContractZip] = useState<File | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleCreate = async () => {
     if (!form.title.trim()) return;
@@ -556,6 +558,16 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
       setToast({ message: "تم تحديث العقد", type: "success" });
     } catch { setToast({ message: "فشل في التحديث", type: "error" }); }
   };
+  const visibleIds = (list.data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync({ id: projectId, cid: id });
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} عقود` : "تم حذف العقد", type: "success" });
+  };
 
   return (
     <div>
@@ -566,6 +578,9 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
           + إضافة عقد
         </button>}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="📋" title="لا توجد عقود" description="أضف أول عقد لهذا المشروع" />
       ) : (
@@ -573,6 +588,9 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
           {list.data.map((c) => (
             <div key={c.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2 mb-2">
+                 {canDelete && <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => setSelectedIds((current) => {
+                   const next = new Set(current); if (next.has(c.id)) next.delete(c.id); else next.add(c.id); return next;
+                 })} className="accent-primary mt-1 shrink-0" aria-label={`تحديد العقد ${c.title}`} />}
                 <h3 className="font-semibold">{c.title}</h3>
                 <StatusBadge label={CONTRACT_STATUS_LABELS[c.status as ContractStatus]} colorClass={CONTRACT_STATUS_COLORS[c.status as ContractStatus]} />
               </div>
@@ -585,7 +603,7 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
                 <button onClick={() => setEditItem({ id: c.id, data: { title: c.title, party: c.party, value: c.value.toString(), startDate: c.startDate, endDate: c.endDate, status: c.status as ContractStatus, notes: c.notes ?? "" } })} className="text-primary hover:underline">تعديل</button>
                 }
                 {canDelete &&
-                <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline">حذف</button>
+                 <button onClick={() => setDeleteIds([c.id])} className="text-destructive hover:underline">حذف</button>
                 }
               </div>
               }
@@ -603,7 +621,10 @@ function ContractsTab({ projectId, setToast }: { projectId: string; setToast: (t
           <ContractForm data={editItem.data} onChange={(d) => setEditItem({ ...editItem, data: d })} onSubmit={handleUpdate} loading={update.isPending} submitLabel="حفظ التعديلات" />
         </Modal>
       )}
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, cid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف العقد", type: "success" }); }} title="حذف العقد" message="هل أنت متأكد من حذف هذا العقد؟" confirmLabel="حذف" danger loading={remove.isPending} />
+       <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+         title={deleteIds && deleteIds.length > 1 ? "حذف العقود المحددة" : "حذف العقد"}
+         message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} عقود نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا العقد؟"}
+         confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }
@@ -654,10 +675,11 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: ContractorTabFormData } | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [form, setForm] = useState<ContractorTabFormData>(defaultContractorForm);
   const [contractorFolder, setContractorFolder] = useState<File[] | null>(null);
   const [contractorZip, setContractorZip] = useState<File | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleCreate = async () => {
     if (!form.name.trim()) return;
@@ -668,6 +690,16 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
       setToast({ message: "تم إضافة المقاول", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
+  const visibleIds = (list.data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync({ id: projectId, cid: id });
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} مقاولين` : "تم حذف المقاول", type: "success" });
+  };
 
   return (
     <div>
@@ -675,6 +707,9 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
         <h2 className="font-bold text-lg">المقاولون ({list.data?.length ?? 0})</h2>
         {canEdit && <button onClick={() => { setForm(defaultContractorForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة مقاول</button>}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="👷" title="لا يوجد مقاولون" description="أضف مقاول للمشروع" />
       ) : (
@@ -682,6 +717,9 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
           {list.data.map((c) => (
             <div key={c.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
               <div className="flex items-start justify-between mb-2">
+                 {canDelete && <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => setSelectedIds((current) => {
+                   const next = new Set(current); if (next.has(c.id)) next.delete(c.id); else next.add(c.id); return next;
+                 })} className="accent-primary mt-1 shrink-0" aria-label={`تحديد المقاول ${c.name}`} />}
                 <div>
                   <h3 className="font-semibold">{c.name}</h3>
                   <p className="text-sm text-primary">{c.specialty}</p>
@@ -696,7 +734,7 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
                 <button onClick={() => setEditItem({ id: c.id, data: { name: c.name, specialty: c.specialty, phone: c.phone ?? "", email: c.email ?? "", status: c.status as "active"|"inactive", notes: c.notes ?? "" } })} className="text-primary hover:underline">تعديل</button>
                 }
                 {canDelete &&
-                <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline">حذف</button>
+                 <button onClick={() => setDeleteIds([c.id])} className="text-destructive hover:underline">حذف</button>
                 }
               </div>
               }
@@ -725,7 +763,10 @@ function ContractorsTab({ projectId, setToast }: { projectId: string; setToast: 
           />
         </Modal>
       )}
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, cid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف المقاول", type: "success" }); }} title="حذف المقاول" message="هل أنت متأكد من حذف هذا المقاول؟" confirmLabel="حذف" danger loading={remove.isPending} />
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف المقاولين المحددين" : "حذف المقاول"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مقاولين نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا المقاول؟"}
+        confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }
@@ -767,7 +808,8 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
   const [uploadedFile, setUploadedFile] = useState<{ url: string; filename: string; size: number; mimetype: string } | null>(null);
   const [documentFolder, setDocumentFolder] = useState<File[] | null>(null);
   const [documentZip, setDocumentZip] = useState<File | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const getTypeFromMime = (mime: string): DocumentType => {
     if (mime === "application/pdf") return "pdf";
@@ -792,6 +834,16 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
       setToast({ message: "تم إضافة المستند", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
+  const visibleIds = (list.data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync({ id: projectId, did: id });
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} مستندات` : "تم حذف المستند", type: "success" });
+  };
 
   return (
     <div>
@@ -799,12 +851,18 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
         <h2 className="font-bold text-lg">المستندات ({list.data?.length ?? 0})</h2>
         {canEdit && <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ رفع مستند</button>}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="📄" title="لا توجد مستندات" description="ارفع أول مستند لهذا المشروع" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {list.data.map((d) => (
             <div key={d.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex items-start gap-3">
+               {canDelete && <input type="checkbox" checked={selectedIds.has(d.id)} onChange={() => setSelectedIds((current) => {
+                 const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
+               })} className="accent-primary mt-1 shrink-0" aria-label={`تحديد المستند ${d.name}`} />}
               <span className="text-3xl mt-0.5">{DOCUMENT_TYPE_ICONS[d.type as DocumentType]}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
@@ -836,7 +894,7 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
                   )}
                 </div>
               </div>
-                {canDelete && <button onClick={() => setDeleteId(d.id)} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>}
+                 {canDelete && <button onClick={() => setDeleteIds([d.id])} className="text-destructive hover:underline text-xs flex-shrink-0">حذف</button>}
                 <AttachmentsPanel projectId={projectId} entityType="custom_doc" entityId={d.id} compact />
             </div>
           ))}
@@ -854,7 +912,10 @@ function DocumentsTab({ projectId, setToast }: { projectId: string; setToast: (t
           <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !docName.trim()} className={btnCls}>{create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : "إضافة المخطط"}</button>
         </div>
       </Modal>}
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, did: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف المستند", type: "success" }); }} title="حذف المستند" message="هل أنت متأكد من حذف هذا المستند؟" confirmLabel="حذف" danger loading={remove.isPending} />
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف المستندات المحددة" : "حذف المستند"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مستندات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا المستند؟"}
+        confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }
@@ -873,7 +934,8 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const [meetingFile, setMeetingFile] = useState<File | null>(null);
   const [meetingFolder, setMeetingFolder] = useState<File[] | null>(null);
   const [meetingZip, setMeetingZip] = useState<File | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [attendeeInput, setAttendeeInput] = useState("");
 
   const addAttendee = () => {
@@ -948,6 +1010,16 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
       setToast({ message: editingMeetingId ? "تم تحديث الاجتماع" : "تم إضافة الاجتماع", type: "success" });
     } catch { setToast({ message: editingMeetingId ? "فشل في التحديث" : "فشل في الإضافة", type: "error" }); }
   };
+  const visibleIds = (list.data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync({ id: projectId, mid: id });
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} اجتماعات` : "تم حذف الاجتماع", type: "success" });
+  };
 
   return (
     <div>
@@ -955,6 +1027,9 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <h2 className="font-bold text-lg">الاجتماعات ({list.data?.length ?? 0})</h2>
         {canEdit && <button onClick={openCreate} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة اجتماع</button>}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="🤝" title="لا توجد اجتماعات" description="أضف أول اجتماع لهذا المشروع" />
       ) : (
@@ -962,6 +1037,9 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           {list.data.map((m) => (
             <div key={m.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2 mb-2">
+                 {canDelete && <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => setSelectedIds((current) => {
+                   const next = new Set(current); if (next.has(m.id)) next.delete(m.id); else next.add(m.id); return next;
+                 })} className="accent-primary mt-1 shrink-0" aria-label={`تحديد الاجتماع ${m.title}`} />}
                 <h3 className="font-semibold">{m.title}</h3>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(m.date)}</span>
               </div>
@@ -977,7 +1055,7 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               {m.notes && <p className="text-sm text-muted-foreground mt-1 italic">{m.notes}</p>}
               {(canEdit || canDelete) && <div className="flex items-center gap-4 mt-3 text-sm">
                 {canEdit && <button onClick={() => openEdit(m)} className="text-primary hover:underline">تعديل</button>}
-                {canDelete && <button onClick={() => setDeleteId(m.id)} className="text-destructive hover:underline">حذف</button>}
+                 {canDelete && <button onClick={() => setDeleteIds([m.id])} className="text-destructive hover:underline">حذف</button>}
               </div>}
               <AttachmentsPanel projectId={projectId} entityType="meeting" entityId={m.id} compact />
             </div>
@@ -1017,7 +1095,10 @@ function MeetingsTab({ projectId, setToast }: { projectId: string; setToast: (t:
            <button onClick={handleSave} disabled={create.isPending || update.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !form.title.trim()} className={btnCls}>{create.isPending || update.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : editingMeetingId ? "حفظ التعديلات" : "إضافة الاجتماع"}</button>
         </div>
       </Modal>
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, mid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الاجتماع", type: "success" }); }} title="حذف الاجتماع" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
+      <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف الاجتماعات المحددة" : "حذف الاجتماع"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} اجتماعات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد؟"}
+        confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }
@@ -1035,7 +1116,8 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
   const [letterFile, setLetterFile] = useState<File | null>(null);
   const [letterFolder, setLetterFolder] = useState<File[] | null>(null);
   const [letterZip, setLetterZip] = useState<File | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleCreate = async () => {
     if (!form.subject.trim()) return;
@@ -1063,6 +1145,16 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
       setToast({ message: "تم إضافة الخطاب", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
+  const visibleIds = (list.data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync({ id: projectId, lid: id });
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} خطابات` : "تم حذف الخطاب", type: "success" });
+  };
 
   return (
     <div>
@@ -1070,6 +1162,9 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
         <h2 className="font-bold text-lg">الخطابات ({list.data?.length ?? 0})</h2>
         {canEdit && <button onClick={() => { setForm(defaultLetterForm); setShowCreate(true); }} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة خطاب</button>}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {list.isLoading ? <LoadingSkeleton /> : !list.data?.length ? (
         <EmptyState icon="✉️" title="لا توجد خطابات" description="أضف أول خطاب لهذا المشروع" />
       ) : (
@@ -1077,6 +1172,9 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
           {list.data.map((l) => (
             <div key={l.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2 mb-2">
+                 {canDelete && <input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => setSelectedIds((current) => {
+                   const next = new Set(current); if (next.has(l.id)) next.delete(l.id); else next.add(l.id); return next;
+                 })} className="accent-primary mt-1 shrink-0" aria-label={`تحديد الخطاب ${l.subject}`} />}
                 <div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium mr-0 ml-2 ${l.direction === "outgoing" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}`}>
                     {l.direction === "outgoing" ? "⬆️ صادر" : "⬇️ وارد"}
@@ -1104,7 +1202,7 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
                 )}
               </div>
               {l.notes && <p className="text-sm text-muted-foreground mt-1 italic">{l.notes}</p>}
-              {canDelete && <button onClick={() => setDeleteId(l.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
+               {canDelete && <button onClick={() => setDeleteIds([l.id])} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
               <AttachmentsPanel projectId={projectId} entityType="letter" entityId={l.id} compact />
             </div>
           ))}
@@ -1162,7 +1260,10 @@ function LettersTab({ projectId, setToast }: { projectId: string; setToast: (t: 
            <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !form.subject.trim()} className={btnCls}>{create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : "إضافة الخطاب"}</button>
         </div>
       </Modal>
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync({ id: projectId, lid: deleteId! }); setDeleteId(null); setToast({ message: "تم حذف الخطاب", type: "success" }); }} title="حذف الخطاب" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
+       <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+         title={deleteIds && deleteIds.length > 1 ? "حذف الخطابات المحددة" : "حذف الخطاب"}
+         message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} خطابات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد؟"}
+         confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }
@@ -1174,7 +1275,8 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
   const attachment = useAttachmentActions(projectId);
   const { canEdit, canDelete } = getArchivePermissions();
   const [showCreate, setShowCreate] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({ name: "", role: "consultant", phone: "", email: "", notes: "" });
   const [contactFolder, setContactFolder] = useState<File[] | null>(null);
   const [contactZip, setContactZip] = useState<File | null>(null);
@@ -1199,6 +1301,16 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
       setToast({ message: "تم إضافة جهة الاتصال", type: "success" });
     } catch { setToast({ message: "فشل في الإضافة", type: "error" }); }
   };
+  const visibleIds = (data ?? []).map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} جهات اتصال` : "تم حذف جهة الاتصال", type: "success" });
+  };
 
   return (
     <div>
@@ -1206,12 +1318,18 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
         <h2 className="font-bold text-lg">جهات الاتصال ({data?.length ?? 0})</h2>
         {canEdit && <button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">+ إضافة جهة</button>}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {isLoading ? <LoadingSkeleton /> : !data?.length ? (
         <EmptyState icon="👤" title="لا توجد جهات اتصال" description="أضف جهات الاتصال المرتبطة بهذا المشروع" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {data.map((c) => (
             <div key={c.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+               {canDelete && <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => setSelectedIds((current) => {
+                 const next = new Set(current); if (next.has(c.id)) next.delete(c.id); else next.add(c.id); return next;
+               })} className="accent-primary mb-2" aria-label={`تحديد جهة الاتصال ${c.name}`} />}
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <h3 className="font-semibold">{c.name}</h3>
@@ -1221,7 +1339,7 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
               {c.phone && <p className="text-xs text-muted-foreground mt-1">📞 {c.phone}</p>}
               {c.email && <p className="text-xs text-muted-foreground">✉️ {c.email}</p>}
               {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
-              {canDelete && <button onClick={() => setDeleteId(c.id)} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
+               {canDelete && <button onClick={() => setDeleteIds([c.id])} className="text-destructive hover:underline text-sm mt-3">حذف</button>}
               <AttachmentsPanel projectId={projectId} entityType="custom_doc" entityId={c.id} compact />
             </div>
           ))}
@@ -1246,7 +1364,10 @@ function ContactsTab({ projectId, setToast }: { projectId: string; setToast: (t:
           <button onClick={handleCreate} disabled={create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending || !form.name.trim()} className={btnCls}>{create.isPending || attachment.add.isPending || attachment.addFolderZip.isPending ? "جاري..." : "إضافة الجهة"}</button>
         </div>
       </Modal>}
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await remove.mutateAsync(deleteId!); setDeleteId(null); setToast({ message: "تم حذف جهة الاتصال", type: "success" }); }} title="حذف جهة الاتصال" message="هل أنت متأكد؟" confirmLabel="حذف" danger loading={remove.isPending} />
+       <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={() => void handleDelete()}
+         title={deleteIds && deleteIds.length > 1 ? "حذف جهات الاتصال المحددة" : "حذف جهة الاتصال"}
+         message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} جهات اتصال نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد؟"}
+         confirmLabel="حذف" danger loading={remove.isPending} />
     </div>
   );
 }
@@ -1259,6 +1380,11 @@ function PhotosTab({ projectId, setToast }: TabProps) {
   const [preview, setPreview] = useState<SAPhoto | null>(null);
   const [desc, setDesc] = useState("");
   const inputRef = useState<HTMLInputElement | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const visibleIds = photos.map((photo) => photo.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
 
   const handleFiles = (files: File[] | null) => {
     if (!files) return;
@@ -1277,6 +1403,13 @@ function PhotosTab({ projectId, setToast }: TabProps) {
     await remove.mutateAsync(id);
     setToast({ message: "تم حذف الصورة", type: "success" });
     if (preview?.id === id) setPreview(null);
+  };
+  const handleBulkDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) await remove.mutateAsync(id);
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} صور` : "تم حذف الصورة", type: "success" });
   };
 
   return (
@@ -1309,6 +1442,9 @@ function PhotosTab({ projectId, setToast }: TabProps) {
       </div>}
 
       {/* Grid */}
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {[...Array(6)].map((_, i) => <div key={i} className="aspect-square rounded-xl animate-pulse bg-muted" />)}
@@ -1325,6 +1461,16 @@ function PhotosTab({ projectId, setToast }: TabProps) {
             <div key={photo.id} className="relative group aspect-square rounded-xl overflow-hidden cursor-pointer"
               style={{ border: "1px solid rgba(0,240,255,0.12)" }}
               onClick={() => setPreview(photo)}>
+               {canDelete && <input
+                 type="checkbox"
+                 checked={selectedIds.has(photo.id)}
+                 onChange={() => setSelectedIds((current) => {
+                   const next = new Set(current); if (next.has(photo.id)) next.delete(photo.id); else next.add(photo.id); return next;
+                 })}
+                 onClick={(event) => event.stopPropagation()}
+                 className="absolute top-2 right-2 z-10 accent-primary"
+                 aria-label={`تحديد الصورة ${photo.name}`}
+               />}
               <img src={photo.dataUrl} alt={photo.name}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2"
@@ -1377,6 +1523,16 @@ function PhotosTab({ projectId, setToast }: TabProps) {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={!!deleteIds?.length}
+        onClose={() => setDeleteIds(null)}
+        onConfirm={() => void handleBulkDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف الصور المحددة" : "حذف الصورة"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} صور نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذه الصورة؟"}
+        confirmLabel="حذف"
+        danger
+        loading={remove.isPending}
+      />
     </div>
   );
 }
@@ -1591,6 +1747,8 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [preview, setPreview] = useState<SAAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1686,6 +1844,18 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         d.customType.toLowerCase().includes(search.toLowerCase())
       )
     : docs;
+  const visibleIds = filtered.map((attachment) => attachment.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleBulkDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) {
+      await remove.mutateAsync({ aid: id, entityType: "custom_doc", entityId: projectId });
+    }
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+    _setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} مستندات` : "تم حذف المستند", type: "success" });
+  };
 
   const mimeIcon = (mime: string) => {
     if (mime.startsWith("image/")) return "🖼️";
@@ -1728,11 +1898,15 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         />
       ) : (
         search ? <div className="space-y-2">
+          {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+            onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+            onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
           {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={setPreview} mimeIcon={mimeIcon}
-            onDelete={async (att) => {
-              await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
-              _setToast({ message: "تم حذف المستند", type: "success" });
-            }} />)}
+            selected={selectedIds.has(d.id)}
+            onToggle={() => setSelectedIds((current) => {
+              const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
+            })}
+            onDelete={(att) => setDeleteIds([att.id])} />)}
         </div> : <AttachmentFolderBrowser
           attachments={docs}
           currentPath={currentPath}
@@ -1748,6 +1922,16 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         />
       )}
       <AttachmentPreview attachment={preview} onClose={() => setPreview(null)} />
+      <ConfirmDialog
+        isOpen={!!deleteIds?.length}
+        onClose={() => setDeleteIds(null)}
+        onConfirm={() => void handleBulkDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف المستندات المحددة" : "حذف المستند"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مستندات نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا المستند؟"}
+        confirmLabel="حذف"
+        danger
+        loading={remove.isPending}
+      />
 
       {/* Add Modal */}
       {canEdit && showAdd && (
@@ -1833,6 +2017,8 @@ function AttachmentFileRow({
   onDelete,
   onPreview,
   mimeIcon,
+  selected = false,
+  onToggle,
   compact = false,
 }: {
   attachment: SAAttachment;
@@ -1840,6 +2026,8 @@ function AttachmentFileRow({
   onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
   onPreview?: (attachment: SAAttachment) => void;
   mimeIcon: (mime: string) => string;
+  selected?: boolean;
+  onToggle?: () => void;
   compact?: boolean;
 }) {
   const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
@@ -1856,6 +2044,14 @@ function AttachmentFileRow({
         }
       }}
     >
+      {canDelete && onToggle && <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggle}
+        onClick={(event) => event.stopPropagation()}
+        className="accent-primary shrink-0"
+        aria-label={`تحديد ${fileName}`}
+      />}
       <span className={compact ? "text-base" : "text-3xl"}>{mimeIcon(attachment.mimeType)}</span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold truncate">{fileName}</p>
@@ -1908,6 +2104,8 @@ function AttachmentFolderBrowser({
   }
   const pathParts = currentPath.split("/").filter(Boolean);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [deletingFolder, setDeletingFolder] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [downloadError, setDownloadError] = useState("");
@@ -1915,6 +2113,18 @@ function AttachmentFolderBrowser({
   const pdfAttachments = attachments.filter((attachment) =>
     attachment.mimeType === "application/pdf" || attachment.name.toLowerCase().endsWith(".pdf"),
   );
+  const visibleIds = files.map((attachment) => attachment.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleBulkDelete = async () => {
+    if (!deleteIds?.length) return;
+    for (const id of deleteIds) {
+      const attachment = files.find((item) => item.id === id);
+      if (attachment) await onDelete(attachment);
+    }
+    setDeleteIds(null);
+    setSelectedIds(new Set());
+  };
   const downloadPdfZip = async () => {
     if (!pdfAttachments.length || downloadingZip) return;
     setDownloadingZip(true);
@@ -1951,6 +2161,9 @@ function AttachmentFolderBrowser({
           </div>
         )}
       </div>
+      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} />}
       {[...folders.entries()].sort(([a], [b]) => a.localeCompare(b, "ar")).map(([folder, count]) => (
         <div
           key={folder}
@@ -1982,7 +2195,12 @@ function AttachmentFolderBrowser({
         </div>
       ))}
       {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
-        <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon} compact={compact} />
+        <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon}
+          selected={selectedIds.has(attachment.id)}
+          onToggle={() => setSelectedIds((current) => {
+            const next = new Set(current); if (next.has(attachment.id)) next.delete(attachment.id); else next.add(attachment.id); return next;
+          })}
+          compact={compact} />
       ))}
       {!folders.size && !files.length && <p className="text-xs text-muted-foreground text-center py-4">هذا المجلد فارغ</p>}
       {onDeleteFolder && (
@@ -2007,6 +2225,15 @@ function AttachmentFolderBrowser({
           loading={deletingFolder}
         />
       )}
+      <ConfirmDialog
+        isOpen={!!deleteIds?.length}
+        onClose={() => setDeleteIds(null)}
+        onConfirm={() => void handleBulkDelete()}
+        title="حذف المرفقات المحددة"
+        message={`سيتم حذف ${deleteIds?.length ?? 0} مرفقات نهائياً. هل تريد المتابعة؟`}
+        confirmLabel="حذف"
+        danger
+      />
     </div>
   );
 }

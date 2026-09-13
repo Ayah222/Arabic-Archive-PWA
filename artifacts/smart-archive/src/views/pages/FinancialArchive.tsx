@@ -4,6 +4,7 @@ import Modal from "../components/shared/Modal";
 import ConfirmDialog from "../components/shared/ConfirmDialog";
 import Toast from "../components/shared/Toast";
 import EmptyState from "../components/shared/EmptyState";
+import SelectionToolbar from "../components/shared/SelectionToolbar";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { TrendingUp, TrendingDown, Wallet, Bell, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { getArchivePermissions } from "../../controllers/permissions";
@@ -40,7 +41,8 @@ export default function FinancialArchive() {
   };
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<{ id: string; data: FinanceInput } | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<FinanceInput>(empty);
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -78,12 +80,17 @@ export default function FinancialArchive() {
     } catch { setToast({ message: t("financeUpdateFail"), type: "error" }); }
   };
 
+  const visibleIds = filtered.map((item) => item.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteIds?.length) return;
     try {
-      await remove.mutateAsync(deleteId);
-      setDeleteId(null);
-      setToast({ message: t("financeDeleted"), type: "success" });
+      for (const id of deleteIds) await remove.mutateAsync(id);
+      setDeleteIds(null);
+      setSelectedIds(new Set());
+      setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} سجلات مالية` : t("financeDeleted"), type: "success" });
     } catch { setToast({ message: t("financeDeleteFail"), type: "error" }); }
   };
 
@@ -146,6 +153,16 @@ export default function FinancialArchive() {
         ))}
       </div>
 
+      {canDelete && <SelectionToolbar
+        total={visibleIds.length}
+        selected={selectedVisibleIds.length}
+        allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())}
+        onDelete={() => setDeleteIds(selectedVisibleIds)}
+        deleting={remove.isPending}
+      />}
+
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-20 rounded-2xl animate-pulse bg-muted" />)}</div>
       ) : !filtered.length ? (
@@ -157,8 +174,19 @@ export default function FinancialArchive() {
              const color = isIncome ? "hsl(var(--finance-income))" : "hsl(var(--finance-expense))";
              const colorToken = isIncome ? "--finance-income" : "--finance-expense";
             return (
-              <div key={r.id} className="liquid-glass-card rounded-2xl p-4">
+               <div key={r.id} className="liquid-glass-card rounded-2xl p-4">
                 <div className="flex items-center gap-4">
+                   {canDelete && <input
+                     type="checkbox"
+                     checked={selectedIds.has(r.id)}
+                     onChange={() => setSelectedIds((current) => {
+                       const next = new Set(current);
+                       if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                       return next;
+                     })}
+                     className="accent-primary shrink-0"
+                     aria-label={`تحديد ${r.title}`}
+                   />}
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                      style={{ background: `hsl(var(${colorToken}) / 0.10)`, border: `1px solid hsl(var(${colorToken}) / 0.28)` }}>
                     {isIncome ? <TrendingUp className="w-5 h-5" style={{ color }} /> : <TrendingDown className="w-5 h-5" style={{ color }} />}
@@ -184,7 +212,7 @@ export default function FinancialArchive() {
                       style={{ background: "rgba(255,255,255,0.06)" }}>
                       <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                     </button>}
-                    {canDelete && <button onClick={() => setDeleteId(r.id)}
+                     {canDelete && <button onClick={() => setDeleteIds([r.id])}
                       className="w-7 h-7 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
                       style={{ background: "rgba(239,68,68,0.08)" }}>
                       <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -209,8 +237,9 @@ export default function FinancialArchive() {
         />
       </Modal>
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete}
-        title={t("deleteFinance")} message={t("deleteFinanceMsg")}
+       <ConfirmDialog isOpen={!!deleteIds?.length} onClose={() => setDeleteIds(null)} onConfirm={handleDelete}
+         title={deleteIds && deleteIds.length > 1 ? "حذف السجلات المالية المحددة" : t("deleteFinance")}
+         message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} سجلات مالية نهائياً. هل تريد المتابعة؟` : t("deleteFinanceMsg")}
         confirmLabel={t("delete")} danger loading={remove.isPending} />
     </div>
   );

@@ -7,6 +7,8 @@ import {
 } from "../../../controllers/useHr";
 import FileUpload from "../../components/shared/FileUpload";
 import EmptyState from "../../components/shared/EmptyState";
+import SelectionToolbar from "../../components/shared/SelectionToolbar";
+import ConfirmDialog from "../../components/shared/ConfirmDialog";
 import { getArchivePermissions } from "../../../controllers/permissions";
 
 const inputCls = "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm";
@@ -84,16 +86,21 @@ function AddCandidateModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CandidateCard({ c }: { c: HRCandidate }) {
+function CandidateCard({ c, selected, onToggle, onDelete }: {
+  c: HRCandidate;
+  selected: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
   const { canEdit } = getArchivePermissions();
   const update = useUpdateCandidate();
-  const del = useDeleteCandidate();
   const extract = useExtractCvSkills();
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="liquid-glass-card rounded-2xl p-5">
       <div className="flex items-start justify-between gap-3">
+        {canEdit && <input type="checkbox" checked={selected} onChange={onToggle} onClick={(event) => event.stopPropagation()} className="accent-primary mt-1 shrink-0" aria-label={`تحديد ${c.name}`} />}
         <div className="flex items-start gap-3 min-w-0 cursor-pointer" onClick={() => setExpanded(x => !x)}>
           <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
             <UserSearch className="w-5 h-5 text-purple-400" />
@@ -110,7 +117,7 @@ function CandidateCard({ c }: { c: HRCandidate }) {
             )}
           </div>
         </div>
-        {canEdit && <button onClick={() => del.mutate(c.id)} className="text-red-400 hover:text-red-500 shrink-0"><Trash2 className="w-4 h-4" /></button>}
+        {canEdit && <button onClick={onDelete} className="text-red-400 hover:text-red-500 shrink-0"><Trash2 className="w-4 h-4" /></button>}
       </div>
 
       {expanded && (
@@ -159,7 +166,23 @@ function CandidateCard({ c }: { c: HRCandidate }) {
 export default function HRCandidates() {
   const { canEdit } = getArchivePermissions();
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const { data, isLoading } = useCandidates();
+  const del = useDeleteCandidate();
+  const visibleIds = (data ?? []).map((candidate) => candidate.id);
+  const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const handleDelete = async () => {
+    if (!deleteIds?.length) return;
+    try {
+      for (const id of deleteIds) await del.mutateAsync(id);
+      setDeleteIds(null);
+      setSelectedIds(new Set());
+    } catch {
+      // Keep the dialog open so the user can retry after a failed request.
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
@@ -177,17 +200,47 @@ export default function HRCandidates() {
         </button>}
       </div>
 
+      {canEdit && <SelectionToolbar
+        total={visibleIds.length}
+        selected={selectedVisibleIds.length}
+        allSelected={allVisibleSelected}
+        onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
+        onClear={() => setSelectedIds(new Set())}
+        onDelete={() => setDeleteIds(selectedVisibleIds)}
+        deleting={del.isPending}
+      />}
+
       {isLoading ? (
         <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-24 rounded-2xl animate-pulse bg-muted" />)}</div>
       ) : !data?.length ? (
         <EmptyState icon="🔍" title="لا يوجد مرشحون" description="أضف أول مرشح بالضغط على الزر أعلاه" />
       ) : (
         <div className="space-y-3">
-          {data.map(c => <CandidateCard key={c.id} c={c} />)}
+          {data.map(c => <CandidateCard
+            key={c.id}
+            c={c}
+            selected={selectedIds.has(c.id)}
+            onToggle={() => setSelectedIds((current) => {
+              const next = new Set(current);
+              if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+              return next;
+            })}
+            onDelete={() => setDeleteIds([c.id])}
+          />)}
         </div>
       )}
 
       {showAdd && <AddCandidateModal onClose={() => setShowAdd(false)} />}
+      <ConfirmDialog
+        isOpen={!!deleteIds?.length}
+        onClose={() => setDeleteIds(null)}
+        onConfirm={() => void handleDelete()}
+        title={deleteIds && deleteIds.length > 1 ? "حذف المرشحين المحددين" : "حذف المرشح"}
+        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مرشحين نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذا المرشح؟"}
+        confirmLabel="حذف"
+        danger
+        loading={del.isPending}
+      />
     </div>
   );
 }
