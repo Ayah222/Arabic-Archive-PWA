@@ -125,7 +125,7 @@ export default function FinancialArchive() {
                   <span className="font-medium text-foreground">{r.title}</span>
                   <span className="text-muted-foreground mr-2 text-xs">— {r.reminderDate}</span>
                 </div>
-                <span className="font-bold shrink-0" style={{ color: r.type === "income" ? "#00f0ff" : "#ff0080" }}>
+                <span className="font-bold shrink-0" style={{ color: r.type === "income" ? "hsl(var(--finance-income))" : "hsl(var(--finance-expense))" }}>
                   {r.type === "income" ? "+" : "-"}{fmt(r.amount)}
                 </span>
               </div>
@@ -138,8 +138,8 @@ export default function FinancialArchive() {
         {(["all", "income", "expense"] as const).map(type => (
           <button key={type} onClick={() => setFilterType(type)}
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-            style={filterType === type
-              ? { background: "rgba(0,240,255,0.10)", border: "1px solid rgba(0,240,255,0.50)", color: "#00f0ff" }
+             style={filterType === type
+               ? { background: "hsl(var(--primary) / 0.10)", border: "1px solid hsl(var(--primary) / 0.35)", color: "hsl(var(--primary))" }
                : { background: "transparent", border: "1px solid transparent", color: "hsl(var(--muted-foreground))" }}>
             {type === "all" ? t("all") : type === "income" ? t("income") : t("expense")}
           </button>
@@ -154,12 +154,13 @@ export default function FinancialArchive() {
         <div className="space-y-3">
           {filtered.map(r => {
             const isIncome = r.type === "income";
-            const color = isIncome ? "#00f0ff" : "#ff0080";
+             const color = isIncome ? "hsl(var(--finance-income))" : "hsl(var(--finance-expense))";
+             const colorToken = isIncome ? "--finance-income" : "--finance-expense";
             return (
               <div key={r.id} className="liquid-glass-card rounded-2xl p-4">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+                     style={{ background: `hsl(var(${colorToken}) / 0.10)`, border: `1px solid hsl(var(${colorToken}) / 0.28)` }}>
                     {isIncome ? <TrendingUp className="w-5 h-5" style={{ color }} /> : <TrendingDown className="w-5 h-5" style={{ color }} />}
                   </div>
                   <div className="flex-1 min-w-0">

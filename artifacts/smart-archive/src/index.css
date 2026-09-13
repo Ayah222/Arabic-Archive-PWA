@@ -86,6 +86,9 @@
   --badge-done-border:    rgba(236,72,153,0.30);
   --badge-done-text:      #db2777;
 
+  --finance-income:       158 64% 36%;
+  --finance-expense:      345 68% 45%;
+
   --bg-page: radial-gradient(140% 140% at 50% 10%, #f5f7fb 0%, #e4e8f1 100%);
 
   --background: 222 30% 94%;
@@ -174,6 +177,9 @@
   --badge-done-bg:        rgba(236,72,153,0.14);
   --badge-done-border:    rgba(236,72,153,0.40);
   --badge-done-text:      #ec4899;
+
+  --finance-income:       160 72% 62%;
+  --finance-expense:      340 78% 67%;
 
   --bg-page: radial-gradient(140% 140% at 50% 0%, #0d0a1a 0%, #05040a 100%);
 
