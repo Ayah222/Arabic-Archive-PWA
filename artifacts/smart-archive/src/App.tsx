@@ -42,6 +42,53 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
 });
 
+function AppUpdateNotice() {
+  const [availableVersion, setAvailableVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stopped = false;
+    const checkVersion = async () => {
+      try {
+        const response = await fetch("/api/sa/app-version", { cache: "no-store" });
+        if (!response.ok) return;
+        const { version } = (await response.json()) as { version?: string };
+        if (!version || stopped) return;
+        const knownVersion = localStorage.getItem("sa-app-version");
+        if (!knownVersion) localStorage.setItem("sa-app-version", version);
+        else if (knownVersion !== version) setAvailableVersion(version);
+      } catch {
+        // Updating is optional; the app remains usable when offline.
+      }
+    };
+    void checkVersion();
+    const interval = window.setInterval(() => { void checkVersion(); }, 120000);
+    window.addEventListener("focus", checkVersion);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", checkVersion);
+    };
+  }, []);
+
+  if (!availableVersion) return null;
+  return (
+    <div className="fixed bottom-4 left-4 right-4 z-[100] mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-card p-3 shadow-2xl">
+      <span className="text-sm font-medium">توجد نسخة أحدث من التطبيق</span>
+      <button
+        onClick={async () => {
+          localStorage.setItem("sa-app-version", availableVersion);
+          const registration = await navigator.serviceWorker?.getRegistration();
+          await registration?.update();
+          window.location.reload();
+        }}
+        className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+      >
+        تحديث الآن
+      </button>
+    </div>
+  );
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = getCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
@@ -110,6 +157,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
         <PwaInstallPrompt />
+        <AppUpdateNotice />
         <Routes>
           {/* Public pages — no layout, no auth */}
           <Route path="/login" element={<LoginRoute />} />

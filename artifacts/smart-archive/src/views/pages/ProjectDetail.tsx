@@ -1346,7 +1346,7 @@ function AttachmentsPanel({
     if (!files?.length) return;
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
     if (files.length > fileLimits.maxFolderFiles || files.some((file) => file.size > fileLimits.maxFileBytes) || totalBytes > fileLimits.maxFolderBytes) {
-      setNotice({ message: `المجلد يجب ألا يتجاوز ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
+      setNotice({ message: `في عملية رفع المجلد الحالية: الحد ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
       return;
     }
     try {
@@ -1478,7 +1478,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
     if (!files?.length) return;
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
     if (files.length > fileLimits.maxFolderFiles || files.some((file) => file.size > fileLimits.maxFileBytes) || totalBytes > fileLimits.maxFolderBytes) {
-      _setToast({ message: `المجلد يجب ألا يتجاوز ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
+      _setToast({ message: `في عملية رفع المجلد الحالية: الحد ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
       return;
     }
     try {

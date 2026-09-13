@@ -8,6 +8,13 @@ router.get("/sa/storage/config", (_req, res) => {
   res.json(publicFileLimits());
 });
 
+router.get("/sa/app-version", (_req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.json({
+    version: process.env.REPLIT_DEPLOYMENT_ID || process.env.REPL_ID || "development",
+  });
+});
+
 router.post("/sa/storage/upload-url", async (req, res): Promise<void> => {
   const { filename, namespace } = req.body as { filename?: string; namespace?: string };
   if (!filename || !namespace) {
