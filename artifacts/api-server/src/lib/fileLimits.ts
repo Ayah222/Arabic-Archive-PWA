@@ -8,7 +8,9 @@ const gigabyte = 1024 * 1024 * 1024;
 
 export const FILE_LIMITS = {
   maxFileBytes: positiveNumber(process.env.SA_MAX_FILE_MB, 500) * megabyte,
-  maxFolderFiles: Math.floor(positiveNumber(process.env.SA_MAX_FOLDER_FILES, 10000)),
+  // Folder uploads are intentionally capped at 10,000 files. Older runtime
+  // configuration used 200, which caused large archive folders to be rejected.
+  maxFolderFiles: Math.max(10000, Math.floor(positiveNumber(process.env.SA_MAX_FOLDER_FILES, 10000))),
   maxFolderBytes: positiveNumber(process.env.SA_MAX_FOLDER_GB, 5) * gigabyte,
   maxZipArchiveBytes: positiveNumber(process.env.SA_MAX_ZIP_ARCHIVE_GB, 1) * gigabyte,
 } as const;
