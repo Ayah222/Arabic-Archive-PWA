@@ -140,7 +140,7 @@ export default function FinancialArchive() {
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
             style={filterType === type
               ? { background: "rgba(0,240,255,0.10)", border: "1px solid rgba(0,240,255,0.50)", color: "#00f0ff" }
-              : { background: "transparent", border: "1px solid transparent", color: "rgba(255,255,255,0.45)" }}>
+               : { background: "transparent", border: "1px solid transparent", color: "hsl(var(--muted-foreground))" }}>
             {type === "all" ? t("all") : type === "income" ? t("income") : t("expense")}
           </button>
         ))}
