@@ -33,6 +33,8 @@ import {
   type LetterDirection,
 } from "../../models/types";
 
+const folderPathByFile = new WeakMap<File, string>();
+
 type StaticTab = "contracts" | "contractors" | "documents" | "meetings" | "letters" | "contacts" | "photos" | "agency";
 type Tab = StaticTab | string; // dynamic: "cat_<id>"
 
@@ -70,9 +72,10 @@ async function readDirectoryFiles(directory: DirectoryEntry, parentPath = ""): P
       files.push(...await readDirectoryFiles(entry, relativePath));
     } else if (entry.getFile) {
       const source = await entry.getFile();
-      const file = new File([source], source.name, { type: source.type, lastModified: source.lastModified });
-      Object.defineProperty(file, "webkitRelativePath", { value: relativePath, configurable: true });
-      files.push(file);
+      // Keep the original File instead of copying every file's bytes into a
+      // second File object while reading a large directory.
+      folderPathByFile.set(source, relativePath);
+      files.push(source);
     }
   }
   return files;
@@ -158,14 +161,74 @@ async function uploadPendingFolder(
 ) {
   if (folderFiles?.length) {
     if (folderFiles.length > 10000) throw new Error("الحد الأقصى للمجلد هو 10000 ملف");
-    for (const file of folderFiles) {
-      const relativePath = file.webkitRelativePath || file.name;
+    const result = await uploadFilesReliably(folderFiles, async (file) => {
+      const relativePath = folderPathByFile.get(file) || file.webkitRelativePath || file.name;
       await actions.add.mutateAsync({ entityType, entityId, file, name: relativePath, customType, relativePath });
+    });
+    if (result.failed.length) {
+      throw new Error(`تم رفع ${result.completed} ملفاً وتعذر رفع ${result.failed.length} ملفاً`);
     }
   }
   if (zipFile) {
     await actions.addFolderZip.mutateAsync({ entityType, entityId, file: zipFile, customType, targetPath: "" });
   }
+}
+
+type FolderUploadProgress = {
+  completed: number;
+  total: number;
+  failed: number;
+};
+
+type FolderUploadResult = {
+  completed: number;
+  failed: Array<{ file: File; error: unknown }>;
+};
+
+/**
+ * A bounded worker pool prevents a large folder from being uploaded as one
+ * fragile chain. Transient upload failures are retried, and a failed file
+ * does not prevent the rest of the folder from being saved.
+ */
+async function uploadFilesReliably(
+  files: File[],
+  upload: (file: File) => Promise<void>,
+  onProgress?: (progress: FolderUploadProgress) => void,
+): Promise<FolderUploadResult> {
+  const failed: Array<{ file: File; error: unknown }> = [];
+  let nextIndex = 0;
+  let completed = 0;
+  const workerCount = Math.min(3, files.length);
+
+  const worker = async () => {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= files.length) return;
+      const file = files[index];
+      let lastError: unknown;
+      let uploaded = false;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await upload(file);
+          uploaded = true;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+          }
+        }
+      }
+
+      if (!uploaded) failed.push({ file, error: lastError });
+      completed++;
+      onProgress?.({ completed, total: files.length, failed: failed.length });
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return { completed: files.length - failed.length, failed };
 }
 
 export default function ProjectDetail() {
@@ -1341,6 +1404,7 @@ function AttachmentsPanel({
   const [currentPath, setCurrentPath] = useState("");
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [preview, setPreview] = useState<SAAttachment | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1349,9 +1413,12 @@ function AttachmentsPanel({
       setNotice({ message: `في عملية رفع المجلد الحالية: الحد ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
       return;
     }
+    setUploadProgress({ completed: 0, total: files.length, failed: 0 });
     try {
-      for (const file of files) {
-        const selectedPath = preserveFolders ? file.webkitRelativePath || file.name : file.name;
+      const result = await uploadFilesReliably(files, async (file) => {
+        const selectedPath = preserveFolders
+          ? folderPathByFile.get(file) || file.webkitRelativePath || file.name
+          : file.name;
         const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
         await add.mutateAsync({
           entityType,
@@ -1361,12 +1428,23 @@ function AttachmentsPanel({
           customType: attType,
           relativePath,
         });
+      }, setUploadProgress);
+      if (result.failed.length) {
+        const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
+        const suffix = result.failed.length > 3 ? "…" : "";
+        setNotice({
+          message: `تم رفع ${result.completed} من ${files.length} ملفاً، وتعذر رفع ${result.failed.length} (${failedNames}${suffix}). أعد محاولة الملفات المتعذرة فقط.`,
+          type: "error",
+        });
+        return;
       }
       setShowAdd(false);
       setAttName("");
       setAttType("مستند");
     } catch {
       setNotice({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
+    } finally {
+      setUploadProgress(null);
     }
   };
 
@@ -1412,6 +1490,12 @@ function AttachmentsPanel({
 
       {canEdit && showAdd && (
         <div className="bg-muted/40 rounded-xl p-3 mb-2 space-y-2">
+          {uploadProgress && (
+            <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+              جاري رفع {uploadProgress.completed} من {uploadProgress.total}
+              {uploadProgress.failed ? ` — تعذر ${uploadProgress.failed}` : ""}…
+            </div>
+          )}
           <input
             value={attName}
             onChange={(e) => setAttName(e.target.value)}
@@ -1426,7 +1510,7 @@ function AttachmentsPanel({
             className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs"
             dir="rtl"
           />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+           <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2 ${uploadProgress ? "pointer-events-none opacity-60" : ""}`}>
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
               📄 اختر ملفات
               <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)} />
@@ -1473,6 +1557,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [search, setSearch] = useState("");
   const [currentPath, setCurrentPath] = useState("");
   const [preview, setPreview] = useState<SAAttachment | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1481,9 +1566,12 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       _setToast({ message: `في عملية رفع المجلد الحالية: الحد ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB، وألا يتجاوز أي ملف ${fileLimits.maxFileBytes / (1024 * 1024)}MB`, type: "error" });
       return;
     }
+    setUploadProgress({ completed: 0, total: files.length, failed: 0 });
     try {
-      for (const file of files) {
-        const selectedPath = preserveFolders ? file.webkitRelativePath || file.name : file.name;
+      const result = await uploadFilesReliably(files, async (file) => {
+        const selectedPath = preserveFolders
+          ? folderPathByFile.get(file) || file.webkitRelativePath || file.name
+          : file.name;
         const relativePath = [currentPath, selectedPath].filter(Boolean).join("/");
         await add.mutateAsync({
           entityType: "custom_doc",
@@ -1493,6 +1581,15 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           customType: attType || "مستند حر",
           relativePath,
         });
+      }, setUploadProgress);
+      if (result.failed.length) {
+        const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
+        const suffix = result.failed.length > 3 ? "…" : "";
+        _setToast({
+          message: `تم رفع ${result.completed} من ${files.length} ملفاً، وتعذر رفع ${result.failed.length} (${failedNames}${suffix}). أعد محاولة الملفات المتعذرة فقط.`,
+          type: "error",
+        });
+        return;
       }
       setShowAdd(false);
       setAttName("");
@@ -1500,6 +1597,8 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       _setToast({ message: files.length > 1 ? `تم رفع ${files.length} ملفاً` : "تم إضافة المستند", type: "success" });
     } catch {
       _setToast({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
+    } finally {
+      setUploadProgress(null);
     }
   };
 
@@ -1603,6 +1702,12 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-bold text-lg">إضافة مستند حر</h3>
+            {uploadProgress && (
+              <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+                جاري رفع {uploadProgress.completed} من {uploadProgress.total}
+                {uploadProgress.failed ? ` — تعذر ${uploadProgress.failed}` : ""}…
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-1.5">اسم المستند *</label>
               <input
@@ -1628,10 +1733,11 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
               <label className="block text-center py-4 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors">
                 <span className="text-3xl block mb-1">📂</span>
                 <span className="text-sm text-muted-foreground">اختر ملفاً أو عدة ملفات</span>
-                <input
+                 <input
                   type="file"
                   multiple
                   className="hidden"
+                   disabled={Boolean(uploadProgress)}
                   onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)}
                 />
               </label>

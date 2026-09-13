@@ -6,3 +6,4 @@
 - [pdf-parse v2 breaking API change](pdf-parse-v2-api.md) — v2.x replaced the default-function export with a `PDFParse` class; old-API calls fail silently as "no text".
 - [Debugging silent AI-feature fallbacks](ai-fallback-debugging.md) — test the OpenAI key with a raw fetch before assuming a code bug when a graceful-fallback AI helper always returns its default.
 - [Large PDF downloads](bulk-downloads.md) — deliver large attachment batches as one server-side ZIP, not hundreds of browser-triggered downloads.
+- [Large folder uploads](large-folder-uploads.md) — one transient file failure must not abort a mixed PDF/Excel folder upload.
