@@ -309,10 +309,8 @@
   text-align: left !important;
 }
 
-/* اتجاه نص تاريخ الوكالة فقط؛ بدون تغيير نوع أو طريقة إدخال التاريخ */
+/* ترتيب أحرف وأجزاء تاريخ الوكالة فقط؛ بدون تغيير اتجاه الحقل كاملًا */
 .agency-date-input {
-  direction: ltr !important;
-  text-align: left !important;
   unicode-bidi: isolate;
 }
 .agency-date-input::-webkit-datetime-edit,
@@ -320,8 +318,8 @@
 .agency-date-input::-webkit-datetime-edit-day-field,
 .agency-date-input::-webkit-datetime-edit-month-field,
 .agency-date-input::-webkit-datetime-edit-year-field {
-  direction: ltr !important;
-  text-align: left !important;
+  direction: rtl !important;
+  unicode-bidi: isolate;
 }
 .dark select:focus {
   outline: none !important;
