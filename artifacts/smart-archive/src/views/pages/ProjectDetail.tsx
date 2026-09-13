@@ -386,7 +386,7 @@ export default function ProjectDetail() {
                   <div className="mt-3 text-sm text-muted-foreground space-y-2">
                     <p>العميل: <span className="text-foreground">{projectAgency.clientName || "—"}</span></p>
                     <p>رقم الوكالة: <span className="text-foreground">{projectAgency.authorizationNumber || "—"}</span></p>
-                    <p dir="ltr" className="text-right">تاريخ الانتهاء: <span className="text-foreground">{projectAgency.expiresOn || "غير محدد"}</span></p>
+                    <p dir="ltr" className="text-left">تاريخ الانتهاء: <span className="text-foreground">{projectAgency.expiresOn || "غير محدد"}</span></p>
                     <span className={`inline-block text-xs px-2 py-1 rounded-full ${projectAgency.status === "expired" ? "bg-red-500/15 text-red-500" : "bg-green-500/15 text-green-600"}`}>
                       {projectAgency.status === "expired" ? "منتهية" : "سارية"}
                     </span>
