@@ -97,7 +97,7 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">{t("recentProjects")}</h2>
-            <Link to="/projects" className="text-sm font-medium transition-opacity hover:opacity-70" style={{ color:"#00f0ff" }}>
+            <Link to="/projects" className="text-sm font-medium text-primary transition-opacity hover:opacity-70">
               {t("viewAll")}
             </Link>
           </div>
