@@ -2,10 +2,10 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { basename, extname } from "node:path";
 import { inflateRawSync } from "node:zlib";
-import { deletePrivateObject, savePrivateObject } from "../../lib/objectStorage";
-import { deleteSupabaseObject, downloadSupabaseObject, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
+import { deletePrivateObject, downloadPrivateObject, savePrivateObject } from "../../lib/objectStorage";
+import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
-import { listAttachments, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
+import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
 const MAX_UPLOAD_BYTES = FILE_LIMITS.maxFileBytes;
@@ -16,6 +16,63 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_BYTES },
 });
+
+function crc32(bytes: Buffer) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function zipName(rawName: string, used: Set<string>) {
+  const parts = rawName.replace(/\\/g, "/").split("/").filter(Boolean).map((part) => part.replace(/[^\p{L}\p{N}._()\- ]+/gu, "_"));
+  const base = parts.join("/") || "file.pdf";
+  let candidate = base;
+  let index = 2;
+  while (used.has(candidate)) {
+    const dot = base.lastIndexOf(".");
+    candidate = `${dot > 0 ? base.slice(0, dot) : base} (${index++})${dot > 0 ? base.slice(dot) : ""}`;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+async function writeZipChunk(res: import("express").Response, chunk: Buffer) {
+  if (res.write(chunk)) return;
+  await new Promise<void>((resolve) => res.once("drain", resolve));
+}
+
+function zipLocalHeader(name: Buffer, checksum: number, size: number) {
+  const header = Buffer.alloc(30 + name.length);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(20, 4);
+  header.writeUInt16LE(0x800, 6);
+  header.writeUInt16LE(0, 8);
+  header.writeUInt32LE(checksum, 14);
+  header.writeUInt32LE(size, 18);
+  header.writeUInt32LE(size, 22);
+  header.writeUInt16LE(name.length, 26);
+  name.copy(header, 30);
+  return header;
+}
+
+function zipCentralHeader(name: Buffer, checksum: number, size: number, offset: number) {
+  const header = Buffer.alloc(46 + name.length);
+  header.writeUInt32LE(0x02014b50, 0);
+  header.writeUInt16LE(20, 4);
+  header.writeUInt16LE(20, 6);
+  header.writeUInt16LE(0x800, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt32LE(checksum, 16);
+  header.writeUInt32LE(size, 20);
+  header.writeUInt32LE(size, 24);
+  header.writeUInt16LE(name.length, 28);
+  header.writeUInt32LE(offset, 42);
+  name.copy(header, 46);
+  return header;
+}
 
 const mimeByExtension: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -100,6 +157,87 @@ router.get("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
   const { id } = req.params;
   const { entityType, entityId } = req.query as { entityType?: string; entityId?: string };
   res.json(await listAttachments(String(id), { entityType, entityId }));
+});
+
+router.post("/sa/projects/:id/attachments/download-zip", async (req, res): Promise<void> => {
+  const projectId = String(req.params.id);
+  const requestedIds: string[] = Array.isArray(req.body?.attachmentIds)
+    ? req.body.attachmentIds.filter((id: unknown): id is string => typeof id === "string")
+    : [];
+  const ids = [...new Set(requestedIds)].slice(0, MAX_FOLDER_FILES);
+  if (!ids.length) {
+    res.status(400).json({ error: "لا توجد ملفات PDF للتنزيل" });
+    return;
+  }
+
+  const attachments = (await listAttachmentStorageByIds(projectId, ids)).filter((attachment) =>
+    attachment.mimeType === "application/pdf" || attachment.name.toLowerCase().endsWith(".pdf"),
+  );
+  if (!attachments.length) {
+    res.status(404).json({ error: "لا توجد ملفات PDF للتنزيل" });
+    return;
+  }
+
+  res.status(200);
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="archive-pdfs-${projectId}.zip"`);
+  res.setHeader("Cache-Control", "no-store");
+
+  let offset = 0;
+  const centralDirectory: Buffer[] = [];
+  const usedNames = new Set<string>();
+  const failures: string[] = [];
+
+  for (const attachment of attachments) {
+    try {
+      const supabasePath = parseSupabaseObjectPath(attachment.objectPath);
+      const bytes = supabasePath
+        ? await downloadSupabaseObject(supabasePath, MAX_UPLOAD_BYTES)
+        : attachment.objectPath
+          ? await downloadPrivateObject(attachment.objectPath, MAX_UPLOAD_BYTES)
+          : null;
+      if (!bytes) throw new Error("مسار الملف غير موجود");
+
+      const name = zipName(attachment.name, usedNames);
+      const nameBytes = Buffer.from(name, "utf8");
+      const checksum = crc32(bytes);
+      const localHeader = zipLocalHeader(nameBytes, checksum, bytes.length);
+      centralDirectory.push(zipCentralHeader(nameBytes, checksum, bytes.length, offset));
+      await writeZipChunk(res, localHeader);
+      offset += localHeader.length;
+      await writeZipChunk(res, bytes);
+      offset += bytes.length;
+    } catch {
+      failures.push(attachment.name);
+    }
+  }
+
+  if (failures.length) {
+    const report = Buffer.from(
+      `تعذر تنزيل ${failures.length} ملفاً من أصل ${attachments.length}:\n${failures.join("\n")}\n`,
+      "utf8",
+    );
+    const nameBytes = Buffer.from("_تعذر_تنزيلها.txt", "utf8");
+    const checksum = crc32(report);
+    const localHeader = zipLocalHeader(nameBytes, checksum, report.length);
+    centralDirectory.push(zipCentralHeader(nameBytes, checksum, report.length, offset));
+    await writeZipChunk(res, localHeader);
+    offset += localHeader.length;
+    await writeZipChunk(res, report);
+    offset += report.length;
+  }
+
+  const centralOffset = offset;
+  const central = Buffer.concat(centralDirectory);
+  await writeZipChunk(res, central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(centralDirectory.length, 8);
+  end.writeUInt16LE(centralDirectory.length, 10);
+  end.writeUInt32LE(central.length, 12);
+  end.writeUInt32LE(centralOffset, 16);
+  await writeZipChunk(res, end);
+  res.end();
 });
 
 router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, res): Promise<void> => {

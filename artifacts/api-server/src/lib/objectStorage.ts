@@ -84,3 +84,15 @@ export async function deletePrivateObject(objectName: string) {
   const { bucketName } = privateObjectLocation();
   await objectStorageClient.bucket(bucketName).file(objectName).delete({ ignoreNotFound: true });
 }
+
+export async function downloadPrivateObject(objectName: string, maxBytes?: number) {
+  const { bucketName } = privateObjectLocation();
+  const file = objectStorageClient.bucket(bucketName).file(objectName);
+  const [metadata] = await file.getMetadata();
+  if (maxBytes && Number(metadata.size || 0) > maxBytes) {
+    throw new Error("حجم الملف يتجاوز الحد المسموح");
+  }
+  const [bytes] = await file.download();
+  if (maxBytes && bytes.length > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
+  return bytes;
+}

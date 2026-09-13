@@ -39,6 +39,28 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return r.json();
 }
 
+export async function downloadAttachmentsZip(projectId: string, attachmentIds: string[]) {
+  const response = await fetch(`${API}/projects/${encodeURIComponent(projectId)}/attachments/download-zip`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...getUserRequestHeaders(),
+    },
+    body: JSON.stringify({ attachmentIds }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `archive-pdfs-${projectId}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function patch<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(path, {
     method: "PATCH",

@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -1741,15 +1741,47 @@ function AttachmentFolderBrowser({
   const pathParts = currentPath.split("/").filter(Boolean);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [deletingFolder, setDeletingFolder] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   const folderDisplayName = folderToDelete?.split("/").filter(Boolean).pop() || "";
+  const pdfAttachments = attachments.filter((attachment) =>
+    attachment.mimeType === "application/pdf" || attachment.name.toLowerCase().endsWith(".pdf"),
+  );
+  const downloadPdfZip = async () => {
+    if (!pdfAttachments.length || downloadingZip) return;
+    setDownloadingZip(true);
+    setDownloadError("");
+    try {
+      await downloadAttachmentsZip(pdfAttachments[0].projectId, pdfAttachments.map((attachment) => attachment.id));
+    } catch {
+      setDownloadError("تعذر تجهيز ملفات PDF للتنزيل");
+    } finally {
+      setDownloadingZip(false);
+    }
+  };
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground" dir="rtl">
-        <button onClick={() => onPathChange("")} className="text-primary hover:underline">الرئيسية</button>
-        {pathParts.map((part, index) => {
-          const path = pathParts.slice(0, index + 1).join("/");
-          return <span key={path} className="flex items-center gap-1"><span>/</span><button onClick={() => onPathChange(path)} className="text-primary hover:underline">{part}</button></span>;
-        })}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground" dir="rtl">
+        <div className="flex flex-wrap items-center gap-1">
+          <button onClick={() => onPathChange("")} className="text-primary hover:underline">الرئيسية</button>
+          {pathParts.map((part, index) => {
+            const path = pathParts.slice(0, index + 1).join("/");
+            return <span key={path} className="flex items-center gap-1"><span>/</span><button onClick={() => onPathChange(path)} className="text-primary hover:underline">{part}</button></span>;
+          })}
+        </div>
+        {pdfAttachments.length > 0 && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void downloadPdfZip()}
+              disabled={downloadingZip}
+              className="rounded-lg border border-primary/30 px-2.5 py-1.5 text-primary hover:bg-primary/10 disabled:opacity-60"
+            >
+              {downloadingZip ? "جاري تجهيز ZIP..." : `تحميل PDF دفعة واحدة (${pdfAttachments.length})`}
+            </button>
+            {downloadError && <span className="text-destructive">{downloadError}</span>}
+          </div>
+        )}
       </div>
       {[...folders.entries()].sort(([a], [b]) => a.localeCompare(b, "ar")).map(([folder, count]) => (
         <div

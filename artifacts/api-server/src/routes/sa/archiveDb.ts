@@ -865,6 +865,38 @@ export async function listAttachments(
   return Promise.all((rows ?? []).map(toAttachment));
 }
 
+export async function listAttachmentsByIds(projectId: string, ids: string[]): Promise<SAAttachment[]> {
+  if (!ids.length) return [];
+  const rows = unwrap(
+    await supabaseAdmin()
+      .from("attachments")
+      .select("*")
+      .eq("project_id", projectId)
+      .in("id", ids),
+  );
+  return Promise.all((rows ?? []).map(toAttachment));
+}
+
+export async function listAttachmentStorageByIds(
+  projectId: string,
+  ids: string[],
+): Promise<Array<{ id: string; objectPath: string | null; name: string; mimeType: string }>> {
+  if (!ids.length) return [];
+  const rows = unwrap(
+    await supabaseAdmin()
+      .from("attachments")
+      .select("*")
+      .eq("project_id", projectId)
+      .in("id", ids),
+  ) as Array<Record<string, unknown>>;
+  return (rows ?? []).map((row) => ({
+    id: String(row.id),
+    objectPath: attachmentObjectPath(row),
+    name: String(row.name ?? "file.pdf"),
+    mimeType: String(row.mime_type ?? "application/octet-stream"),
+  }));
+}
+
 export async function createAttachment(
   projectId: string,
   input: { entityType: string; entityId?: string; objectPath: string; name: string; customType?: string; mimeType?: string; size?: number },
