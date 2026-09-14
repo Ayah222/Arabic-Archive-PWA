@@ -78,8 +78,8 @@ function AddLetterModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">إرفاق ملف</label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={e => setAttachmentFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
-            <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word</p>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" onChange={e => setAttachmentFile(e.target.files?.[0] ?? null)} className="w-full text-sm text-muted-foreground file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary" />
+            <p className="text-xs text-muted-foreground mt-1">PDF أو صورة أو مستند Word أو Excel</p>
           </div>
           <p className="text-xs text-muted-foreground">{t("autoRefNote")}</p>
           <button onClick={handleSubmit} disabled={create.isPending || attachment.add.isPending || !form.projectId || !form.subject.trim() || !form.from.trim() || !form.to.trim() || !form.date} className={btnPrimary}>
