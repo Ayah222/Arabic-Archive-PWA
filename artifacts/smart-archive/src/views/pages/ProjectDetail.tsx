@@ -1736,6 +1736,9 @@ function AttachmentsPanel({
         attachments={attachments}
         currentPath={currentPath}
         onPathChange={setCurrentPath}
+        canEdit={canEdit}
+        uploading={Boolean(uploadProgress)}
+        onAddFile={(file) => void uploadFiles([file])}
         canDelete={canDelete}
         onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
         onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType, entityId, folderPath })}
@@ -1926,6 +1929,9 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           attachments={docs}
           currentPath={currentPath}
           onPathChange={setCurrentPath}
+          canEdit={canEdit}
+          uploading={Boolean(uploadProgress)}
+          onAddFile={(file) => void uploadFiles([file])}
           canDelete={canDelete}
            onPreview={setPreview}
            onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath })}
@@ -2086,6 +2092,9 @@ function AttachmentFolderBrowser({
   attachments,
   currentPath,
   onPathChange,
+  canEdit,
+  uploading,
+  onAddFile,
   canDelete,
   onDelete,
   onDeleteFolder,
@@ -2096,6 +2105,9 @@ function AttachmentFolderBrowser({
   attachments: SAAttachment[];
   currentPath: string;
   onPathChange: (path: string) => void;
+  canEdit?: boolean;
+  uploading?: boolean;
+  onAddFile?: (file: File) => void | Promise<unknown>;
   canDelete: boolean;
   onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
   onDeleteFolder?: (folderPath: string) => void | Promise<unknown>;
@@ -2162,8 +2174,23 @@ function AttachmentFolderBrowser({
             return <span key={path} className="flex items-center gap-1"><span>/</span><button onClick={() => onPathChange(path)} className="text-primary hover:underline">{part}</button></span>;
           })}
         </div>
-        {pdfAttachments.length > 0 && (
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && onAddFile && (
+            <label className={`rounded-lg border border-primary/30 px-2.5 py-1.5 text-primary hover:bg-primary/10 ${uploading ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"}`}>
+              إضافة ملف هنا
+              <input
+                type="file"
+                className="hidden"
+                disabled={uploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void onAddFile(file);
+                }}
+              />
+            </label>
+          )}
+          {pdfAttachments.length > 0 && (
             <button
               type="button"
               onClick={() => void downloadPdfZip()}
@@ -2172,9 +2199,9 @@ function AttachmentFolderBrowser({
             >
               {downloadingZip ? "جاري تجهيز ZIP..." : `تحميل PDF دفعة واحدة (${pdfAttachments.length})`}
             </button>
-            {downloadError && <span className="text-destructive">{downloadError}</span>}
-          </div>
-        )}
+          )}
+          {downloadError && <span className="text-destructive">{downloadError}</span>}
+        </div>
       </div>
       {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
         onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
