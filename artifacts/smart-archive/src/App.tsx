@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getCurrentUser, setCurrentUser } from "./controllers/useGlobal";
 import { getArchivePermissions } from "./controllers/permissions";
@@ -99,6 +99,43 @@ function LoginRoute() {
   return getCurrentUser() ? <Navigate to="/" replace /> : <LoginPage />;
 }
 
+function ScrollPositionRestoration() {
+  const location = useLocation();
+  const storageKey = `sa-scroll:${location.pathname}${location.search}`;
+
+  useEffect(() => {
+    let frame = 0;
+    let restoreTimer = 0;
+    let lateRestoreTimer = 0;
+    const savePosition = () => {
+      sessionStorage.setItem(storageKey, String(window.scrollY));
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(savePosition);
+    };
+    const savedPosition = sessionStorage.getItem(storageKey);
+    if (savedPosition !== null) {
+      const restore = () => window.scrollTo(0, Number(savedPosition));
+      frame = requestAnimationFrame(restore);
+      restoreTimer = window.setTimeout(restore, 150);
+      lateRestoreTimer = window.setTimeout(restore, 800);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pagehide", savePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(restoreTimer);
+      window.clearTimeout(lateRestoreTimer);
+      savePosition();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pagehide", savePosition);
+    };
+  }, [storageKey]);
+
+  return null;
+}
+
 export default function App() {
   const [, setAuthRevision] = useState(0);
 
@@ -156,6 +193,7 @@ export default function App() {
     <LanguageProvider>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={BASE}>
+        <ScrollPositionRestoration />
         <PwaInstallPrompt />
         <AppUpdateNotice />
         <Routes>

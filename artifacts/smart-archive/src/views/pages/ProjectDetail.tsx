@@ -252,7 +252,7 @@ async function uploadFilesReliably(
 export default function ProjectDetail() {
   const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get("tab") || "contracts");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
@@ -265,6 +265,14 @@ export default function ProjectDetail() {
   const { data: project, isLoading, isError } = useProject(id);
   const { data: projectAgencies = [] } = useAgencies(id);
   const projectAgency = projectAgencies[0];
+  const selectTab = (tab: Tab) => {
+    setActiveTab(tab);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", tab);
+      return next;
+    }, { replace: true });
+  };
 
   if (isLoading) {
     return (
@@ -349,7 +357,7 @@ export default function ProjectDetail() {
           {STATIC_TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-150 ${
                 activeTab === tab.id
                   ? "bg-primary text-primary-foreground shadow-sm"
@@ -364,7 +372,7 @@ export default function ProjectDetail() {
           {categories.map((cat) => (
             <button
               key={`cat_${cat.id}`}
-              onClick={() => setActiveTab(`cat_${cat.id}`)}
+              onClick={() => selectTab(`cat_${cat.id}`)}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-150 ${
                 activeTab === `cat_${cat.id}`
                   ? "bg-amber-500 text-white shadow-sm"
@@ -399,7 +407,7 @@ export default function ProjectDetail() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newCatName.trim()) {
                   createCat.mutateAsync(newCatName.trim()).then((cat) => {
-                    setActiveTab(`cat_${cat.id}`);
+                    selectTab(`cat_${cat.id}`);
                     setShowNewCategory(false);
                     setNewCatName("");
                     setToast({ message: `تم إنشاء فئة "${cat.name}"`, type: "success" });
@@ -416,7 +424,7 @@ export default function ProjectDetail() {
                 onClick={async () => {
                   if (!newCatName.trim()) return;
                   const cat = await createCat.mutateAsync(newCatName.trim());
-                  setActiveTab(`cat_${cat.id}`);
+                  selectTab(`cat_${cat.id}`);
                   setShowNewCategory(false);
                   setNewCatName("");
                   setToast({ message: `تم إنشاء فئة "${cat.name}"`, type: "success" });
@@ -511,7 +519,7 @@ export default function ProjectDetail() {
           const name = categoryToDelete.name;
           await removeCat.mutateAsync(categoryToDelete.id);
           setCategoryToDelete(null);
-          setActiveTab("contracts");
+          selectTab("contracts");
           setToast({ message: `تم حذف فئة "${name}"`, type: "success" });
         }}
         title="حذف الفئة"
