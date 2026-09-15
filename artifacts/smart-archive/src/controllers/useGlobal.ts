@@ -19,6 +19,24 @@ export const DEFAULT_FILE_LIMITS: SAFileLimits = {
   maxZipArchiveBytes: 1 * GB,
 };
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".csv": "text/csv",
+  ".zip": "application/zip",
+};
+
+export function getAttachmentMimeType(file: Pick<File, "name" | "type">) {
+  const dot = file.name.lastIndexOf(".");
+  const extension = dot >= 0 ? file.name.slice(dot).toLowerCase() : "";
+  return MIME_BY_EXTENSION[extension] || file.type || "application/octet-stream";
+}
+
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { headers: getUserRequestHeaders(), credentials: "include" });
   if (!r.ok) throw new Error(await r.text());
@@ -192,7 +210,13 @@ export async function uploadDirectToSupabase(file: File, namespace: string, maxB
     filename: file.name,
     namespace,
   });
-  const { error } = await supabase.storage.from(target.bucket).uploadToSignedUrl(target.path, target.token, file);
+  const contentType = getAttachmentMimeType(file);
+  const uploadFile = file.type === contentType
+    ? file
+    : new File([file], file.name, { type: contentType, lastModified: file.lastModified });
+  const { error } = await supabase.storage
+    .from(target.bucket)
+    .uploadToSignedUrl(target.path, target.token, uploadFile, { contentType });
   if (error) throw new Error(error.message);
   return target;
 }
@@ -598,7 +622,7 @@ export function usePhotoActions(projectId: string) {
         post<SAPhoto>(`${API}/projects/${projectId}/photos`, {
           storagePath: target.path,
           filename: data.file.name,
-          mimeType: data.file.type,
+           mimeType: getAttachmentMimeType(data.file),
           size: data.file.size,
           name: data.name,
           description: data.description,
