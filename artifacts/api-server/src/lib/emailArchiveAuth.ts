@@ -6,7 +6,7 @@ export type EmailArchiveActor = {
   role: "admin" | "data_entry" | "viewer";
 };
 
-type ArchiveSessionPayload = EmailArchiveActor & { exp: number };
+type ArchiveSessionPayload = EmailArchiveActor & { exp: number; adminSessionVersion?: string };
 export const ARCHIVE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // Increment this whenever the local manager credentials are rotated. It
 // invalidates every previously issued manager session.
@@ -57,7 +57,7 @@ export function verifyEmailArchiveSession(token: unknown): EmailArchiveActor | n
 // cookie, issued only after verifying either the local admin login or a real
 // Supabase access token + the profile's `hr_access` flag (see users.ts).
 export type HrActor = { id: string; name: string };
-type HrSessionPayload = HrActor & { exp: number };
+type HrSessionPayload = HrActor & { exp: number; adminSessionVersion?: string };
 
 export function createHrSession(actor: HrActor) {
   const payload = Buffer.from(JSON.stringify({
