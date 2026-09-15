@@ -7,8 +7,14 @@ const SUPABASE_MARKER = `supabase://${SUPABASE_STORAGE_BUCKET}/`;
 let bucketReady: Promise<void> | null = null;
 
 function safeFilename(filename: string) {
-  const base = path.basename(filename).normalize("NFKC").replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(0, 160);
-  return base || "file";
+  const original = path.basename(filename).normalize("NFKC");
+  const extension = path.extname(original).toLowerCase().replace(/[^a-z0-9.]/g, "");
+  const stem = path.basename(original, path.extname(original))
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 150);
+  return `${stem || "file"}${extension}`;
 }
 
 export function supabaseObjectPath(storagePath: string) {

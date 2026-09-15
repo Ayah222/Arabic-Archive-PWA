@@ -10,6 +10,13 @@ Postgres does not support `IF NOT EXISTS` on `CREATE POLICY`. For an idempotent/
 
 **How to apply:** Any time you write or edit a Supabase/Postgres setup script that creates RLS policies and needs to be safely rerun.
 
+## Storage object keys must be ASCII-safe
+Supabase Storage can reject object keys containing Arabic or mojibake characters with `Invalid key`, even though the original uploaded file is valid. Keep the user-facing filename unchanged in metadata, but generate the storage key from an ASCII-safe filename.
+
+**Why:** An Arabic `.xlsx` upload passed file validation but failed during Storage upload because the generated key contained non-ASCII characters.
+
+**How to apply:** Sanitize only the storage path component; preserve the original filename for display and download metadata.
+
 ## `DATABASE_URL` / `PGUSER` / `PGDATABASE` are Replit's own Postgres, not Supabase
 This project has both a Replit-managed Postgres (host contains "helium") and a separate Supabase project (used for real app data, e.g. `*.supabase.co`). The workspace's standard Postgres env vars point at the Replit database, which is unrelated/unused here — they cannot be used to run DDL against the Supabase project.
 
