@@ -8,6 +8,9 @@ export type EmailArchiveActor = {
 
 type ArchiveSessionPayload = EmailArchiveActor & { exp: number };
 export const ARCHIVE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// Increment this whenever the local manager credentials are rotated. It
+// invalidates every previously issued manager session.
+export const ADMIN_SESSION_VERSION = "2";
 
 function sessionSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -20,7 +23,11 @@ function signature(value: string) {
 }
 
 export function createEmailArchiveSession(actor: EmailArchiveActor) {
-  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + ARCHIVE_SESSION_TTL_MS })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({
+    ...actor,
+    ...(actor.role === "admin" ? { adminSessionVersion: ADMIN_SESSION_VERSION } : {}),
+    exp: Date.now() + ARCHIVE_SESSION_TTL_MS,
+  })).toString("base64url");
   return `${payload}.${signature(payload)}`;
 }
 
@@ -37,6 +44,7 @@ export function verifyEmailArchiveSession(token: unknown): EmailArchiveActor | n
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as ArchiveSessionPayload;
     if (!parsed.id || !parsed.name || !["admin", "data_entry", "viewer"].includes(parsed.role) || parsed.exp < Date.now()) return null;
+    if (parsed.role === "admin" && parsed.adminSessionVersion !== ADMIN_SESSION_VERSION) return null;
     return { id: parsed.id, name: parsed.name, role: parsed.role };
   } catch {
     return null;
@@ -52,7 +60,11 @@ export type HrActor = { id: string; name: string };
 type HrSessionPayload = HrActor & { exp: number };
 
 export function createHrSession(actor: HrActor) {
-  const payload = Buffer.from(JSON.stringify({ ...actor, exp: Date.now() + ARCHIVE_SESSION_TTL_MS })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({
+    ...actor,
+    ...(actor.id === "admin" ? { adminSessionVersion: ADMIN_SESSION_VERSION } : {}),
+    exp: Date.now() + ARCHIVE_SESSION_TTL_MS,
+  })).toString("base64url");
   return `${payload}.${signature(payload)}`;
 }
 
@@ -69,6 +81,7 @@ export function verifyHrSession(token: unknown): HrActor | null {
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as HrSessionPayload;
     if (!parsed.id || !parsed.name || parsed.exp < Date.now()) return null;
+    if (parsed.id === "admin" && parsed.adminSessionVersion !== ADMIN_SESSION_VERSION) return null;
     return { id: parsed.id, name: parsed.name };
   } catch {
     return null;

@@ -4,7 +4,7 @@ import { Router, type IRouter } from "express";
 import { store, newId } from "./store";
 import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
-import { createEmailArchiveSession, createHrSession, ARCHIVE_SESSION_TTL_MS, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
+import { createEmailArchiveSession, createHrSession, verifyEmailArchiveSession, ARCHIVE_SESSION_TTL_MS, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
 
 const router: IRouter = Router();
 
@@ -55,6 +55,19 @@ router.post("/sa/auth/login", async (req, res): Promise<void> => {
     name: user.name,
     role: user.role,
   });
+});
+
+// Used by the client to detect a revoked manager session after credentials
+// are rotated or the server rejects an old signed cookie.
+router.get("/sa/auth/session", (req, res): void => {
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.clearCookie("sa_email_archive_session", { path: "/" });
+    res.clearCookie("sa_hr_session", { path: "/api/sa/hr" });
+    res.status(401).json({ error: "session expired" });
+    return;
+  }
+  res.json({ user: actor });
 });
 
 // POST register (Prompt 8: Self-service registration)

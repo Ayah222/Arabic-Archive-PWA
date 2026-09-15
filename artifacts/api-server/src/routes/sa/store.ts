@@ -208,8 +208,8 @@ export const store: {
   users: [
     {
       id: "admin",
-      username: "admin",
-      password: "admin123",
+      username: process.env.SA_ADMIN_USERNAME ?? "",
+      password: process.env.SA_ADMIN_PASSWORD ?? "",
       name: "مدير النظام",
       role: "admin",
       createdAt: now,

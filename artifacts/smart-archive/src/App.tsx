@@ -143,6 +143,19 @@ export default function App() {
     const handleAuthUpdate = () => setAuthRevision((value) => value + 1);
     window.addEventListener("sa-auth-updated", handleAuthUpdate);
 
+    const validateAdminSession = async () => {
+      const storedUser = getCurrentUser();
+      if (!storedUser || storedUser.role !== "admin") return;
+      try {
+        const response = await fetch("/api/sa/auth/session", {
+          credentials: "include",
+        });
+        if (!response.ok) setCurrentUser(null);
+      } catch {
+        // A temporary network failure must not log the user out.
+      }
+    };
+
     const refreshAccount = async () => {
       const storedUser = getCurrentUser();
       if (!storedUser || storedUser.role === "admin") return;
@@ -185,8 +198,16 @@ export default function App() {
       });
     };
 
-    void refreshAccount();
-    return () => window.removeEventListener("sa-auth-updated", handleAuthUpdate);
+    const storedUser = getCurrentUser();
+    const adminCheck = storedUser?.role === "admin"
+      ? window.setInterval(() => void validateAdminSession(), 30000)
+      : null;
+    if (storedUser?.role === "admin") void validateAdminSession();
+    else void refreshAccount();
+    return () => {
+      window.removeEventListener("sa-auth-updated", handleAuthUpdate);
+      if (adminCheck !== null) window.clearInterval(adminCheck);
+    };
   }, []);
 
   return (
