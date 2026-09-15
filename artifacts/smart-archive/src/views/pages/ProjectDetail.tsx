@@ -2315,6 +2315,11 @@ function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment |
   const isText = mime.startsWith("text/") || mime === "application/json";
   const isVideo = mime.startsWith("video/");
   const isAudio = mime.startsWith("audio/");
+  const officeExtensions = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx"]);
+  const isOfficeFile = officeExtensions.has(extension);
+  const openUrl = isOfficeFile
+    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(attachment.dataUrl)}`
+    : attachment.dataUrl;
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={(event) => event.stopPropagation()}>
@@ -2334,7 +2339,7 @@ function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment |
           {!isImage && !isPdf && !isText && !isVideo && !isAudio && (
             <div className="text-center space-y-3">
               <p className="text-sm text-muted-foreground">هذا النوع لا يعرض داخل المتصفح، ويمكن فتحه أو تنزيله.</p>
-              <a href={attachment.dataUrl} target="_blank" rel="noreferrer" className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">فتح الملف</a>
+              <a href={openUrl} target="_blank" rel="noreferrer" className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">فتح الملف في تبويب جديد</a>
             </div>
           )}
         </div>
