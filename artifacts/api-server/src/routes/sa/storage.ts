@@ -1,8 +1,18 @@
 import { Router, type IRouter } from "express";
-import { createSupabaseUploadTarget, decodeSupabasePath, encodeSupabasePath, signedSupabaseUrl } from "../../lib/supabaseStorage";
-import { publicFileLimits } from "../../lib/fileLimits";
+import multer from "multer";
+import { extname } from "node:path";
+import { createSupabaseUploadTarget, decodeSupabasePath, encodeSupabasePath, signedSupabaseUrl, uploadSupabaseObject } from "../../lib/supabaseStorage";
+import { FILE_LIMITS, publicFileLimits } from "../../lib/fileLimits";
 
 const router: IRouter = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: FILE_LIMITS.maxFileBytes },
+});
+const mimeByExtension: Record<string, string> = {
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
 
 router.get("/sa/storage/config", (_req, res) => {
   res.json(publicFileLimits());
@@ -22,6 +32,22 @@ router.post("/sa/storage/upload-url", async (req, res): Promise<void> => {
     return;
   }
   const target = await createSupabaseUploadTarget({ filename, namespace });
+  res.json({ ...target, fileUrl: `/api/sa/storage/file/${encodeSupabasePath(target.path)}` });
+});
+
+router.post("/sa/storage/upload", upload.single("file"), async (req, res): Promise<void> => {
+  const file = req.file;
+  const { namespace } = req.body as { namespace?: string };
+  if (!file || !namespace) {
+    res.status(400).json({ error: "file and namespace are required" });
+    return;
+  }
+  const target = await createSupabaseUploadTarget({ filename: file.originalname, namespace });
+  await uploadSupabaseObject({
+    storagePath: target.path,
+    bytes: file.buffer,
+    contentType: mimeByExtension[extname(file.originalname).toLowerCase()] || file.mimetype || "application/octet-stream",
+  });
   res.json({ ...target, fileUrl: `/api/sa/storage/file/${encodeSupabasePath(target.path)}` });
 });
 

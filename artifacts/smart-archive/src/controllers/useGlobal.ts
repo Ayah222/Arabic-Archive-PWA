@@ -206,7 +206,8 @@ export function useAgencyActions() {
 
 export async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes) {
   if (file.size > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
-  const target = await post<{ bucket: string; path: string; token: string }>("/api/sa/storage/upload-url", {
+  type UploadTarget = { bucket: string; path: string; token: string };
+  const target = await post<UploadTarget>("/api/sa/storage/upload-url", {
     filename: file.name,
     namespace,
   });
@@ -217,8 +218,20 @@ export async function uploadDirectToSupabase(file: File, namespace: string, maxB
   const { error } = await supabase.storage
     .from(target.bucket)
     .uploadToSignedUrl(target.path, target.token, uploadFile, { contentType });
-  if (error) throw new Error(error.message);
-  return target;
+  if (!error) return target;
+  if (!/\.(xls|xlsx)$/i.test(file.name)) throw new Error(error.message);
+
+  const form = new FormData();
+  form.append("file", uploadFile, file.name);
+  form.append("namespace", namespace);
+  const fallbackResponse = await fetch("/api/sa/storage/upload", {
+    method: "POST",
+    credentials: "include",
+    headers: getUserRequestHeaders(),
+    body: form,
+  });
+  if (!fallbackResponse.ok) throw new Error(await fallbackResponse.text());
+  return fallbackResponse.json() as Promise<UploadTarget>;
 }
 
 /* ─── Auth helpers (persistent device storage; logout removes it) ─── */
