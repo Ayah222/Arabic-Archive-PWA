@@ -671,7 +671,7 @@ export function useAttachmentActions(projectId: string) {
         post<SAAttachment>(`${API}/projects/${projectId}/attachments`, {
           storagePath: target.path,
           filename: data.file.name,
-          mimeType: data.file.type,
+          mimeType: getAttachmentMimeType(data.file),
           size: data.file.size,
           entityType: data.entityType,
           entityId: data.entityId,

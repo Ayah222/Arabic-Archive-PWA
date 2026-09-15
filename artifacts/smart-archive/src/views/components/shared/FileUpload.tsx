@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { getUserRequestHeaders, useFileLimits } from "../../../controllers/useGlobal";
+import { getAttachmentMimeType, getUserRequestHeaders, useFileLimits } from "../../../controllers/useGlobal";
 import { supabase } from "../../../lib/supabase";
 
 interface FileUploadProps {
@@ -48,13 +48,19 @@ export default function FileUpload({
       });
       if (!targetResponse.ok) throw new Error("تعذر إنشاء رابط الرفع");
       const target = (await targetResponse.json()) as { bucket: string; path: string; token: string; fileUrl: string };
-      const { error: uploadError } = await supabase.storage.from(target.bucket).uploadToSignedUrl(target.path, target.token, file);
+      const contentType = getAttachmentMimeType(file);
+      const uploadFile = file.type === contentType
+        ? file
+        : new File([file], file.name, { type: contentType, lastModified: file.lastModified });
+      const { error: uploadError } = await supabase.storage
+        .from(target.bucket)
+        .uploadToSignedUrl(target.path, target.token, uploadFile, { contentType });
       if (uploadError) throw new Error(uploadError.message);
       onUpload({
         url: target.fileUrl,
         filename: file.name,
         size: file.size,
-        mimetype: file.type,
+        mimetype: contentType,
       });
     } catch {
       setError("فشل في رفع الملف، يرجى المحاولة مجدداً");
