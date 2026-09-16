@@ -36,7 +36,7 @@ const T = {
     smartSystem: "نظام الأرشيف الذكي",
     loginTitle: "تسجيل الدخول",
     employee: "فريق العمل",
-    admin: "إداري",
+    admin: "إدارة النظام",
     adminUsername: "اسم المستخدم",
     adminPassword: "كلمة المرور",
     emailField: "البريد الإلكتروني",
