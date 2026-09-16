@@ -35,7 +35,7 @@ const T = {
     welcome: "مرحباً بك",
     smartSystem: "نظام الأرشيف الذكي",
     loginTitle: "تسجيل الدخول",
-    employee: "موظف",
+    employee: "فريق العمل",
     admin: "إداري",
     adminUsername: "اسم المستخدم",
     adminPassword: "كلمة المرور",
