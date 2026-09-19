@@ -288,11 +288,17 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
-  // Related tables have ON DELETE CASCADE (contracts, contractors, documents,
-  // meetings, letters, contacts, categories, attachments) or SET NULL
-  // (finance_records) on project_id, so a single delete is sufficient.
+  // The attachments row is cascaded by the database, but its storage object is
+  // not. Capture the rows before the cascade so their objects can be removed.
+  const existingAttachments = unwrap(
+    await supabaseAdmin().from("attachments").select("*").eq("project_id", id),
+  ) as Array<Record<string, unknown>>;
   const { error, count } = await supabaseAdmin().from("projects").delete({ count: "exact" }).eq("id", id);
   if (error) throw new Error(error.message);
+  await Promise.all(existingAttachments.flatMap((item) => {
+    const objectPath = attachmentObjectPath(item);
+    return objectPath ? [deleteStoredObject(objectPath)] : [];
+  }));
   return (count ?? 0) > 0;
 }
 
@@ -985,7 +991,7 @@ export async function deleteAttachmentFolder(
   if (error) throw new Error(error.message);
   await Promise.all(matching.flatMap((item) => {
     const objectPath = attachmentObjectPath(item);
-    return objectPath ? [deletePrivateObject(objectPath)] : [];
+    return objectPath ? [deleteStoredObject(objectPath)] : [];
   }));
   return matching.length;
 }
