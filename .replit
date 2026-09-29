@@ -38,7 +38,7 @@ externalPort = 3000
 [userenv]
 
 [userenv.shared]
-SUPABASE_URL = "https://wzfpexcszfgvdoelvpn.supabase.co"
+SUPABASE_URL = "https://tomdzpzocbchtkivblap.supabase.co"
 
 [nix]
 channel = "stable-25_05"
