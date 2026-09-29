@@ -1,21 +1,8 @@
-import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
 
 export const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "smart-archive-files";
+export const SUPABASE_STORAGE_DISABLED_MESSAGE = "رفع الملفات إلى Supabase متوقف مؤقتًا حتى ربط مساحة تخزين خارجية.";
 const SUPABASE_MARKER = `supabase://${SUPABASE_STORAGE_BUCKET}/`;
-let bucketReady: Promise<void> | null = null;
-
-function safeFilename(filename: string) {
-  const original = path.basename(filename).normalize("NFKC");
-  const extension = path.extname(original).toLowerCase().replace(/[^a-z0-9.]/g, "");
-  const stem = path.basename(original, path.extname(original))
-    .normalize("NFKD")
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 150);
-  return `${stem || "file"}${extension}`;
-}
 
 export function supabaseObjectPath(storagePath: string) {
   return `${SUPABASE_MARKER}${storagePath}`;
@@ -35,55 +22,22 @@ export function decodeSupabasePath(value: string) {
   return Buffer.from(value, "base64url").toString("utf8");
 }
 
-async function ensureBucket() {
-  if (!bucketReady) {
-    bucketReady = (async () => {
-      const admin = supabaseAdmin();
-      const { data, error } = await admin.storage.listBuckets();
-      if (error) throw new Error(error.message);
-      if (!data?.some((bucket) => bucket.name === SUPABASE_STORAGE_BUCKET)) {
-        const created = await admin.storage.createBucket(SUPABASE_STORAGE_BUCKET, { public: false });
-        if (created.error && !created.error.message.toLowerCase().includes("already exists")) {
-          throw new Error(created.error.message);
-        }
-      }
-    })().catch((error) => {
-      bucketReady = null;
-      throw error;
-    });
-  }
-  return bucketReady;
-}
-
-export async function createSupabaseUploadTarget(input: {
+export async function createSupabaseUploadTarget(_input: {
   namespace: string;
   filename: string;
-}) {
-  await ensureBucket();
-  const storagePath = `${input.namespace.replace(/^\/+|\/+$/g, "")}/${randomUUID()}-${safeFilename(input.filename)}`;
-  const { data, error } = await supabaseAdmin().storage
-    .from(SUPABASE_STORAGE_BUCKET)
-    .createSignedUploadUrl(storagePath);
-  if (error || !data?.token) throw new Error(error?.message || "تعذر إنشاء رابط الرفع");
-  return { bucket: SUPABASE_STORAGE_BUCKET, path: storagePath, token: data.token };
+}): Promise<never> {
+  throw new Error(SUPABASE_STORAGE_DISABLED_MESSAGE);
 }
 
-export async function uploadSupabaseObject(input: {
+export async function uploadSupabaseObject(_input: {
   storagePath: string;
   bytes: Buffer;
   contentType?: string;
-}) {
-  await ensureBucket();
-  const { error } = await supabaseAdmin().storage.from(SUPABASE_STORAGE_BUCKET).upload(input.storagePath, input.bytes, {
-    contentType: input.contentType || "application/octet-stream",
-    upsert: false,
-  });
-  if (error) throw new Error(error.message);
-  return supabaseObjectPath(input.storagePath);
+}): Promise<never> {
+  throw new Error(SUPABASE_STORAGE_DISABLED_MESSAGE);
 }
 
 export async function downloadSupabaseObject(storagePath: string, maxBytes?: number) {
-  await ensureBucket();
   const { data, error } = await supabaseAdmin().storage.from(SUPABASE_STORAGE_BUCKET).download(storagePath);
   if (error || !data) throw new Error(error?.message || "تعذر قراءة الملف");
   if (maxBytes && data.size > maxBytes) throw new Error("حجم الملف المضغوط يتجاوز الحد المسموح");
@@ -91,7 +45,6 @@ export async function downloadSupabaseObject(storagePath: string, maxBytes?: num
 }
 
 export async function signedSupabaseUrl(storagePath: string, expiresIn = 86400) {
-  await ensureBucket();
   const { data, error } = await supabaseAdmin().storage
     .from(SUPABASE_STORAGE_BUCKET)
     .createSignedUrl(storagePath, expiresIn);
@@ -100,7 +53,6 @@ export async function signedSupabaseUrl(storagePath: string, expiresIn = 86400) 
 }
 
 export async function deleteSupabaseObject(storagePath: string) {
-  await ensureBucket();
   const { error } = await supabaseAdmin().storage.from(SUPABASE_STORAGE_BUCKET).remove([storagePath]);
   if (error) throw new Error(error.message);
 }

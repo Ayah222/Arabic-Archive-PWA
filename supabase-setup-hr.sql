@@ -150,6 +150,10 @@ BEGIN
   END LOOP;
 END $$;
 
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
 -- ============================================================
 -- ✅ بعد تشغيل هذا الكود تصبح وحدة الموارد البشرية جاهزة للاستخدام
 --    (الملفات الرقمية للموظفين، التوظيف والمرشحين، وشؤون الشركة)

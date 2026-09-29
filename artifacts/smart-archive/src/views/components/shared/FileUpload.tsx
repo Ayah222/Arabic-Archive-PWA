@@ -46,7 +46,10 @@ export default function FileUpload({
         headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
         body: JSON.stringify({ filename: file.name, projectId, section }),
       });
-      if (!targetResponse.ok) throw new Error("تعذر إنشاء رابط الرفع");
+      if (!targetResponse.ok) {
+        const body = await targetResponse.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error || "تعذر إنشاء رابط الرفع");
+      }
       const target = (await targetResponse.json()) as { bucket: string; path: string; token: string; fileUrl: string };
       const contentType = getAttachmentMimeType(file);
       const uploadFile = file.type === contentType
@@ -62,8 +65,8 @@ export default function FileUpload({
         size: file.size,
         mimetype: contentType,
       });
-    } catch {
-      setError("فشل في رفع الملف، يرجى المحاولة مجدداً");
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "فشل في رفع الملف، يرجى المحاولة مجدداً");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

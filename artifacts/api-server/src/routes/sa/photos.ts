@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { deletePrivateObject, savePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
-import { createSupabaseUploadTarget, deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl, supabaseObjectPath } from "../../lib/supabaseStorage";
+import { deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl, supabaseObjectPath } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 

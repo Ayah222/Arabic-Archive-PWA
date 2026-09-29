@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email       TEXT UNIQUE NOT NULL,
   name        TEXT,
   role        TEXT NOT NULL DEFAULT 'employee',
+  status      TEXT NOT NULL DEFAULT 'pending',
   is_active   BOOLEAN NOT NULL DEFAULT FALSE,
   invited_by  TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -38,6 +39,12 @@ CREATE POLICY "invitations_update" ON public.invitations FOR UPDATE USING (true)
 
 -- 5. تحديث profiles عند تحديث جدول invitations
 CREATE POLICY "profiles_update_all" ON public.profiles FOR UPDATE USING (true);
+
+-- Explicit grants are required when tables are created through a managed
+-- migration API instead of the Supabase SQL Editor.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.profiles, public.invitations TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
 
 -- ============================================================
 -- ✅ بعد تشغيل هذا الكود يصبح النظام جاهزاً للدعوات والتفعيل

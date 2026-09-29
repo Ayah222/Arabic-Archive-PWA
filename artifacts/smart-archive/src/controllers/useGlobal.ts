@@ -204,34 +204,9 @@ export function useAgencyActions() {
   return { save };
 }
 
-export async function uploadDirectToSupabase(file: File, namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes) {
+export async function uploadDirectToSupabase(file: File, _namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes): Promise<{ bucket: string; path: string; token: string }> {
   if (file.size > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
-  type UploadTarget = { bucket: string; path: string; token: string };
-  const target = await post<UploadTarget>("/api/sa/storage/upload-url", {
-    filename: file.name,
-    namespace,
-  });
-  const contentType = getAttachmentMimeType(file);
-  const uploadFile = file.type === contentType
-    ? file
-    : new File([file], file.name, { type: contentType, lastModified: file.lastModified });
-  const { error } = await supabase.storage
-    .from(target.bucket)
-    .uploadToSignedUrl(target.path, target.token, uploadFile, { contentType });
-  if (!error) return target;
-  if (!/\.(xls|xlsx)$/i.test(file.name)) throw new Error(error.message);
-
-  const form = new FormData();
-  form.append("file", uploadFile, file.name);
-  form.append("namespace", namespace);
-  const fallbackResponse = await fetch("/api/sa/storage/upload", {
-    method: "POST",
-    credentials: "include",
-    headers: getUserRequestHeaders(),
-    body: form,
-  });
-  if (!fallbackResponse.ok) throw new Error(await fallbackResponse.text());
-  return fallbackResponse.json() as Promise<UploadTarget>;
+  throw new Error("رفع المرفقات متوقف مؤقتًا؛ ملفات النظام لن تُخزّن في Supabase. سيتم تفعيله بعد ربط مساحة تخزين خارجية.");
 }
 
 /* ─── Auth helpers (persistent device storage; logout removes it) ─── */
