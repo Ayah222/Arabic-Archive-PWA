@@ -18,9 +18,13 @@ export default function AcceptInvite() {
 
   useEffect(() => {
     // Supabase auto-processes the invite hash and sets a session
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setHasSession(!!data.session);
+    }).catch(() => {
+      if (!cancelled) setHasSession(false);
     });
+    return () => { cancelled = true; };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,25 +35,39 @@ export default function AcceptInvite() {
     setLoading(true);
     setErrorMsg("");
 
-    const { data: updateData, error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setErrorMsg(error.message);
+    try {
+      const { data: updateData, error } = await supabase.auth.updateUser({ password });
+      if (error || !updateData.user) throw new Error(error?.message ?? "تعذر تحديث الحساب");
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error("انتهت صلاحية رابط الدعوة، اطلب رابطاً جديداً");
+
+      const profileResponse = await fetch(`/api/sa/profiles/${updateData.user.id}`, {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const profile = profileResponse.ok
+        ? await profileResponse.json() as { status?: string }
+        : null;
+      if (!profile) throw new Error("تم تحديث كلمة المرور، لكن تعذر التحقق من حالة الحساب");
+
+      await supabase.auth.signOut();
+      if (profile.status === "active") {
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (profile.status !== "pending") {
+        throw new Error("الحساب غير متاح. تواصل مع مدير النظام.");
+      }
+      setStep("pending");
+    } catch (submitError: unknown) {
+      await supabase.auth.signOut().catch(() => undefined);
+      setErrorMsg(submitError instanceof Error ? submitError.message : "حدث خطأ أثناء تفعيل الدعوة");
+      setStep("error");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const profileResponse = updateData.user
-      ? await fetch(`/api/sa/profiles/${updateData.user.id}`)
-      : null;
-    const profile = profileResponse?.ok ? await profileResponse.json() as { status?: string } : null;
-
-    await supabase.auth.signOut();
-    if (profile?.status === "active") {
-      navigate("/login", { replace: true });
-      return;
-    }
-    setStep("pending");
-    setLoading(false);
   };
 
   if (step === "pending") {
@@ -65,6 +83,19 @@ export default function AcceptInvite() {
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 text-yellow-600 rounded-xl text-sm font-semibold border border-yellow-500/20">
             ⏳ بانتظار الموافقة
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "error") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
+        <div className="max-w-md w-full text-center space-y-4">
+          <div className="text-5xl">⚠️</div>
+          <h1 className="text-xl font-bold text-foreground">تعذر إكمال الدعوة</h1>
+          <p className="text-muted-foreground text-sm">{errorMsg}</p>
+          <p className="text-muted-foreground text-sm">يرجى التواصل مع المدير للحصول على رابط دعوة جديد.</p>
         </div>
       </div>
     );

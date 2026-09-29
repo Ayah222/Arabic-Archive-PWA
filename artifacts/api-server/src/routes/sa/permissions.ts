@@ -47,7 +47,37 @@ function hasDetailedAudit(path: string) {
 }
 
 export function enforcePermissions(req: Request, res: Response, next: NextFunction) {
-  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+  const isMutating = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+  const isUserManagement = ["/sa/invite", "/sa/profiles", "/sa/users"].some(
+    (basePath) => req.path === basePath || req.path.startsWith(`${basePath}/`),
+  );
+  const isSingleProfileLookup =
+    req.method === "GET" && /^\/sa\/profiles\/[^/]+$/.test(req.path);
+
+  // A single profile may be read only by that authenticated user or an admin;
+  // profiles.ts verifies the matching Supabase bearer token or signed session.
+  // All other user-management routes, including the profile list, are admin-only.
+  if (isUserManagement && !isSingleProfileLookup) {
+    const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+    if (!actor || actor.role !== "admin") {
+      res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+      return;
+    }
+    if (isMutating) {
+      res.on("finish", () => {
+        if (res.statusCode < 200 || res.statusCode >= 300 || hasDetailedAudit(req.path)) return;
+        const action = req.method === "POST" ? "create" : req.method === "DELETE" ? "delete" : "update";
+        const entity = entityForPath(req.path);
+        const actionLabel = action === "create" ? "إضافة" : action === "update" ? "تعديل" : "حذف نهائي";
+        const entityId = String(req.params.uid ?? req.params.id ?? "new");
+        void addAuditLog(actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
+      });
+    }
+    next();
+    return;
+  }
+
+  if (!isMutating) {
     next();
     return;
   }
@@ -63,34 +93,6 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
   // protect sensitive data and must not derive authorization from client-
   // supplied role headers, which are trivially forgeable.
   if (req.path.startsWith("/sa/email-archive") || req.path.startsWith("/sa/hr") || req.path.startsWith("/sa/messages")) {
-    next();
-    return;
-  }
-
-  const isUserManagement =
-    req.path.startsWith("/sa/invite") ||
-    req.path.startsWith("/sa/profiles") ||
-    req.path.startsWith("/sa/users");
-
-  // User/profile administration (including granting hr_access) can change who
-  // gets an HR session, so it must never be gated by the forgeable
-  // x-user-role header — verify the same signed session the email archive
-  // uses and require its real role to be "admin".
-  if (isUserManagement) {
-    const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-    if (!actor || actor.role !== "admin") {
-      res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
-      return;
-    }
-    res.on("finish", () => {
-      if (res.statusCode < 200 || res.statusCode >= 300 || hasDetailedAudit(req.path)) return;
-      const action = req.method === "POST" ? "create" : req.method === "DELETE" ? "delete" : "update";
-      const entity = entityForPath(req.path);
-      const actionLabel = action === "create" ? "إضافة" : action === "update" ? "تعديل" : "حذف نهائي";
-      const entityId = String(req.params.uid ?? req.params.id ?? "new");
-      // Attribute to the verified admin session, not client-supplied headers.
-      void addAuditLog(actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
-    });
     next();
     return;
   }

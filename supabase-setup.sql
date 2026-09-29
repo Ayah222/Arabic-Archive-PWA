@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   role        TEXT NOT NULL DEFAULT 'employee',
   status      TEXT NOT NULL DEFAULT 'pending',
   is_active   BOOLEAN NOT NULL DEFAULT FALSE,
+  hr_access   BOOLEAN NOT NULL DEFAULT FALSE,
   invited_by  TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -29,21 +30,42 @@ CREATE TABLE IF NOT EXISTS public.invitations (
 ALTER TABLE public.profiles    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invitations ENABLE ROW LEVEL SECURITY;
 
--- 4. سياسات الوصول — الجميع يقدر يقرأ (anon key)
-CREATE POLICY "profiles_select"    ON public.profiles    FOR SELECT USING (true);
-CREATE POLICY "profiles_insert"    ON public.profiles    FOR INSERT WITH CHECK (true);
-CREATE POLICY "profiles_update"    ON public.invitations FOR UPDATE USING (true);
-CREATE POLICY "invitations_select" ON public.invitations FOR SELECT USING (true);
-CREATE POLICY "invitations_insert" ON public.invitations FOR INSERT WITH CHECK (true);
-CREATE POLICY "invitations_update" ON public.invitations FOR UPDATE USING (true);
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS hr_access BOOLEAN NOT NULL DEFAULT FALSE;
 
--- 5. تحديث profiles عند تحديث جدول invitations
-CREATE POLICY "profiles_update_all" ON public.profiles FOR UPDATE USING (true);
+-- Remove any broad or legacy policies. Only the trusted server uses the
+-- service-role key; browser clients must use authenticated API routes instead.
+DO $$
+DECLARE policy_row RECORD;
+BEGIN
+  FOR policy_row IN
+    SELECT schemaname, tablename, policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('profiles', 'invitations')
+  LOOP
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON %I.%I',
+      policy_row.policyname,
+      policy_row.schemaname,
+      policy_row.tablename
+    );
+  END LOOP;
+END
+$$;
+
+CREATE POLICY "profiles_service_role_access"
+  ON public.profiles FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "profiles_deny_client_access"
+  ON public.profiles FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+CREATE POLICY "invitations_service_role_access"
+  ON public.invitations FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "invitations_deny_client_access"
+  ON public.invitations FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
 
 -- Explicit grants are required when tables are created through a managed
 -- migration API instead of the Supabase SQL Editor.
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE ON public.profiles, public.invitations TO anon, authenticated;
+REVOKE ALL PRIVILEGES ON TABLE public.profiles, public.invitations FROM PUBLIC, anon, authenticated;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
 
 -- ============================================================

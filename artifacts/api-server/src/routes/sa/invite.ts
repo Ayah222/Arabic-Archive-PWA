@@ -1,13 +1,17 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
 
 router.post("/sa/invite", async (req, res) => {
-  const { email, role } = req.body as { email: string; role: string };
+  const { email: rawEmail, role } = req.body as { email?: string; role?: string };
+  const email = rawEmail?.trim().toLowerCase();
   const normalizedRole = role === "employee" ? "data_entry" : role ?? "data_entry";
 
-  if (!email) return res.status(400).json({ error: "email required" });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "A valid email is required" });
+  }
   if (!["admin", "data_entry", "viewer"].includes(normalizedRole)) {
     return res.status(400).json({ error: "invalid role" });
   }
@@ -41,24 +45,44 @@ router.post("/sa/invite", async (req, res) => {
   // Re-send a setup link for an existing account that is still awaiting approval.
   // Recovery links are handled by the same AcceptInvite page and avoid deleting
   // the existing auth/profile record.
-  const { data: existingProfile } = await admin
+  const { data: existingProfile, error: existingProfileError } = await admin
     .from("profiles")
     .select("id,status")
     .eq("email", email)
     .maybeSingle();
 
+  if (existingProfileError) return res.status(500).json({ error: existingProfileError.message });
   if (existingProfile?.status === "pending") {
     const { error } = await admin.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) return res.status(400).json({ error: error.message });
     return res.json({ success: true, resent: true });
   }
+  if (existingProfile) {
+    return res.status(409).json({ error: "An account already exists for this email" });
+  }
 
-  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+  const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
     data: { role: normalizedRole },
   });
 
-  if (error) return res.status(400).json({ error: error.message });
+  if (inviteError) return res.status(400).json({ error: inviteError.message });
+  if (!inviteData.user) return res.status(500).json({ error: "Supabase did not return the invited user" });
+
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  const { error: profileError } = await admin.from("profiles").upsert({
+    id: inviteData.user.id,
+    email,
+    role: normalizedRole,
+    status: "pending",
+    is_active: false,
+    invited_by: actor?.id ?? null,
+  }, { onConflict: "id" });
+
+  if (profileError) {
+    await admin.auth.admin.deleteUser(inviteData.user.id);
+    return res.status(500).json({ error: `Invite was created but its profile could not be saved: ${profileError.message}` });
+  }
 
   return res.json({ success: true });
 });

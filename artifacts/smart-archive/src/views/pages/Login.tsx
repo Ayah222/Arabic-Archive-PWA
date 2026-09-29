@@ -55,31 +55,44 @@ export default function LoginPage() {
     // ── Employee side: Supabase Auth ──
     setLoading(true);
     try {
+      await fetch("/api/sa/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
       const { data, error: authErr } = await supabase.auth.signInWithPassword({
         email: form.username.trim(),
         password: form.password,
       });
-      if (authErr) throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
-
-      // Fetch profile to check status & role
-      const { data: profile, error: profileErr } = await supabase
-        .from("profiles")
-        .select("id, email, role, status, hr_access")
-        .eq("id", data.user.id)
-        .single();
-
-      let accountProfile = profile;
-      if (profileErr || !profile) {
-        const fallbackResponse = await fetch(`/api/sa/profiles/${data.user.id}`);
-        accountProfile = fallbackResponse.ok ? await fallbackResponse.json() : null;
+      if (authErr || !data.user || !data.session) {
+        throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
       }
-      if (!accountProfile) throw new Error("تعذّر تحميل بيانات الحساب");
+
+      const profileResponse = await fetch(`/api/sa/profiles/${data.user.id}`, {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+      if (!profileResponse.ok) {
+        const responseBody = await profileResponse.json().catch(() => ({})) as { error?: string };
+        await supabase.auth.signOut();
+        throw new Error(responseBody.error ?? "تعذّر تحميل بيانات الحساب");
+      }
+      const accountProfile = await profileResponse.json() as {
+        id: string;
+        email: string;
+        name?: string | null;
+        role: "admin" | "data_entry" | "viewer";
+        status: string;
+        hr_access?: boolean;
+      };
 
       if (accountProfile.status === "pending") {
         await supabase.auth.signOut();
         setPendingBlocked(true);
-        setLoading(false);
         return;
+      }
+      if (accountProfile.status !== "active") {
+        await supabase.auth.signOut();
+        throw new Error("الحساب غير مفعل أو لا يملك صلاحية الدخول");
       }
 
       const archiveSession = await fetch("/api/sa/auth/supabase-email-archive-session", {
@@ -105,9 +118,10 @@ export default function LoginPage() {
       setCurrentUser({
         id: accountProfile.id,
         username: accountProfile.email,
-        name: accountProfile.email.split("@")[0],
-        role: accountProfile.role as any,
-        hrAccess: accountProfile.hr_access === true,
+        name: accountProfile.name || accountProfile.email.split("@")[0],
+        role: accountProfile.role,
+        hrAccess: accountProfile.role === "admin" || accountProfile.hr_access === true,
+        authProvider: "supabase",
       });
       navigate("/", { replace: true });
     } catch (e: unknown) {

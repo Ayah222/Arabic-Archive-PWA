@@ -143,59 +143,101 @@ export default function App() {
     const handleAuthUpdate = () => setAuthRevision((value) => value + 1);
     window.addEventListener("sa-auth-updated", handleAuthUpdate);
 
+    const refreshAccount = async () => {
+      const storedUser = getCurrentUser();
+      if (storedUser?.authProvider === "local") return;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (!session) {
+        if (storedUser) setCurrentUser(null);
+        return;
+      }
+
+      try {
+        const profileResponse = await fetch(`/api/sa/profiles/${session.user.id}`, {
+          credentials: "include",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!profileResponse.ok) {
+          if (profileResponse.status >= 500) return;
+          await supabase.auth.signOut();
+          await fetch("/api/sa/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined);
+          setCurrentUser(null);
+          return;
+        }
+        const profile = await profileResponse.json() as {
+          id: string;
+          email: string;
+          name?: string | null;
+          role: "admin" | "data_entry" | "viewer";
+          status: string;
+          hr_access?: boolean;
+        };
+        if (profile.status !== "active") {
+          await supabase.auth.signOut();
+          await fetch("/api/sa/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined);
+          setCurrentUser(null);
+          return;
+        }
+
+        const archiveResponse = await fetch("/api/sa/auth/supabase-email-archive-session", {
+          method: "POST",
+          credentials: "include",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!archiveResponse.ok) {
+          await supabase.auth.signOut();
+          await fetch("/api/sa/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined);
+          setCurrentUser(null);
+          return;
+        }
+
+        await fetch("/api/sa/auth/supabase-hr-session", {
+          method: "POST",
+          credentials: "include",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        setCurrentUser({
+          id: profile.id,
+          username: profile.email,
+          name: profile.name || profile.email.split("@")[0],
+          role: profile.role,
+          hrAccess: profile.role === "admin" || profile.hr_access === true,
+          authProvider: "supabase",
+        });
+      } catch {
+        // Keep the current UI state during a transient network failure.
+      }
+    };
+
     const validateAdminSession = async () => {
       const storedUser = getCurrentUser();
       if (!storedUser || storedUser.role !== "admin") return;
+      if (storedUser.authProvider === "supabase") {
+        await refreshAccount();
+        return;
+      }
       try {
         const response = await fetch("/api/sa/auth/session", {
           credentials: "include",
         });
-        if (!response.ok) setCurrentUser(null);
+        if (response.ok) {
+          if (!storedUser.authProvider) setCurrentUser({ ...storedUser, authProvider: "local" });
+          return;
+        }
+        if (!storedUser.authProvider) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session?.user.id === storedUser.id) {
+            await refreshAccount();
+            return;
+          }
+        }
+        setCurrentUser(null);
       } catch {
         // A temporary network failure must not log the user out.
       }
-    };
-
-    const refreshAccount = async () => {
-      const storedUser = getCurrentUser();
-      if (!storedUser || storedUser.role === "admin") return;
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData.session;
-      if (!session) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, email, role, status, hr_access")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!profile || profile.status !== "active") {
-        await supabase.auth.signOut();
-        setCurrentUser(null);
-        return;
-      }
-
-      await Promise.all([
-        fetch("/api/sa/auth/supabase-email-archive-session", {
-          method: "POST",
-          credentials: "include",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-        fetch("/api/sa/auth/supabase-hr-session", {
-          method: "POST",
-          credentials: "include",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-      ]);
-
-      setCurrentUser({
-        id: profile.id,
-        username: profile.email,
-        name: profile.email.split("@")[0],
-        role: profile.role as "employee" | "data_entry" | "viewer",
-        hrAccess: profile.role === "admin" || profile.hr_access === true,
-      });
     };
 
     const storedUser = getCurrentUser();

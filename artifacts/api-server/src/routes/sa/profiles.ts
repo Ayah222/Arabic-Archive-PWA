@@ -2,6 +2,7 @@ import { Router, type Request } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { deleteNotificationsContaining } from "./notificationDb";
+import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
 const gmail = new ReplitConnectors();
@@ -64,23 +65,40 @@ async function sendActivationEmail(email: string, name: string, loginUrl: string
 
 // GET /api/sa/profiles  — all profiles
 router.get("/sa/profiles", async (_req, res) => {
-  await adminClient().from("profiles").update({ role: "admin" }).eq("role", "super_admin");
-  await adminClient().from("profiles").update({ role: "data_entry" }).eq("role", "employee");
-
   const { data, error } = await adminClient()
     .from("profiles")
     .select("*")
     .order("email");
   if (error) return res.status(400).json({ error: error.message });
-  return res.json(data);
+  return res.json(data.map((profile) => (
+    profile.role === "super_admin"
+      ? { ...profile, role: "admin" }
+      : profile.role === "employee"
+        ? { ...profile, role: "data_entry" }
+        : profile
+  )));
 });
 
-// Fallback profile lookup used after a Supabase employee login.
+// A profile is visible to its owner (verified Supabase bearer or signed session)
+// and to administrators. The public anon key alone is never sufficient.
 router.get("/sa/profiles/:id", async (req, res) => {
+  const id = req.params.id;
+  const archiveActor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (archiveActor?.role !== "admin" && archiveActor?.id !== id) {
+    const authorization = req.get("authorization") ?? "";
+    const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+    if (!accessToken) return res.status(401).json({ error: "Authentication required" });
+
+    const admin = adminClient();
+    const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
+    if (authError || !authData.user) return res.status(401).json({ error: "Invalid Supabase session" });
+    if (authData.user.id !== id) return res.status(403).json({ error: "Profile access denied" });
+  }
+
   const { data, error } = await adminClient()
     .from("profiles")
-    .select("id,email,role,status,hr_access")
-    .eq("id", req.params.id)
+    .select("id,email,name,role,status,hr_access")
+    .eq("id", id)
     .single();
   if (error || !data) return res.status(404).json({ error: "Profile not found" });
   return res.json(
@@ -100,10 +118,16 @@ router.patch("/sa/profiles/:id", async (req, res) => {
   if (normalizedRole && !["admin", "data_entry", "viewer"].includes(normalizedRole)) {
     return res.status(400).json({ error: "role must be admin, data_entry, or viewer" });
   }
+  if (status && !["pending", "active"].includes(status)) {
+    return res.status(400).json({ error: "status must be pending or active" });
+  }
   const updates: Record<string, string | boolean> = {};
   if (normalizedRole) updates.role = normalizedRole;
   if (status) updates.status = status;
   if (typeof hr_access === "boolean") updates.hr_access = hr_access;
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: "No profile changes supplied" });
+  }
 
   const admin = adminClient();
   const { data: previousProfile } = await admin

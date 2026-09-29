@@ -217,6 +217,7 @@ export interface CurrentUser {
   name: string;
   role: "admin" | "employee" | "data_entry" | "viewer";
   hrAccess?: boolean;
+  authProvider?: "local" | "supabase";
 }
 
 export function getCurrentUser(): CurrentUser | null {
@@ -481,21 +482,17 @@ export function useAuthActions() {
     mutationFn: (data: { username: string; password: string }) =>
       post<CurrentUser>(`${API}/auth/login`, data),
     onSuccess: (user) => {
-      setCurrentUser(user);
-      qc.invalidateQueries({ queryKey: ["current-user"] });
-    },
-  });
-
-  const register = useMutation({
-    mutationFn: (data: { username: string; password: string; name: string }) =>
-      post<CurrentUser>(`${API}/auth/register`, data),
-    onSuccess: (user) => {
-      setCurrentUser(user);
+      setCurrentUser({ ...user, authProvider: "local" });
       qc.invalidateQueries({ queryKey: ["current-user"] });
     },
   });
 
   const logout = () => {
+    void fetch(`${API}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => undefined);
+    void supabase.auth.signOut().catch(() => undefined);
     setCurrentUser(null);
     qc.invalidateQueries({ queryKey: ["current-user"] });
   };
@@ -506,7 +503,7 @@ export function useAuthActions() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
-  return { login, register, logout, changeRole };
+  return { login, logout, changeRole };
 }
 
 /* ─── Letter distribution status update ─── */

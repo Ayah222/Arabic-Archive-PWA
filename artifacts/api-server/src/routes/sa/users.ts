@@ -1,7 +1,7 @@
 // Prompt 7: Simple role-based user management + login
 // Prompt 8: Self-service user registration
 import { Router, type IRouter } from "express";
-import { store, newId } from "./store";
+import { store } from "./store";
 import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
 import { createEmailArchiveSession, createHrSession, verifyEmailArchiveSession, ARCHIVE_SESSION_TTL_MS, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
@@ -70,43 +70,15 @@ router.get("/sa/auth/session", (req, res): void => {
   res.json({ user: actor });
 });
 
-// POST register (Prompt 8: Self-service registration)
-router.post("/sa/auth/register", async (req, res): Promise<void> => {
-  const { username, password, name } = req.body as {
-    username?: string; password?: string; name?: string;
-  };
-  if (!username || !password || !name) {
-    res.status(400).json({ error: "username, password, name are required" });
-    return;
-  }
-  if (password.length < 6) {
-    res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
-    return;
-  }
-  const exists = store.users.find((u) => u.username === username);
-  if (exists) {
-    res.status(409).json({ error: "اسم المستخدم مستخدم بالفعل" });
-    return;
-  }
-  const newUser = {
-    id: newId(),
-    username,
-    password,
-    name,
-    role: "data_entry" as const, // default role for self-registered users
-    createdAt: new Date().toISOString(),
-  };
-  store.users.push(newUser);
+// Public self-registration bypasses the manager invitation/approval process.
+router.post("/sa/auth/register", (_req, res): void => {
+  res.status(410).json({ error: "Self-registration is disabled. Ask an administrator for an invitation." });
+});
 
-  addAuditLog("system", "النظام", "create", "user", newUser.id, `تسجيل مستخدم جديد: ${username}`);
-
-  setEmailArchiveCookie(res, { id: newUser.id, name: newUser.name, role: newUser.role });
-  res.status(201).json({
-    id: newUser.id,
-    username: newUser.username,
-    name: newUser.name,
-    role: newUser.role,
-  });
+router.post("/sa/auth/logout", (_req, res): void => {
+  res.clearCookie("sa_email_archive_session", { path: "/" });
+  res.clearCookie("sa_hr_session", { path: "/api/sa/hr" });
+  res.status(204).end();
 });
 
 // Exchanges a verified Supabase access token for an HttpOnly archive cookie.
@@ -124,6 +96,7 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
   const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
   if (authError || !authData.user) {
+    res.clearCookie("sa_email_archive_session", { path: "/" });
     res.status(401).json({ error: "جلسة المستخدم غير صالحة" });
     return;
   }
@@ -133,7 +106,13 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
     .select("id, email, role, status")
     .eq("id", authData.user.id)
     .single();
-  if (profileError || !profile || profile.status !== "active" || !["admin", "data_entry", "viewer"].includes(profile.role)) {
+  const normalizedRole = profile?.role === "super_admin"
+    ? "admin"
+    : profile?.role === "employee"
+      ? "data_entry"
+      : profile?.role;
+  if (profileError || !profile || profile.status !== "active" || !["admin", "data_entry", "viewer"].includes(normalizedRole ?? "")) {
+    res.clearCookie("sa_email_archive_session", { path: "/" });
     res.status(403).json({ error: "الحساب غير مفعل أو لا يملك صلاحية الأرشيف" });
     return;
   }
@@ -141,7 +120,7 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
   setEmailArchiveCookie(res, {
     id: profile.id,
     name: profile.email?.split("@")[0] || "مستخدم",
-    role: profile.role as EmailArchiveActor["role"],
+    role: normalizedRole as EmailArchiveActor["role"],
   });
   res.status(204).end();
 });
@@ -154,6 +133,7 @@ router.post("/sa/auth/supabase-hr-session", async (req, res): Promise<void> => {
   const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
   const url = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  res.clearCookie("sa_hr_session", { path: "/api/sa/hr" });
   if (!accessToken || !url || !serviceRoleKey) {
     res.status(401).json({ error: "تعذر التحقق من جلسة المستخدم" });
     return;
