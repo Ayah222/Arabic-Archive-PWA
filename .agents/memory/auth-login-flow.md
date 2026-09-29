@@ -24,8 +24,12 @@ Invite (by manager) → Employee receives magic link → `/accept-invite` page �
 
 ## Profiles Table
 - `id` (ref auth.users), `email`, `role`, `status`
-- Trigger auto-inserts into profiles on new auth.users row with status=`pending`
+- The current Supabase project has no `auth.users` trigger for profiles; the server invite route must create the pending profile.
 - Roles: `admin`, `data_entry`, `viewer`. The legacy `employee` role is treated as `data_entry`.
+
+**Why:** The replacement Supabase project was inspected and had no profile-creation trigger, so Auth invitations alone do not create the row required by login and approval.
+
+**How to apply:** Keep profile and invitation tables inaccessible to browser roles; use the API's service-role client to create a profile when an invite is sent.
 
 ## Permission policy
 - `admin`: complete control, including user management and final deletion.
