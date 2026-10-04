@@ -17,12 +17,19 @@ Supabase Storage can reject object keys containing Arabic or mojibake characters
 
 **How to apply:** Sanitize only the storage path component; preserve the original filename for display and download metadata.
 
-## `DATABASE_URL` / `PGUSER` / `PGDATABASE` are Replit's own Postgres, not Supabase
-This project has both a Replit-managed Postgres (host contains "helium") and a separate Supabase project (used for real app data, e.g. `*.supabase.co`). The workspace's standard Postgres env vars point at the Replit database, which is unrelated/unused here — they cannot be used to run DDL against the Supabase project.
+## Use the configured Supabase MCP for direct migrations
+`DATABASE_URL` / `PGUSER` / `PGDATABASE` point to Replit-managed Postgres, not the app's Supabase database. This workspace has a Supabase MCP that can apply DDL migrations directly; do not assume the SQL Editor is the only path.
 
-**Why:** Confirmed via direct env inspection that `DATABASE_URL` resolves to a completely different host than `VITE_SUPABASE_URL`. Only `VITE_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `VITE_SUPABASE_ANON_KEY` are available for the real Supabase project — there is no Supabase Postgres password/connection string exposed, so SQL DDL against Supabase cannot be run programmatically and must be pasted into the Supabase SQL Editor by the user.
+**Why:** The app connects through `VITE_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, while the Replit Postgres variables target a separate database. A clean-project migration was successfully applied through Supabase MCP and verified in the database and API runtime.
 
-**How to apply:** Before assuming `DATABASE_URL` reaches the app's real database in this project, check which host it points to. When schema changes are needed against Supabase, prepare the SQL and ask the user to run it in the Supabase SQL Editor rather than trying to execute it via a Postgres client/connection string.
+**How to apply:** Check the app's Supabase environment-variable precedence and confirm the MCP project is the active app project before making changes. Use `mcpSupabase_applyMigration` for DDL, then verify the migration record, expected tables/columns/policies, and API startup. Never use the Replit `DATABASE_URL` for Supabase DDL.
+
+## Development and Production can target different Supabase projects
+The development MCP target is the clean, active `ARCHIVE-AI` project and has the multi-tenant migration. The published deployment still logs `exceed_storage_size_quota`; Replit keeps Production Secrets separate from Development, and edits must be published to affect the live app.
+
+**Why:** The MCP project and local API runtime were healthy after migration, while production continued reporting the quota error. Secret-presence checks do not reveal whether Development and Production contain matching values.
+
+**How to apply:** Verify Development and Production separately. Never inspect or print secret values. Before claiming production uses the new Supabase project, have the owner confirm Production Secrets target it, publish the updated deployment, then re-check the live runtime.
 
 ## The live Supabase schema may lag behind the setup SQL
 Treat additive columns in the setup file as desired schema, not proof that the live Supabase table already has them. For persistent attachments, preserve compatibility with the legacy URL column when the newer object-path column is absent.
