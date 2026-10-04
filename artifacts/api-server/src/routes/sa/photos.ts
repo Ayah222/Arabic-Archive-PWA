@@ -1,9 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
-import { deletePrivateObject, savePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
+import { deletePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl, supabaseObjectPath } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
+import { currentTenantId } from "../../lib/tenantContext";
+import { deleteTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
 
 const router = Router();
 const upload = multer({
@@ -78,12 +80,12 @@ router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): 
   }
 
   const projectId = String(req.params.id);
-  const saved = await savePrivateObject({
-    namespace: "project-photos",
+  const saved = await saveTenantFile({
+    tenantId: currentTenantId(),
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    segments: [projectId],
+    folderSegments: ["project-photos", projectId],
   });
   const { data, error } = await supabaseAdmin()
     .from("project_photos")
@@ -98,7 +100,9 @@ router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): 
     .select()
     .single();
   if (error) {
-    await deletePrivateObject(saved.objectName);
+    const driveFileId = parseTenantDriveObjectPath(saved.objectName);
+    if (driveFileId) await deleteTenantFile(currentTenantId(), driveFileId);
+    else await deletePrivateObject(saved.objectName);
     throw new Error(error.message);
   }
   res.status(201).json(await toPhoto(data));
@@ -119,7 +123,11 @@ router.delete("/sa/projects/:id/photos/:pid", async (req, res): Promise<void> =>
   }
   const supabasePath = parseSupabaseObjectPath(data.object_path);
   if (supabasePath) await deleteSupabaseObject(supabasePath);
-  else await deletePrivateObject(data.object_path);
+  else {
+    const driveFileId = parseTenantDriveObjectPath(data.object_path);
+    if (driveFileId) await deleteTenantFile(currentTenantId(), driveFileId);
+    else await deletePrivateObject(data.object_path);
+  }
   res.json({ ok: true });
 });
 

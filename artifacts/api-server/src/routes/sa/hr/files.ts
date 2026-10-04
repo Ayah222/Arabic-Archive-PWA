@@ -10,6 +10,8 @@ import fs from "fs";
 import multer from "multer";
 import { decodeSupabasePath, signedSupabaseUrl, SUPABASE_STORAGE_DISABLED_MESSAGE } from "../../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../../lib/fileLimits";
+import { currentTenantId } from "../../../lib/tenantContext";
+import { downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../../lib/tenantDrive";
 
 const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
   ? path.resolve(process.cwd(), "../..")
@@ -22,15 +24,6 @@ const hrUploadsDir = path.resolve(workspaceRoot, "artifacts/api-server/uploads-h
 if (!fs.existsSync(hrUploadsDir)) {
   fs.mkdirSync(hrUploadsDir, { recursive: true });
 }
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, hrUploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9\u0600-\u06FF_-]/g, "_");
-    cb(null, `${Date.now()}-${base}${ext}`);
-  },
-});
 
 // HR uploads are limited to document/image types an employee record or CV
 // would realistically need. This also blocks .html/.svg/.js uploads, which
@@ -48,7 +41,7 @@ const SAFE_EXTENSIONS: Record<string, string> = {
 };
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: FILE_LIMITS.maxFileBytes },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -88,12 +81,45 @@ router.post("/sa/hr/upload", (req, res, next) => {
     res.status(400).json({ error: "لم يتم رفع ملف" });
     return;
   }
-  res.json({
-    url: `/api/sa/hr/files/${req.file.filename}`,
-    filename: req.file.filename,
-    size: req.file.size,
-    mimetype: req.file.mimetype,
+  const tenantId = currentTenantId();
+  const uploadFile = req.file;
+  void saveTenantFile({
+    tenantId,
+    filename: uploadFile.originalname,
+    bytes: uploadFile.buffer,
+    contentType: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
+    folderSegments: ["hr"],
+  }).then((saved) => {
+    const fileId = parseTenantDriveObjectPath(saved.objectName);
+    if (!fileId) throw new Error("Invalid Google Drive upload reference");
+    res.json({
+      url: `/api/sa/hr/storage/files/${encodeURIComponent(fileId)}`,
+      filename: uploadFile.originalname,
+      size: uploadFile.size,
+      mimetype: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
+    });
+  }).catch((error: unknown) => {
+    if (!res.headersSent) res.status(503).json({ error: error instanceof Error ? error.message : "تعذر حفظ الملف" });
   });
+});
+
+router.get("/sa/hr/storage/files/:fileId", async (req, res): Promise<void> => {
+  try {
+    const file = await downloadTenantFile(currentTenantId(), String(req.params.fileId));
+    const extension = path.extname(file.filename).toLowerCase();
+    const contentType = SAFE_EXTENSIONS[extension];
+    if (!contentType) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(file.bytes);
+  } catch {
+    res.status(404).json({ error: "File not found" });
+  }
 });
 
 router.get("/sa/hr/files/:filename", async (req, res): Promise<void> => {

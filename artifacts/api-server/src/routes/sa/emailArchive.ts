@@ -4,6 +4,8 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 import { objectStorageClient, privateObjectLocation } from "../../lib/objectStorage";
 import { verifyEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
 import { addAuditLog } from "./archiveDb";
+import { currentTenantId, DEFAULT_TENANT_ID } from "../../lib/tenantContext";
+import { downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
 
 const router: IRouter = Router();
 const gmail = new ReplitConnectors();
@@ -71,17 +73,31 @@ const emptyState = (): ArchiveState => ({
   },
 });
 
-let statePromise: Promise<ArchiveState> | null = null;
-let syncPromise: Promise<EmailSyncResult> | null = null;
+const statePromises = new Map<string, Promise<ArchiveState>>();
+const syncPromises = new Map<string, Promise<EmailSyncResult>>();
 
 async function getState() {
+  const tenantId = currentTenantId();
+  let statePromise = statePromises.get(tenantId);
   if (!statePromise) {
     statePromise = (async () => {
       try {
-        const { bucketName, objectName } = privateObjectLocation("email-archive", "index.json");
-        const file = objectStorageClient.bucket(bucketName).file(objectName);
+        const location = (legacy = false) => privateObjectLocation(
+          ...(legacy ? [] : ["tenants", tenantId]),
+          "email-archive",
+          "index.json",
+        );
+        let { bucketName, objectName } = location();
+        let file = objectStorageClient.bucket(bucketName).file(objectName);
         const [exists] = await file.exists();
-        if (!exists) return emptyState();
+        if (!exists && tenantId === DEFAULT_TENANT_ID) {
+          ({ bucketName, objectName } = location(true));
+          file = objectStorageClient.bucket(bucketName).file(objectName);
+          const [legacyExists] = await file.exists();
+          if (!legacyExists) return emptyState();
+        } else if (!exists) {
+          return emptyState();
+        }
         const [contents] = await file.download();
         const raw = contents.toString("utf8");
         const parsed = JSON.parse(raw) as Partial<ArchiveState>;
@@ -95,13 +111,19 @@ async function getState() {
         throw new Error(`Unable to read protected email archive index: ${error instanceof Error ? error.message : "unknown error"}`);
       }
     })();
+    statePromises.set(tenantId, statePromise);
   }
   return statePromise;
 }
 
 async function persistState() {
   const state = await getState();
-  const { bucketName, objectName } = privateObjectLocation("email-archive", "index.json");
+  const { bucketName, objectName } = privateObjectLocation(
+    "tenants",
+    currentTenantId(),
+    "email-archive",
+    "index.json",
+  );
   await objectStorageClient.bucket(bucketName).file(objectName).save(Buffer.from(JSON.stringify(state)), {
     resumable: false,
     metadata: { contentType: "application/json", metadata: { archive: "gmail-index" } },
@@ -184,17 +206,12 @@ async function saveAttachment(
   );
   const bytes = payload.data ? base64UrlToBuffer(payload.data) : Buffer.alloc(0);
   const safeName = attachment.filename.replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 160) || "attachment";
-  const { bucketName, objectName } = privateObjectLocation(
-    "email-archive",
-    messageId,
-    `${createHash("sha256").update(attachment.gmailAttachmentId).digest("hex").slice(0, 24)}-${safeName}`,
-  );
-  await objectStorageClient.bucket(bucketName).file(objectName).save(bytes, {
-    resumable: false,
-    metadata: {
-      contentType: attachment.mimeType,
-      metadata: { archive: "gmail", gmailMessageId: messageId },
-    },
+  const saved = await saveTenantFile({
+    tenantId: currentTenantId(),
+    filename: `${randomUUID().slice(0, 8)}-${safeName}`,
+    bytes,
+    contentType: attachment.mimeType,
+    folderSegments: ["email-archive", messageId],
   });
 
   return {
@@ -203,7 +220,7 @@ async function saveAttachment(
     filename: attachment.filename,
     mimeType: attachment.mimeType,
     size: bytes.length || attachment.size,
-    objectName,
+    objectName: saved.objectName,
   } satisfies ArchivedEmailAttachment;
 }
 
@@ -220,9 +237,14 @@ export interface EmailSyncResult {
 }
 
 export async function syncEmailArchive(): Promise<EmailSyncResult> {
-  if (syncPromise) return syncPromise;
+  const tenantId = currentTenantId();
+  if (tenantId !== DEFAULT_TENANT_ID) {
+    throw new Error("Gmail is connected at workspace level and can only be archived in the legacy organization");
+  }
+  const runningSync = syncPromises.get(tenantId);
+  if (runningSync) return runningSync;
 
-  syncPromise = (async () => {
+  const nextSync = (async () => {
     const state = await getState();
     state.sync.syncing = true;
     state.sync.lastError = null;
@@ -368,11 +390,12 @@ export async function syncEmailArchive(): Promise<EmailSyncResult> {
       await persistState();
       throw error;
     } finally {
-      syncPromise = null;
+      syncPromises.delete(tenantId);
     }
   })();
 
-  return syncPromise;
+  syncPromises.set(tenantId, nextSync);
+  return nextSync;
 }
 
 router.use("/sa/email-archive", (req: Request, res: Response, next) => {
@@ -440,15 +463,29 @@ router.get("/sa/email-archive/:id/attachments/:attachmentId/download", async (re
     return;
   }
 
-  const { bucketName } = privateObjectLocation();
-  const file = objectStorageClient.bucket(bucketName).file(attachment.objectName);
   res.setHeader("Content-Type", attachment.mimeType || "application/octet-stream");
   res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`);
   res.setHeader("Cache-Control", "private, no-store");
-  file.createReadStream().on("error", () => {
-    if (!res.headersSent) res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
-    else res.end();
-  }).pipe(res);
+  const driveFileId = parseTenantDriveObjectPath(attachment.objectName);
+  if (driveFileId) {
+    try {
+      const file = await downloadTenantFile(currentTenantId(), driveFileId);
+      res.send(file.bytes);
+    } catch {
+      res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
+    }
+  } else {
+    if (currentTenantId() !== DEFAULT_TENANT_ID) {
+      res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
+      return;
+    }
+    const { bucketName } = privateObjectLocation();
+    const file = objectStorageClient.bucket(bucketName).file(attachment.objectName);
+    file.createReadStream().on("error", () => {
+      if (!res.headersSent) res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
+      else res.end();
+    }).pipe(res);
+  }
 
   const actor = res.locals.emailArchiveActor as EmailArchiveActor;
   addAuditLog(actor.id, actor.name, "update", "مرفق بريد", attachment.id, `تنزيل مرفق من بريد مؤرشف: ${attachment.filename}`);

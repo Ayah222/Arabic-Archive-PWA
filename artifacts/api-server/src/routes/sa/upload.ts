@@ -4,9 +4,10 @@ import {
   decodeStorageObjectRef,
   objectStorageClient,
   privateObjectLocation,
-  savePrivateObject,
 } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
+import { DEFAULT_TENANT_ID } from "../../lib/tenantContext";
+import { saveTenantFile } from "../../lib/tenantDrive";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -23,12 +24,12 @@ router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void>
 
   const projectId = String(req.body.projectId || "general");
   const section = String(req.body.section || "files");
-  const saved = await savePrivateObject({
-    namespace: "uploads",
+  const saved = await saveTenantFile({
+    tenantId: String(res.locals.tenantId),
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    segments: [projectId, section],
+    folderSegments: ["uploads", projectId, section],
   });
 
   res.json({
@@ -46,7 +47,16 @@ router.get("/sa/files/:objectRef", async (req, res): Promise<void> => {
     const { bucketName, objectName: privatePrefix } = privateObjectLocation();
     const allowedRoot = privatePrefix ? `${privatePrefix}/` : "";
     const relativeName = objectName.startsWith(allowedRoot) ? objectName.slice(allowedRoot.length) : "";
-    if (!["uploads/", "project-photos/", "attachments/"].some((prefix) => relativeName.startsWith(prefix))) {
+    const tenantId = String(res.locals.tenantId);
+    const isLegacyTenant = tenantId === DEFAULT_TENANT_ID;
+    const isTenantPath = relativeName.startsWith(`tenants/${tenantId}/`);
+    const isLegacyPath = isLegacyTenant && ["uploads/", "project-photos/", "attachments/"].some((prefix) => relativeName.startsWith(prefix));
+    if (!isTenantPath && !isLegacyPath) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    const scopedName = isTenantPath ? relativeName.slice(`tenants/${tenantId}/`.length) : relativeName;
+    if (!["uploads/", "project-photos/", "attachments/"].some((prefix) => scopedName.startsWith(prefix))) {
       res.status(404).json({ error: "File not found" });
       return;
     }

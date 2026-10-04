@@ -21,6 +21,8 @@ import type {
 } from "./store";
 import { deletePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl } from "../../lib/supabaseStorage";
+import { currentTenantId } from "../../lib/tenantContext";
+import { deleteTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message);
@@ -179,6 +181,11 @@ function attachmentObjectPath(row: Record<string, unknown>): string | null {
 }
 
 async function deleteStoredObject(objectPath: string) {
+  const driveFileId = parseTenantDriveObjectPath(objectPath);
+  if (driveFileId) {
+    await deleteTenantFile(currentTenantId(), driveFileId);
+    return;
+  }
   const supabasePath = parseSupabaseObjectPath(objectPath);
   if (supabasePath) await deleteSupabaseObject(supabasePath);
   else await deletePrivateObject(objectPath);

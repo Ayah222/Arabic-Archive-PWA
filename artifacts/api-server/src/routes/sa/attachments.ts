@@ -5,6 +5,7 @@ import { inflateRawSync } from "node:zlib";
 import { deletePrivateObject, downloadPrivateObject, savePrivateObject } from "../../lib/objectStorage";
 import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
+import { deleteTenantFile, downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
@@ -191,9 +192,12 @@ router.post("/sa/projects/:id/attachments/download-zip", async (req, res): Promi
   for (const attachment of attachments) {
     try {
       const supabasePath = parseSupabaseObjectPath(attachment.objectPath);
+      const driveFileId = parseTenantDriveObjectPath(attachment.objectPath);
       const bytes = supabasePath
         ? await downloadSupabaseObject(supabasePath, MAX_UPLOAD_BYTES)
-        : attachment.objectPath
+        : driveFileId
+          ? (await downloadTenantFile(String(res.locals.tenantId), driveFileId, MAX_UPLOAD_BYTES)).bytes
+          : attachment.objectPath
           ? await downloadPrivateObject(attachment.objectPath, MAX_UPLOAD_BYTES)
           : null;
       if (!bytes) throw new Error("مسار الملف غير موجود");
@@ -278,12 +282,12 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     .slice(0, -1)
     .filter((part) => part && part !== "." && part !== "..")
     .slice(0, 20);
-  const saved = await savePrivateObject({
-    namespace: "attachments",
+  const saved = await saveTenantFile({
+    tenantId: String(res.locals.tenantId),
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    segments: [projectId, entityType, ...relativeParts],
+    folderSegments: ["attachments", projectId, entityType, ...relativeParts],
   });
   try {
     const attachment = await createAttachment(projectId, {
@@ -340,12 +344,12 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       const mimeType = mimeByExtension[extname(filename).toLowerCase()] || "application/octet-stream";
       const savedPath = directStoragePath
         ? await uploadSupabaseObject({ storagePath: `attachments/${projectId}/${entityType}/${relativePath}`, bytes, contentType: mimeType })
-        : (await savePrivateObject({
-            namespace: "attachments",
+        : (await saveTenantFile({
+            tenantId: String(res.locals.tenantId),
             filename,
             bytes,
             contentType: mimeType,
-            segments: [projectId, entityType, ...relativeParts],
+            folderSegments: ["attachments", projectId, entityType, ...relativeParts],
           })).objectName;
       try {
         const attachment = await createAttachment(projectId, {
@@ -361,7 +365,11 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
         results.push(attachment);
       } catch (error) {
         if (directStoragePath) await deleteSupabaseObject(savedPath.slice(`supabase://${process.env.SUPABASE_STORAGE_BUCKET || "smart-archive-files"}/`.length));
-        else await deletePrivateObject(savedPath);
+        else {
+          const driveFileId = parseTenantDriveObjectPath(savedPath);
+          if (driveFileId) await deleteTenantFile(String(res.locals.tenantId), driveFileId);
+          else await deletePrivateObject(savedPath);
+        }
         throw error;
       }
     }

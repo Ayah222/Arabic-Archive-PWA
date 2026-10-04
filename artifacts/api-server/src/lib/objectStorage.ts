@@ -45,6 +45,11 @@ function safeSegment(value: string, fallback: string) {
 }
 
 export function storageObjectUrl(objectName: string) {
+  if (objectName.startsWith("drive://")) {
+    const fileId = objectName.slice("drive://".length);
+    if (!/^[A-Za-z0-9_-]{5,256}$/.test(fileId)) throw new Error("Invalid Google Drive file reference");
+    return `/api/sa/storage/files/${encodeURIComponent(fileId)}`;
+  }
   return `/api/sa/files/${Buffer.from(objectName, "utf8").toString("base64url")}`;
 }
 

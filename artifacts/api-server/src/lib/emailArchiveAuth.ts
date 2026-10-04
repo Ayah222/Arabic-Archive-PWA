@@ -4,6 +4,7 @@ export type EmailArchiveActor = {
   id: string;
   name: string;
   role: "admin" | "data_entry" | "viewer";
+  tenantId: string;
 };
 
 type ArchiveSessionPayload = EmailArchiveActor & { exp: number; adminSessionVersion?: string };
@@ -43,9 +44,15 @@ export function verifyEmailArchiveSession(token: unknown): EmailArchiveActor | n
 
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as ArchiveSessionPayload;
-    if (!parsed.id || !parsed.name || !["admin", "data_entry", "viewer"].includes(parsed.role) || parsed.exp < Date.now()) return null;
+    if (
+      !parsed.id ||
+      !parsed.name ||
+      !/^[0-9a-f-]{36}$/i.test(parsed.tenantId) ||
+      !["admin", "data_entry", "viewer"].includes(parsed.role) ||
+      parsed.exp < Date.now()
+    ) return null;
     if (parsed.role === "admin" && parsed.adminSessionVersion !== ADMIN_SESSION_VERSION) return null;
-    return { id: parsed.id, name: parsed.name, role: parsed.role };
+    return { id: parsed.id, name: parsed.name, role: parsed.role, tenantId: parsed.tenantId };
   } catch {
     return null;
   }
@@ -56,7 +63,7 @@ export function verifyEmailArchiveSession(token: unknown): EmailArchiveActor | n
 // supplied role/id headers. Access is granted via this server-signed HttpOnly
 // cookie, issued only after verifying either the local admin login or a real
 // Supabase access token + the profile's `hr_access` flag (see users.ts).
-export type HrActor = { id: string; name: string };
+export type HrActor = { id: string; name: string; tenantId: string };
 type HrSessionPayload = HrActor & { exp: number; adminSessionVersion?: string };
 
 export function createHrSession(actor: HrActor) {
@@ -80,9 +87,9 @@ export function verifyHrSession(token: unknown): HrActor | null {
 
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as HrSessionPayload;
-    if (!parsed.id || !parsed.name || parsed.exp < Date.now()) return null;
+    if (!parsed.id || !parsed.name || !/^[0-9a-f-]{36}$/i.test(parsed.tenantId) || parsed.exp < Date.now()) return null;
     if (parsed.id === "admin" && parsed.adminSessionVersion !== ADMIN_SESSION_VERSION) return null;
-    return { id: parsed.id, name: parsed.name };
+    return { id: parsed.id, name: parsed.name, tenantId: parsed.tenantId };
   } catch {
     return null;
   }

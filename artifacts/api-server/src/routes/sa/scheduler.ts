@@ -5,6 +5,8 @@ import { syncEmailArchive } from "./emailArchive";
 import { listAllDocuments, listAllLetters, listAllContracts, listFinance, listProjects } from "./archiveDb";
 import { listEmployees, listAllEmployeeDocuments, listAllEmployeeLeaves, listAllLicenses } from "./hrDb";
 import { listNotifications, persistNotifications } from "./notificationDb";
+import { runWithTenant, DEFAULT_TENANT_ID } from "../../lib/tenantContext";
+import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const REVIEW_DAYS_THRESHOLD = 5; // documents under review for more than N days trigger alert
 
@@ -12,7 +14,7 @@ function daysBetween(a: string, b: string) {
   return Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
 }
 
-async function runScheduledChecks() {
+async function runScheduledChecksForTenant() {
   const now = new Date();
   const todayStr = now.toISOString();
   const notifications = await listNotifications(500);
@@ -265,6 +267,18 @@ async function runScheduledChecks() {
   await persistNotifications(notifications);
 }
 
+async function runScheduledChecks() {
+  const { data: tenants, error } = await supabaseAdmin().from("organizations").select("id");
+  if (error) throw new Error(error.message);
+  for (const tenant of tenants ?? []) {
+    await runWithTenant(String(tenant.id), () => runScheduledChecksForTenant());
+  }
+}
+
+function syncLegacyEmailArchive() {
+  return runWithTenant(DEFAULT_TENANT_ID, () => syncEmailArchive());
+}
+
 export function startScheduler() {
   // Run once on startup
   void runScheduledChecks().catch((error) => console.error("Initial scheduled checks failed", error));
@@ -276,8 +290,8 @@ export function startScheduler() {
 
   // Gmail is read-only through the Replit connector. Sync is intentionally
   // isolated so an external API error never interrupts the archive scheduler.
-  void syncEmailArchive().catch((error) => console.error("Initial Gmail archive sync failed", error));
+  void syncLegacyEmailArchive().catch((error) => console.error("Initial Gmail archive sync failed", error));
   setInterval(() => {
-    void syncEmailArchive().catch((error) => console.error("Scheduled Gmail archive sync failed", error));
+    void syncLegacyEmailArchive().catch((error) => console.error("Scheduled Gmail archive sync failed", error));
   }, 30 * 60 * 1000);
 }

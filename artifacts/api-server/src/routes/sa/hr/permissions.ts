@@ -7,6 +7,7 @@
 // and the profile's `hr_access` flag server-side — see users.ts).
 import type { NextFunction, Request, Response } from "express";
 import { verifyHrSession, type HrActor } from "../../../lib/emailArchiveAuth";
+import { getTenantMembership } from "../../../lib/tenantMemberships";
 
 // requireHrAccess stores the verified actor on res.locals.hrActor (Response.locals
 // is already loosely typed by @types/express, so no module augmentation is
@@ -23,7 +24,13 @@ export async function requireHrAccess(req: Request, res: Response, next: NextFun
   }
 
   const actor = verifyHrSession(req.cookies?.sa_hr_session);
-  if (!actor) {
+  if (!actor || actor.tenantId !== res.locals.tenantId) {
+    res.status(403).json({ error: "ليست لديك صلاحية الوصول لوحدة الموارد البشرية" });
+    return;
+  }
+  const membership = await getTenantMembership(actor.id, actor.tenantId);
+  if (!membership || (membership.role !== "admin" && !membership.hrAccess)) {
+    res.clearCookie("sa_hr_session", { path: "/api/sa/hr" });
     res.status(403).json({ error: "ليست لديك صلاحية الوصول لوحدة الموارد البشرية" });
     return;
   }

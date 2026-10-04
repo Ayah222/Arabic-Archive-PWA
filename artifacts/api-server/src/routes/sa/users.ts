@@ -5,6 +5,8 @@ import { store } from "./store";
 import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
 import { createEmailArchiveSession, createHrSession, verifyEmailArchiveSession, ARCHIVE_SESSION_TTL_MS, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
+import { getTenantMembership } from "../../lib/tenantMemberships";
+import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const router: IRouter = Router();
 
@@ -33,7 +35,7 @@ function setHrCookie(res: import("express").Response, actor: HrActor) {
 
 // POST login
 router.post("/sa/auth/login", async (req, res): Promise<void> => {
-  const { username, password } = req.body as { username?: string; password?: string };
+  const { username, password, tenantId } = req.body as { username?: string; password?: string; tenantId?: string };
   if (!username || !password) {
     res.status(400).json({ error: "username and password are required" });
     return;
@@ -43,17 +45,30 @@ router.post("/sa/auth/login", async (req, res): Promise<void> => {
     res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
     return;
   }
-  setEmailArchiveCookie(res, { id: user.id, name: user.name, role: user.role });
-  // The single local manager account (role "admin") always has HR access;
-  // local data_entry/viewer accounts are not part of the HR grant model.
-  if (user.role === "admin") {
-    setHrCookie(res, { id: user.id, name: user.name });
+  let membership;
+  try {
+    membership = await getTenantMembership(user.id, tenantId);
+  } catch {
+    res.status(503).json({ error: "يجب تطبيق ترحيل تعدد المؤسسات قبل تسجيل الدخول" });
+    return;
+  }
+  if (!membership) {
+    res.status(403).json({ error: "لا توجد عضوية نشطة لهذا الحساب" });
+    return;
+  }
+  const actor: EmailArchiveActor = { id: user.id, name: user.name, role: membership.role, tenantId: membership.tenantId };
+  setEmailArchiveCookie(res, actor);
+  if (membership.role === "admin" || membership.hrAccess) {
+    setHrCookie(res, { id: user.id, name: user.name, tenantId: membership.tenantId });
+  } else {
+    res.clearCookie("sa_hr_session", { path: "/api/sa/hr" });
   }
   res.json({
     id: user.id,
     username: user.username,
     name: user.name,
-    role: user.role,
+    role: membership.role,
+    tenantId: membership.tenantId,
   });
 });
 
@@ -106,12 +121,11 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
     .select("id, email, role, status")
     .eq("id", authData.user.id)
     .single();
-  const normalizedRole = profile?.role === "super_admin"
-    ? "admin"
-    : profile?.role === "employee"
-      ? "data_entry"
-      : profile?.role;
-  if (profileError || !profile || profile.status !== "active" || !["admin", "data_entry", "viewer"].includes(normalizedRole ?? "")) {
+  const requestedTenantId = (req.body as { tenantId?: unknown })?.tenantId;
+  const membership = !profileError && profile?.status === "active"
+    ? await getTenantMembership(authData.user.id, typeof requestedTenantId === "string" ? requestedTenantId : undefined)
+    : null;
+  if (profileError || !profile || profile.status !== "active" || !membership) {
     res.clearCookie("sa_email_archive_session", { path: "/" });
     res.status(403).json({ error: "الحساب غير مفعل أو لا يملك صلاحية الأرشيف" });
     return;
@@ -120,7 +134,8 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
   setEmailArchiveCookie(res, {
     id: profile.id,
     name: profile.email?.split("@")[0] || "مستخدم",
-    role: normalizedRole as EmailArchiveActor["role"],
+    role: membership.role,
+    tenantId: membership.tenantId,
   });
   res.status(204).end();
 });
@@ -151,13 +166,17 @@ router.post("/sa/auth/supabase-hr-session", async (req, res): Promise<void> => {
     .select("id, email, role, status, hr_access")
     .eq("id", authData.user.id)
     .single();
-  const hasHrAccess = profile?.role === "admin" || profile?.hr_access === true;
-  if (profileError || !profile || profile.status !== "active" || !hasHrAccess) {
+  const archiveActor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  const membership = !profileError && profile?.status === "active"
+    ? await getTenantMembership(authData.user.id, archiveActor?.tenantId)
+    : null;
+  const hasHrAccess = membership?.role === "admin" || membership?.hrAccess === true;
+  if (profileError || !profile || profile.status !== "active" || !membership || !hasHrAccess) {
     res.status(403).json({ error: "ليست لديك صلاحية الوصول لوحدة الموارد البشرية" });
     return;
   }
 
-  setHrCookie(res, { id: profile.id, name: profile.email?.split("@")[0] || "مستخدم" });
+  setHrCookie(res, { id: profile.id, name: profile.email?.split("@")[0] || "مستخدم", tenantId: membership.tenantId });
   res.status(204).end();
 });
 

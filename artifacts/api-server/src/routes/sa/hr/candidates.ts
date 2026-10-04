@@ -9,6 +9,8 @@ import {
 import { addAuditLog } from "../archiveDb";
 import { extractCvSkills } from "../../../lib/ai";
 import { extractPdfText } from "../../../lib/pdfText";
+import { currentTenantId } from "../../../lib/tenantContext";
+import { downloadTenantFile } from "../../../lib/tenantDrive";
 import { hrActorFrom } from "./permissions";
 import { resolveHrFilePath } from "./files";
 
@@ -92,13 +94,27 @@ router.post("/sa/hr/candidates/:id/extract-skills", async (req, res): Promise<vo
   }
 
   const filename = path.basename(new URL(urlToUse, "http://internal").pathname);
-  const filePath = resolveHrFilePath(filename);
-  if (!fs.existsSync(filePath) || !filename.toLowerCase().endsWith(".pdf")) {
+  const parsedUrl = new URL(urlToUse, "http://internal");
+  const driveFileMatch = parsedUrl.pathname.match(/^\/api\/sa\/hr\/storage\/files\/([^/]+)$/);
+  let pdfInput: string | Buffer = resolveHrFilePath(filename);
+  if (driveFileMatch) {
+    try {
+      const driveFile = await downloadTenantFile(currentTenantId(), decodeURIComponent(driveFileMatch[1]));
+      if (!driveFile.filename.toLowerCase().endsWith(".pdf")) {
+        res.json({ skills: [], extracted: false });
+        return;
+      }
+      pdfInput = driveFile.bytes;
+    } catch {
+      res.json({ skills: [], extracted: false });
+      return;
+    }
+  } else if (!fs.existsSync(pdfInput) || !filename.toLowerCase().endsWith(".pdf")) {
     res.json({ skills: [], extracted: false });
     return;
   }
 
-  const text = await extractPdfText(filePath);
+  const text = await extractPdfText(pdfInput);
   if (!text) {
     res.json({ skills: [], extracted: false });
     return;

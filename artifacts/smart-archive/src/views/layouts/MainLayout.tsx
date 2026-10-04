@@ -6,6 +6,7 @@ import { getArchivePermissions } from "../../controllers/permissions";
 import { useLanguage } from "../../contexts/LanguageContext";
 import MicrophoneButton from "../components/shared/MicrophoneButton";
 import Toast from "../components/shared/Toast";
+import TenantControls from "./TenantControls";
 import {
   LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
   CheckCheck, Info, AlertTriangle, ShieldAlert,
@@ -144,6 +145,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        <TenantControls isDark={isDark} isAdmin={currentUser?.role === "admin"} lang={lang} />
 
         {/* Nav */}
         <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">

@@ -30,9 +30,13 @@ import hrCorporateRouter from "./hr/corporate";
 import hrFilesRouter from "./hr/files";
 import { enforcePermissions } from "./permissions";
 import { requireHrAccess } from "./hr/permissions";
+import { requireTenantContext } from "../../middlewares/tenantContext";
+import tenantRouter from "./tenants";
+import tenantStorageRouter from "./tenantStorage";
 
 const router: IRouter = Router();
 
+router.use(requireTenantContext);
 router.use(enforcePermissions);
 router.use(requireHrAccess);
 router.use(hrFilesRouter);
@@ -64,5 +68,7 @@ router.use(emailArchiveRouter);
 router.use(messagesRouter);
 router.use(storageRouter);
 router.use(agenciesRouter);
+router.use(tenantRouter);
+router.use(tenantStorageRouter);
 
 export default router;

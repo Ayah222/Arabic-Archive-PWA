@@ -85,7 +85,13 @@ export default function UsersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "فشل إرسال الدعوة");
-      setInviteMsg({ ok: true, text: "تم إرسال الدعوة بنجاح ✅" });
+      setInviteMsg({
+        ok: true,
+        text: data.existingAccount
+          ? "تمت إضافة العضوية بانتظار موافقة المدير"
+          : "تم إرسال الدعوة بنجاح",
+      });
+      void fetchProfiles();
       setInviteEmail("");
       setTimeout(() => { setInviteOpen(false); setInviteMsg(null); }, 1500);
     } catch (err: any) {
@@ -107,9 +113,11 @@ export default function UsersPage() {
       setProfiles(prev => prev.map(p => p.id === id ? updated : p));
       if (updates.status === "active") {
         setToast({
-          message: updated.activationEmailSent === false
-            ? "تم تفعيل المستخدم، لكن تعذر إرسال رسالة التفعيل"
-            : "تم تفعيل المستخدم وإرسال رسالة التفعيل",
+          message: updated.activationEmailSent === true
+            ? (lang === "en" ? "User activated and activation email sent" : "تم تفعيل المستخدم وإرسال رسالة التفعيل")
+            : updated.activationEmailSent === false
+              ? (lang === "en" ? "User activated, but the activation email could not be sent" : "تم تفعيل المستخدم، لكن تعذر إرسال رسالة التفعيل")
+              : (lang === "en" ? "Organization membership activated" : "تم تفعيل عضوية المؤسسة"),
           type: updated.activationEmailSent === false ? "error" : "success",
         });
       }
