@@ -4,6 +4,7 @@ import {
   ARCHIVE_SESSION_TTL_MS,
   createEmailArchiveSession,
   createHrSession,
+  isSystemAdmin,
   verifyEmailArchiveSession,
 } from "../../lib/emailArchiveAuth";
 import { listTenantMemberships, getTenantMembership } from "../../lib/tenantMemberships";
@@ -38,6 +39,23 @@ router.get("/sa/tenants", async (req, res): Promise<void> => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   if (!actor) {
     res.status(401).json({ error: "يلزم تسجيل الدخول" });
+    return;
+  }
+  if (isSystemAdmin(actor)) {
+    const { data, error } = await supabaseAdmin()
+      .from("organizations")
+      .select("id,name,slug")
+      .order("name");
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json((data ?? []).map((tenant) => ({
+      ...tenant,
+      role: "admin",
+      hrAccess: true,
+      active: tenant.id === actor.tenantId,
+    })));
     return;
   }
   const memberships = await listTenantMemberships(actor.id);
@@ -101,6 +119,21 @@ router.post("/sa/tenants/active", async (req, res): Promise<void> => {
   const tenantId = typeof req.body?.tenantId === "string" ? req.body.tenantId : "";
   if (!actor || !tenantId) {
     res.status(400).json({ error: "معرّف المؤسسة مطلوب" });
+    return;
+  }
+  if (isSystemAdmin(actor)) {
+    const { data: tenant, error } = await supabaseAdmin()
+      .from("organizations")
+      .select("id")
+      .eq("id", tenantId)
+      .maybeSingle();
+    if (error || !tenant) {
+      res.status(404).json({ error: "المؤسسة غير موجودة" });
+      return;
+    }
+    const nextActor = { ...actor, role: "admin" as const, tenantId: tenant.id };
+    setSessionCookies(res, nextActor, true);
+    res.json({ tenantId: tenant.id, role: "admin" });
     return;
   }
   const membership = await getTenantMembership(actor.id, tenantId);

@@ -7,11 +7,15 @@ export type EmailArchiveActor = {
   tenantId: string;
 };
 
+export function isSystemAdmin(actor: Pick<EmailArchiveActor, "id"> | null | undefined): boolean {
+  return actor?.id === "admin";
+}
+
 type ArchiveSessionPayload = EmailArchiveActor & { exp: number; adminSessionVersion?: string };
 export const ARCHIVE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // Increment this whenever the local manager credentials are rotated. It
 // invalidates every previously issued manager session.
-export const ADMIN_SESSION_VERSION = "2";
+export const ADMIN_SESSION_VERSION = "3";
 
 function sessionSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -26,7 +30,7 @@ function signature(value: string) {
 export function createEmailArchiveSession(actor: EmailArchiveActor) {
   const payload = Buffer.from(JSON.stringify({
     ...actor,
-    ...(actor.role === "admin" ? { adminSessionVersion: ADMIN_SESSION_VERSION } : {}),
+    ...(actor.role === "admin" || isSystemAdmin(actor) ? { adminSessionVersion: ADMIN_SESSION_VERSION } : {}),
     exp: Date.now() + ARCHIVE_SESSION_TTL_MS,
   })).toString("base64url");
   return `${payload}.${signature(payload)}`;
@@ -51,8 +55,13 @@ export function verifyEmailArchiveSession(token: unknown): EmailArchiveActor | n
       !["admin", "data_entry", "viewer"].includes(parsed.role) ||
       parsed.exp < Date.now()
     ) return null;
-    if (parsed.role === "admin" && parsed.adminSessionVersion !== ADMIN_SESSION_VERSION) return null;
-    return { id: parsed.id, name: parsed.name, role: parsed.role, tenantId: parsed.tenantId };
+    if ((parsed.role === "admin" || isSystemAdmin(parsed)) && parsed.adminSessionVersion !== ADMIN_SESSION_VERSION) return null;
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      role: isSystemAdmin(parsed) ? "admin" : parsed.role,
+      tenantId: parsed.tenantId,
+    };
   } catch {
     return null;
   }

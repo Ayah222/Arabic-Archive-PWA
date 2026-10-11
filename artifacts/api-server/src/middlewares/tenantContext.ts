@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { verifyEmailArchiveSession, verifyHrSession } from "../lib/emailArchiveAuth";
+import { isSystemAdmin, verifyEmailArchiveSession, verifyHrSession } from "../lib/emailArchiveAuth";
 import { runWithTenant } from "../lib/tenantContext";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 
@@ -30,6 +30,7 @@ export async function requireTenantContext(
 
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   const hrActor = verifyHrSession(req.cookies?.sa_hr_session);
+  const systemAdmin = isSystemAdmin(actor);
   const tenantId = actor?.tenantId ?? hrActor?.tenantId;
   const userId = actor?.id ?? hrActor?.id;
   if (!tenantId || !userId) {
@@ -41,19 +42,21 @@ export async function requireTenantContext(
     return;
   }
 
-  const { data: membership, error } = await supabaseAdmin()
-    .from("organization_memberships")
-    .select("tenant_id,role,status")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error || !membership || membership.status !== "active") {
-    res.status(403).json({ error: "لا تملك عضوية نشطة في هذه المؤسسة" });
-    return;
-  }
-  if (actor && membership.role !== actor.role) {
-    res.status(401).json({ error: "تغيرت صلاحيات حسابك. يرجى تسجيل الدخول مجدداً." });
-    return;
+  if (!systemAdmin) {
+    const { data: membership, error } = await supabaseAdmin()
+      .from("organization_memberships")
+      .select("tenant_id,role,status")
+      .eq("tenant_id", tenantId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error || !membership || membership.status !== "active") {
+      res.status(403).json({ error: "لا تملك عضوية نشطة في هذه المؤسسة" });
+      return;
+    }
+    if (actor && membership.role !== actor.role) {
+      res.status(401).json({ error: "تغيرت صلاحيات حسابك. يرجى تسجيل الدخول مجدداً." });
+      return;
+    }
   }
 
   res.locals.tenantId = tenantId;

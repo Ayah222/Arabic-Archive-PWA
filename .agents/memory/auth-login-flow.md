@@ -14,10 +14,10 @@ description: How employee and manager login works in Smart Archive
 **How to apply:** Keep employee password recovery on the public recovery pages; do not route the local manager credentials through Supabase recovery.
 
 ### Manager Side ("جهة داري")
-- Separate login using **username + password** (not email)
-- Manager credentials: username `admin`, password `admin123`
-- The manager has full control: invite users, approve or reject pending accounts, assign roles, and perform final deletion.
-**Why:** The product uses one clear administrator role; the separate super-admin role is intentionally removed.
+- Separate login using environment-configured **username + password** (not email)
+- The local system manager has system-wide administration: can view and switch across every organization, invite users into the selected organization, and manage its users. Employee `admin` memberships remain scoped to their organizations.
+**Why:** The owner requires the management account to administer every organization while preserving tenant isolation for ordinary accounts.
+**How to apply:** Grant the global bypass only through the signed local-manager login; never infer system-admin status from a client-supplied role or grant it to Supabase-authenticated employees.
 
 ## User Flow (full)
 Invite (by manager) → Employee receives magic link → `/accept-invite` page → sets password → status = `pending` → Manager approves or rejects in Users panel → status = `active` → employee can login

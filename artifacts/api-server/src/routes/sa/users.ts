@@ -5,7 +5,7 @@ import { store } from "./store";
 import { addAuditLog } from "./archiveDb";
 import { createClient } from "@supabase/supabase-js";
 import { createEmailArchiveSession, createHrSession, verifyEmailArchiveSession, ARCHIVE_SESSION_TTL_MS, type EmailArchiveActor, type HrActor } from "../../lib/emailArchiveAuth";
-import { getTenantMembership } from "../../lib/tenantMemberships";
+import { getDefaultTenantId, getTenantMembership } from "../../lib/tenantMemberships";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const router: IRouter = Router();
@@ -47,7 +47,9 @@ router.post("/sa/auth/login", async (req, res): Promise<void> => {
   }
   let membership;
   try {
-    membership = await getTenantMembership(user.id, tenantId);
+    membership = user.id === "admin"
+      ? { tenantId: await getDefaultTenantId(), role: "admin" as const, status: "active" as const, hrAccess: true }
+      : await getTenantMembership(user.id, tenantId);
   } catch {
     res.status(503).json({ error: "يجب تطبيق ترحيل تعدد المؤسسات قبل تسجيل الدخول" });
     return;
