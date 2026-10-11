@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { objectStorageClient, privateObjectLocation } from "../../lib/objectStorage";
-import { verifyEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
+import { hasAdminAccess, verifyEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
 import { addAuditLog } from "./archiveDb";
 import { currentTenantId, DEFAULT_TENANT_ID } from "../../lib/tenantContext";
 import { downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
@@ -493,7 +493,7 @@ router.get("/sa/email-archive/:id/attachments/:attachmentId/download", async (re
 
 router.post("/sa/email-archive/sync", async (req: Request, res: Response) => {
   const actor = res.locals.emailArchiveActor as EmailArchiveActor;
-  if (actor.role !== "admin") {
+  if (!hasAdminAccess(actor)) {
     res.status(403).json({ error: "مزامنة البريد متاحة للمدير فقط" });
     return;
   }

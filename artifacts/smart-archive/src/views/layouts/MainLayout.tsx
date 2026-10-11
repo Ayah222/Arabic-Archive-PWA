@@ -146,7 +146,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </button>
         </div>
 
-        <TenantControls isDark={isDark} isAdmin={currentUser?.role === "admin"} lang={lang} />
+        <TenantControls
+          isDark={isDark}
+          isAdmin={currentUser?.role === "admin"}
+          isSystemAdmin={currentUser?.id === "admin"}
+          lang={lang}
+        />
 
         {/* Nav */}
         <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">

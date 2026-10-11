@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { deleteNotificationsContaining } from "./notificationDb";
-import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { getTenantMembership } from "../../lib/tenantMemberships";
 
 const router = Router();
@@ -67,7 +67,7 @@ async function sendActivationEmail(email: string, name: string, loginUrl: string
 // GET /api/sa/profiles  — all profiles
 router.get("/sa/profiles", async (req, res) => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (!actor || actor.role !== "admin") return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+  if (!actor || !hasAdminAccess(actor)) return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
   const { data: memberships, error: membershipError } = await adminClient()
     .from("organization_memberships")
     .select("user_id,role,status,hr_access")
@@ -96,7 +96,7 @@ router.get("/sa/profiles", async (req, res) => {
 router.get("/sa/profiles/:id", async (req, res) => {
   const id = req.params.id;
   const archiveActor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (archiveActor?.role !== "admin" && archiveActor?.id !== id) {
+  if (!hasAdminAccess(archiveActor) && archiveActor?.id !== id) {
     const authorization = req.get("authorization") ?? "";
     const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
     if (!accessToken) return res.status(401).json({ error: "Authentication required" });
@@ -149,7 +149,7 @@ router.patch("/sa/profiles/:id", async (req, res) => {
 
   const admin = adminClient();
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (!actor || actor.role !== "admin") return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+  if (!actor || !hasAdminAccess(actor)) return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
   const membershipUpdates: Record<string, string | boolean> = {};
   if (normalizedRole) membershipUpdates.role = normalizedRole;
   if (status) membershipUpdates.status = status === "active" ? "active" : "pending";
@@ -215,7 +215,7 @@ router.patch("/sa/profiles/:id", async (req, res) => {
 router.delete("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (!actor || actor.role !== "admin") return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+  if (!actor || !hasAdminAccess(actor)) return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
   const admin = adminClient();
   const { data: profile, error: profileError } = await admin
     .from("profiles")

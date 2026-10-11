@@ -11,6 +11,12 @@ export function isSystemAdmin(actor: Pick<EmailArchiveActor, "id"> | null | unde
   return actor?.id === "admin";
 }
 
+export function hasAdminAccess(
+  actor: Pick<EmailArchiveActor, "id" | "role"> | null | undefined,
+): boolean {
+  return actor?.role === "admin" || isSystemAdmin(actor);
+}
+
 type ArchiveSessionPayload = EmailArchiveActor & { exp: number; adminSessionVersion?: string };
 export const ARCHIVE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // Increment this whenever the local manager credentials are rotated. It

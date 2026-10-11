@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { addAuditLog } from "./archiveDb";
-import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 type SARole = "admin" | "data_entry" | "viewer";
 
@@ -59,7 +59,7 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
   // All other user-management routes, including the profile list, are admin-only.
   if (isUserManagement && !isSingleProfileLookup) {
     const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-    if (!actor || actor.role !== "admin") {
+    if (!actor || !hasAdminAccess(actor)) {
       res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
       return;
     }

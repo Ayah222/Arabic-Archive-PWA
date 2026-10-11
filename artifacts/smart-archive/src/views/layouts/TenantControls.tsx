@@ -16,10 +16,11 @@ interface DriveStatus {
 interface TenantControlsProps {
   isDark: boolean;
   isAdmin: boolean;
+  isSystemAdmin: boolean;
   lang: string;
 }
 
-export default function TenantControls({ isDark, isAdmin, lang }: TenantControlsProps) {
+export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }: TenantControlsProps) {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [drive, setDrive] = useState<DriveStatus | null>(null);
   const [newName, setNewName] = useState("");
@@ -155,27 +156,27 @@ export default function TenantControls({ isDark, isAdmin, lang }: TenantControls
 
       {isAdmin && (
         <>
-          {showCreate ? (
-            <form onSubmit={(event) => void createTenant(event)} className="flex gap-1.5">
-              <input
-                autoFocus
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-                maxLength={120}
-                placeholder={text.organizationName}
-                className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none"
-                style={{ color: isDark ? "#f3f4f6" : "#25224d", background: isDark ? "rgba(0,0,0,0.24)" : "#fff", border: `1px solid ${border}` }}
-              />
-              <button type="submit" disabled={!newName.trim() || busy} className="rounded-lg px-2 text-xs font-bold disabled:opacity-50" style={{ background: isDark ? "rgba(0,210,230,0.15)" : "rgba(99,102,241,0.12)", color: isDark ? "#6de4ed" : "#5557bb" }}>
-                {text.create}
+          {isSystemAdmin && (showCreate ? (
+              <form onSubmit={(event) => void createTenant(event)} className="flex gap-1.5">
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  maxLength={120}
+                  placeholder={text.organizationName}
+                  className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none"
+                  style={{ color: isDark ? "#f3f4f6" : "#25224d", background: isDark ? "rgba(0,0,0,0.24)" : "#fff", border: `1px solid ${border}` }}
+                />
+                <button type="submit" disabled={!newName.trim() || busy} className="rounded-lg px-2 text-xs font-bold disabled:opacity-50" style={{ background: isDark ? "rgba(0,210,230,0.15)" : "rgba(99,102,241,0.12)", color: isDark ? "#6de4ed" : "#5557bb" }}>
+                  {text.create}
+                </button>
+              </form>
+            ) : (
+              <button type="button" onClick={() => setShowCreate(true)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ color: muted }}>
+                <Plus className="w-3.5 h-3.5" />
+                {text.addOrganization}
               </button>
-            </form>
-          ) : (
-            <button type="button" onClick={() => setShowCreate(true)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ color: muted }}>
-              <Plus className="w-3.5 h-3.5" />
-              {text.addOrganization}
-            </button>
-          )}
+            ))}
 
           <div className="pt-2" style={{ borderTop: `1px solid ${border}` }}>
             <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold" style={{ color: muted }}>

@@ -7,7 +7,7 @@ import {
   getTenantDriveStatus,
   verifyDriveOAuthState,
 } from "../../lib/tenantDrive";
-import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
 
@@ -34,7 +34,7 @@ router.get("/sa/tenants/storage", async (req, res): Promise<void> => {
 
 router.get("/sa/tenants/storage/google/connect", (req, res): void => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (!actor || actor.role !== "admin") {
+  if (!actor || !hasAdminAccess(actor)) {
     res.status(403).json({ error: "ربط Google Drive متاح لمدير المؤسسة فقط" });
     return;
   }
@@ -67,7 +67,7 @@ router.get("/sa/storage/google/callback", async (req, res): Promise<void> => {
     res.status(400).send("لم يكتمل ربط Google Drive.");
     return;
   }
-  if (!actor || actor.role !== "admin" || !state || actor.tenantId !== state.tenantId || !code) {
+  if (!actor || !hasAdminAccess(actor) || !state || actor.tenantId !== state.tenantId || !code) {
     res.status(403).send("تعذر التحقق من طلب ربط Google Drive.");
     return;
   }

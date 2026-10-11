@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.post("/sa/invite", async (req, res) => {
     return res.status(400).json({ error: "invalid role" });
   }
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (!actor || actor.role !== "admin") {
+  if (!actor || !hasAdminAccess(actor)) {
     return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
   }
 

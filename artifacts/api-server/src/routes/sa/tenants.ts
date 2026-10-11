@@ -4,6 +4,7 @@ import {
   ARCHIVE_SESSION_TTL_MS,
   createEmailArchiveSession,
   createHrSession,
+  hasAdminAccess,
   isSystemAdmin,
   verifyEmailArchiveSession,
 } from "../../lib/emailArchiveAuth";
@@ -82,7 +83,7 @@ router.get("/sa/tenants", async (req, res): Promise<void> => {
 
 router.post("/sa/tenants", async (req, res): Promise<void> => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
-  if (!actor || actor.role !== "admin") {
+  if (!actor || !isSystemAdmin(actor)) {
     res.status(403).json({ error: "إنشاء المؤسسات متاح للمدير فقط" });
     return;
   }
