@@ -48,6 +48,9 @@ function hasDetailedAudit(path: string) {
 
 export function enforcePermissions(req: Request, res: Response, next: NextFunction) {
   const isMutating = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+  const isTenantSessionMutation =
+    req.method === "POST" &&
+    (req.path === "/sa/tenants" || req.path === "/sa/tenants/active");
   const isUserManagement = ["/sa/invite", "/sa/profiles", "/sa/users"].some(
     (basePath) => req.path === basePath || req.path.startsWith(`${basePath}/`),
   );
@@ -84,6 +87,20 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
 
   // Login and initial account creation happen before an app session exists.
   if (req.path.startsWith("/sa/auth/")) {
+    next();
+    return;
+  }
+
+  // Organization creation and switching are authorized by the tenant routes
+  // themselves using the signed session cookie. Do not require the legacy
+  // x-user-role header here: the system administrator authenticates through
+  // the signed local-admin session, not the legacy role-header flow.
+  if (isTenantSessionMutation) {
+    const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+    if (!actor) {
+      res.status(401).json({ error: "جلسة الدخول غير صالحة. يرجى تسجيل الدخول مجدداً." });
+      return;
+    }
     next();
     return;
   }
