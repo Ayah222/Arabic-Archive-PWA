@@ -3,162 +3,113 @@ import { createClient } from "@supabase/supabase-js";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
-const DEFAULT_PUBLIC_APP_URL = "https://arabic-archive.replit.app";
 
-function buildInviteRedirectUrl(): string {
-  const configuredUrl = process.env["PUBLIC_APP_URL"]?.trim() || DEFAULT_PUBLIC_APP_URL;
-  const publicUrl = new URL(configuredUrl);
-  if (publicUrl.protocol !== "https:") {
-    throw new Error("PUBLIC_APP_URL must use HTTPS");
-  }
-  return new URL("/accept-invite", publicUrl).toString();
-}
-
-function isEmailRateLimitError(error: { message: string; status?: number }): boolean {
-  return error.status === 429 || /email.*rate.?limit|rate.?limit.*email/i.test(error.message);
-}
-
-function emailErrorMessage(error: { message: string; status?: number }): string {
-  return isEmailRateLimitError(error)
-    ? "تجاوز المشروع حد إرسال رسائل البريد التجريبي في Supabase. أوقفي إعادة المحاولة الآن، وأعدّي SMTP مخصصاً من Supabase → Authentication → SMTP Settings للإرسال للمستخدمين."
-    : error.message;
-}
-
-router.post("/sa/invite", async (req, res) => {
-  const { email: rawEmail, role } = req.body as { email?: string; role?: string };
+router.post("/sa/invite", async (req, res): Promise<void> => {
+  const { email: rawEmail, password: temporaryPassword, role } = req.body as {
+    email?: string;
+    password?: string;
+    role?: string;
+  };
   const email = rawEmail?.trim().toLowerCase();
   const normalizedRole = role === "employee" ? "data_entry" : role ?? "data_entry";
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: "A valid email is required" });
+    res.status(400).json({ error: "أدخلي بريداً إلكترونياً صحيحاً." });
+    return;
+  }
+  if (!temporaryPassword || temporaryPassword.length < 8) {
+    res.status(400).json({ error: "كلمة المرور المؤقتة يجب أن تكون 8 أحرف على الأقل." });
+    return;
   }
   if (!["admin", "data_entry", "viewer"].includes(normalizedRole)) {
-    return res.status(400).json({ error: "invalid role" });
+    res.status(400).json({ error: "الصلاحية المحددة غير صالحة." });
+    return;
   }
+
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   if (!actor || !hasAdminAccess(actor)) {
-    return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+    res.status(403).json({ error: "إضافة المستخدمين متاحة لمدير المؤسسة فقط." });
+    return;
   }
 
   const supabaseUrl = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"];
   const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-
   if (!supabaseUrl || !serviceKey) {
-    return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY not configured" });
+    res.status(500).json({ error: "إعداد اتصال Supabase غير مكتمل." });
+    return;
   }
 
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  let redirectTo: string;
-  try {
-    redirectTo = buildInviteRedirectUrl();
-  } catch (error) {
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : "Public application URL is invalid",
-    });
-  }
-
-  // Re-send a setup link for an existing account that is still awaiting approval.
-  // Recovery links are handled by the same AcceptInvite page and avoid deleting
-  // the existing auth/profile record.
-  const { data: existingProfile, error: existingProfileError } = await admin
+  const { data: existingProfile, error: profileLookupError } = await admin
     .from("profiles")
-    .select("id,status")
+    .select("id")
     .eq("email", email)
     .maybeSingle();
-  if (existingProfileError) return res.status(500).json({ error: existingProfileError.message });
+  if (profileLookupError) {
+    res.status(500).json({ error: "تعذر التحقق من البريد الإلكتروني." });
+    return;
+  }
   if (existingProfile) {
-    const { data: existingMembership } = await admin
-      .from("organization_memberships")
-      .select("user_id,status,role,hr_access")
-      .eq("tenant_id", actor.tenantId)
-      .eq("user_id", existingProfile.id)
-      .maybeSingle();
-    if (existingMembership?.status === "active") {
-      return res.status(409).json({ error: "هذا المستخدم عضو بالفعل في المؤسسة" });
-    }
-    if (!existingMembership) {
-      const { error: membershipError } = await admin.from("organization_memberships").insert({
-        tenant_id: actor.tenantId,
-        user_id: existingProfile.id,
-        role: normalizedRole,
-        hr_access: false,
-        status: "pending",
-      });
-      if (membershipError) return res.status(400).json({ error: membershipError.message });
-    } else {
-      const { error: membershipError } = await admin.from("organization_memberships")
-        .update({ role: normalizedRole, hr_access: false, status: "pending" })
-        .eq("tenant_id", actor.tenantId)
-        .eq("user_id", existingProfile.id);
-      if (membershipError) return res.status(400).json({ error: membershipError.message });
-    }
-    if (existingProfile.status === "pending") {
-      const { error: resetError } = await admin.auth.resetPasswordForEmail(email, { redirectTo });
-      if (resetError) {
-        if (existingMembership) {
-          await admin.from("organization_memberships")
-            .update({
-              role: existingMembership.role,
-              hr_access: existingMembership.hr_access,
-              status: existingMembership.status,
-            })
-            .eq("tenant_id", actor.tenantId)
-            .eq("user_id", existingProfile.id);
-        } else {
-          await admin.from("organization_memberships")
-            .delete()
-            .eq("tenant_id", actor.tenantId)
-            .eq("user_id", existingProfile.id)
-            .eq("status", "pending");
-        }
-        return res.status(isEmailRateLimitError(resetError) ? 429 : 400).json({
-          error: emailErrorMessage(resetError),
-        });
-      }
-    }
-    return res.json({ success: true, existingAccount: true });
+    res.status(409).json({ error: "يوجد حساب بهذا البريد الإلكتروني مسبقاً." });
+    return;
   }
 
-  const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo,
-    data: { role: normalizedRole },
-  });
-
-  if (inviteError) return res.status(isEmailRateLimitError(inviteError) ? 429 : 400).json({
-    error: emailErrorMessage(inviteError),
-  });
-  if (!inviteData.user) return res.status(500).json({ error: "Supabase did not return the invited user" });
-
-  const { error: profileError } = await admin.from("profiles").upsert({
-    id: inviteData.user.id,
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
+    password: temporaryPassword,
+    email_confirm: true,
+    user_metadata: { role: normalizedRole },
+  });
+  if (createError || !created.user) {
+    const duplicate = /already|registered|exists/i.test(createError?.message ?? "");
+    res.status(duplicate ? 409 : 400).json({
+      error: duplicate
+        ? "يوجد حساب بهذا البريد الإلكتروني مسبقاً."
+        : "تعذر إنشاء الحساب في Supabase.",
+    });
+    return;
+  }
+
+  const userId = created.user.id;
+  const { error: profileError } = await admin.from("profiles").upsert({
+    id: userId,
+    email,
+    name: email.split("@")[0],
     role: normalizedRole,
     hr_access: false,
-    status: "pending",
-    is_active: false,
-    invited_by: actor?.id ?? null,
+    status: "active",
+    is_active: true,
+    invited_by: actor.id,
   }, { onConflict: "id" });
 
   if (profileError) {
-    await admin.auth.admin.deleteUser(inviteData.user.id);
-    return res.status(500).json({ error: `Invite was created but its profile could not be saved: ${profileError.message}` });
-  }
-  const { error: membershipError } = await admin.from("organization_memberships").insert({
-    tenant_id: actor?.tenantId,
-    user_id: inviteData.user.id,
-    role: normalizedRole,
-    status: "pending",
-  });
-  if (membershipError) {
-    await admin.auth.admin.deleteUser(inviteData.user.id);
-    await admin.from("profiles").delete().eq("id", inviteData.user.id);
-    return res.status(500).json({ error: `Invite was created but its organization membership could not be saved: ${membershipError.message}` });
+    await admin.auth.admin.deleteUser(userId);
+    res.status(500).json({ error: "تعذر حفظ ملف الموظف؛ أُلغي إنشاء الحساب." });
+    return;
   }
 
-  return res.json({ success: true });
+  const { error: membershipError } = await admin.from("organization_memberships").insert({
+    tenant_id: actor.tenantId,
+    user_id: userId,
+    role: normalizedRole,
+    hr_access: false,
+    status: "active",
+  });
+
+  if (membershipError) {
+    await admin.from("profiles").delete().eq("id", userId);
+    await admin.auth.admin.deleteUser(userId);
+    res.status(500).json({ error: "تعذر ربط الموظف بمؤسستك؛ أُلغي إنشاء الحساب." });
+    return;
+  }
+
+  res.status(201).json({
+    success: true,
+    user: { id: userId, email, role: normalizedRole, status: "active" },
+  });
 });
 
 export default router;

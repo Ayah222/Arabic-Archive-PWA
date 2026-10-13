@@ -69,9 +69,17 @@ export default function UsersPage() {
   // Invite modal
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [inviteRole, setInviteRole] = useState("data_entry");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const closeInvite = () => {
+    setInviteOpen(false);
+    setInviteEmail("");
+    setTemporaryPassword("");
+    setInviteMsg(null);
+  };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,19 +89,18 @@ export default function UsersPage() {
       const res = await fetch(`${API}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail, password: temporaryPassword, role: inviteRole }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "فشل إرسال الدعوة");
       setInviteMsg({
         ok: true,
-        text: data.existingAccount
-          ? "تمت إضافة العضوية بانتظار موافقة المدير"
-          : "تم إرسال الدعوة بنجاح",
+        text: "تم إنشاء الحساب وتفعيله مباشرة. شاركي بيانات الدخول مع الموظف عبر قناة آمنة.",
       });
       void fetchProfiles();
       setInviteEmail("");
-      setTimeout(() => { setInviteOpen(false); setInviteMsg(null); }, 1500);
+      setTemporaryPassword("");
+      setTimeout(closeInvite, 2500);
     } catch (err: any) {
       setInviteMsg({ ok: false, text: err.message });
     } finally {
@@ -178,14 +185,22 @@ export default function UsersPage() {
 
       {/* Invite Modal */}
       {inviteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setInviteOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeInvite}>
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-foreground">دعوة مستخدم جديد</h2>
+            <h2 className="text-lg font-bold text-foreground">إضافة موظف مباشرة</h2>
+            <p className="text-xs text-muted-foreground">سيُنشأ الحساب نشطاً دون إرسال بريد من Supabase. شاركي كلمة المرور مع الموظف عبر قناة آمنة.</p>
             <form onSubmit={handleInvite} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">البريد الإلكتروني</label>
                 <input type="email" required value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="example@company.com"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">كلمة المرور المؤقتة</label>
+                <input type="password" required minLength={8} autoComplete="new-password"
+                  value={temporaryPassword} onChange={(e) => setTemporaryPassword(e.target.value)}
+                  placeholder="8 أحرف على الأقل"
                   className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
@@ -203,9 +218,9 @@ export default function UsersPage() {
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={inviteLoading}
                   className="flex-1 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold disabled:opacity-60">
-                  {inviteLoading ? "جاري الإرسال..." : "إرسال الدعوة"}
+                  {inviteLoading ? "جاري إنشاء الحساب..." : "إنشاء الحساب"}
                 </button>
-                <button type="button" onClick={() => setInviteOpen(false)}
+                <button type="button" onClick={closeInvite}
                   className="px-4 py-2 bg-secondary rounded-xl text-sm">إلغاء</button>
               </div>
             </form>
@@ -219,9 +234,9 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold text-foreground">إدارة المستخدمين</h1>
           <p className="text-sm text-muted-foreground mt-1">تفعيل الحسابات وضبط الصلاحيات</p>
         </div>
-        <button onClick={() => setInviteOpen(true)}
+        <button onClick={() => { setInviteMsg(null); setInviteOpen(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
-          + دعوة مستخدم
+          + إضافة موظف
         </button>
       </div>
 
