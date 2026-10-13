@@ -3,6 +3,16 @@ import { createClient } from "@supabase/supabase-js";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
+const DEFAULT_PUBLIC_APP_URL = "https://arabic-archive.replit.app";
+
+function buildInviteRedirectUrl(): string {
+  const configuredUrl = process.env["PUBLIC_APP_URL"]?.trim() || DEFAULT_PUBLIC_APP_URL;
+  const publicUrl = new URL(configuredUrl);
+  if (publicUrl.protocol !== "https:") {
+    throw new Error("PUBLIC_APP_URL must use HTTPS");
+  }
+  return new URL("/accept-invite", publicUrl).toString();
+}
 
 router.post("/sa/invite", async (req, res) => {
   const { email: rawEmail, role } = req.body as { email?: string; role?: string };
@@ -31,18 +41,14 @@ router.post("/sa/invite", async (req, res) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const forwardedHost = Array.isArray(req.headers["x-forwarded-host"])
-    ? req.headers["x-forwarded-host"][0]
-    : req.headers["x-forwarded-host"];
-  const forwardedProto = Array.isArray(req.headers["x-forwarded-proto"])
-    ? req.headers["x-forwarded-proto"][0]
-    : req.headers["x-forwarded-proto"];
-  const appOrigin = forwardedHost
-    ? `${forwardedProto ?? "https"}://${forwardedHost}`
-    : req.headers.origin;
-  const redirectTo = appOrigin
-    ? `${appOrigin}/accept-invite`
-    : undefined;
+  let redirectTo: string;
+  try {
+    redirectTo = buildInviteRedirectUrl();
+  } catch (error) {
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Public application URL is invalid",
+    });
+  }
 
   // Re-send a setup link for an existing account that is still awaiting approval.
   // Recovery links are handled by the same AcceptInvite page and avoid deleting

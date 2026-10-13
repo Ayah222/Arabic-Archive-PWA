@@ -22,6 +22,10 @@ description: How employee and manager login works in Smart Archive
 ## User Flow (full)
 Invite (by manager) → Employee receives magic link → `/accept-invite` page → sets password → status = `pending` → Manager approves or rejects in Users panel → status = `active` → employee can login
 
+Invitation emails must always redirect to the configured public app origin, never the manager's current browser/Preview host. Keep that exact URL allowed in Supabase Auth's redirect URL list.
+**Why:** A manager can send invitations from Replit Preview or a local environment; using the request host sends the employee to an unreachable localhost/preview address.
+**How to apply:** Set `PUBLIC_APP_URL` for a custom deployment domain, otherwise use the verified production origin; allow `/accept-invite` in Supabase Auth URL configuration and republish server changes.
+
 ## Profiles Table
 - `id` (ref auth.users), `email`, `role`, `status`
 - The current Supabase project has no `auth.users` trigger for profiles; the server invite route must create the pending profile.
