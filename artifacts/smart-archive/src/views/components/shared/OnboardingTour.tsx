@@ -92,7 +92,7 @@ export default function OnboardingTour() {
       dir="rtl"
     >
       <div
-        className="w-full max-w-sm rounded-3xl p-7 space-y-5 text-center"
+        className="w-full max-w-md rounded-3xl p-7 space-y-5 text-center"
         style={{
           background: "linear-gradient(135deg, rgba(15,20,40,0.97) 0%, rgba(20,15,50,0.97) 100%)",
           border: "1px solid rgba(0,240,255,0.18)",
@@ -107,7 +107,7 @@ export default function OnboardingTour() {
               className="h-1 rounded-full transition-all duration-300"
               style={{
                 width: i === step ? 24 : 8,
-                background: i === step ? "#00f0ff" : "rgba(255,255,255,0.2)",
+                background: i === step ? "#00f0ff" : "rgba(255,255,255,0.42)",
               }}
             />
           ))}
@@ -118,32 +118,33 @@ export default function OnboardingTour() {
 
         {/* Content */}
         <div>
-          <h2 className="text-xl font-black text-foreground mb-2">{current.title}</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{current.desc}</p>
+          <h2 className="text-xl font-black mb-2" style={{ color: "#F8FAFC" }}>{current.title}</h2>
+          <p className="text-[15px] leading-7" style={{ color: "#D9E2F0" }}>{current.desc}</p>
         </div>
 
         {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={handleClose}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold text-muted-foreground bg-secondary hover:bg-muted transition-colors"
+            className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            style={{ color: "#F8FAFC", background: "#303B52", border: "1px solid #64748B" }}
           >
             تخطي
           </button>
           <button
             onClick={handleNext}
-            className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors"
+            className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
             style={{
-              background: "linear-gradient(135deg, rgba(0,240,255,0.2) 0%, rgba(112,0,255,0.2) 100%)",
-              border: "1px solid rgba(0,240,255,0.3)",
-              color: "#00f0ff",
+              background: "linear-gradient(135deg, #075985 0%, #5B21B6 100%)",
+              border: "1px solid rgba(255,255,255,0.24)",
+              color: "#FFFFFF",
             }}
           >
             {step < steps.length - 1 ? "التالي" : "ابدأ الآن"}
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground">{step + 1} / {steps.length}</p>
+        <p className="text-xs font-medium" style={{ color: "#B9C5D6" }}>{step + 1} / {steps.length}</p>
       </div>
     </div>
   );
