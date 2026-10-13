@@ -46,6 +46,9 @@ Invitation emails must always redirect to the configured public app origin, neve
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`
 - Anon key: `VITE_SUPABASE_ANON_KEY`
 - Service role key: `SUPABASE_SERVICE_ROLE_KEY` (used only in api-server for admin ops like inviteUserByEmail)
+- Supabase's built-in Auth email sender has a shared project-wide rate limit; production invitations need custom SMTP, and repeated retries consume the same quota.
+**Why:** Repeated invitation testing exhausted the built-in sender and blocked later legitimate invitations.
+**How to apply:** Configure a transactional SMTP provider in Supabase Auth → SMTP Settings; surface rate-limit errors as HTTP 429 with a clear Arabic explanation.
 
 ## Signed session alignment
 

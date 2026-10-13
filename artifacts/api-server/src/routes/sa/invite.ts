@@ -14,6 +14,16 @@ function buildInviteRedirectUrl(): string {
   return new URL("/accept-invite", publicUrl).toString();
 }
 
+function isEmailRateLimitError(error: { message: string; status?: number }): boolean {
+  return error.status === 429 || /email.*rate.?limit|rate.?limit.*email/i.test(error.message);
+}
+
+function emailErrorMessage(error: { message: string; status?: number }): string {
+  return isEmailRateLimitError(error)
+    ? "تجاوز المشروع حد إرسال رسائل البريد التجريبي في Supabase. أوقفي إعادة المحاولة الآن، وأعدّي SMTP مخصصاً من Supabase → Authentication → SMTP Settings للإرسال للمستخدمين."
+    : error.message;
+}
+
 router.post("/sa/invite", async (req, res) => {
   const { email: rawEmail, role } = req.body as { email?: string; role?: string };
   const email = rawEmail?.trim().toLowerCase();
@@ -104,7 +114,9 @@ router.post("/sa/invite", async (req, res) => {
             .eq("user_id", existingProfile.id)
             .eq("status", "pending");
         }
-        return res.status(400).json({ error: resetError.message });
+        return res.status(isEmailRateLimitError(resetError) ? 429 : 400).json({
+          error: emailErrorMessage(resetError),
+        });
       }
     }
     return res.json({ success: true, existingAccount: true });
@@ -115,7 +127,9 @@ router.post("/sa/invite", async (req, res) => {
     data: { role: normalizedRole },
   });
 
-  if (inviteError) return res.status(400).json({ error: inviteError.message });
+  if (inviteError) return res.status(isEmailRateLimitError(inviteError) ? 429 : 400).json({
+    error: emailErrorMessage(inviteError),
+  });
   if (!inviteData.user) return res.status(500).json({ error: "Supabase did not return the invited user" });
 
   const { error: profileError } = await admin.from("profiles").upsert({
