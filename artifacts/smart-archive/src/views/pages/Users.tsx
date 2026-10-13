@@ -53,15 +53,27 @@ export default function UsersPage() {
   // Profiles from Supabase
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profilesError, setProfilesError] = useState<string | null>(null);
 
   const fetchProfiles = useCallback(async () => {
     setProfilesLoading(true);
+    setProfilesError(null);
     try {
-      const res = await fetch(`${API}/profiles`);
-      const data = await res.json();
-      setProfiles(Array.isArray(data) ? data : []);
-    } catch { /* ignore */ }
-    setProfilesLoading(false);
+      const res = await fetch(`${API}/profiles`, { credentials: "include" });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        const message = typeof data === "object" && data !== null && "error" in data && typeof data.error === "string"
+          ? data.error
+          : "تعذر تحميل قائمة المستخدمين";
+        throw new Error(message);
+      }
+      if (!Array.isArray(data)) throw new Error("استجابة قائمة المستخدمين غير صالحة");
+      setProfiles(data);
+    } catch (error) {
+      setProfilesError(error instanceof Error ? error.message : "تعذر تحميل قائمة المستخدمين");
+    } finally {
+      setProfilesLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
@@ -110,13 +122,21 @@ export default function UsersPage() {
 
   // Update profile (role, status, or HR access)
   const updateProfile = async (id: string, updates: Partial<Pick<Profile, "role" | "status" | "hr_access">>) => {
-    const res = await fetch(`${API}/profiles/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
-      body: JSON.stringify(updates),
-    });
-    if (res.ok) {
-      const updated: Profile & { activationEmailSent?: boolean } = await res.json();
+    try {
+      const res = await fetch(`${API}/profiles/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
+        body: JSON.stringify(updates),
+      });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        const message = typeof data === "object" && data !== null && "error" in data && typeof data.error === "string"
+          ? data.error
+          : "تعذر حفظ التغييرات";
+        throw new Error(message);
+      }
+      const updated = data as Profile & { activationEmailSent?: boolean };
       setProfiles(prev => prev.map(p => p.id === id ? updated : p));
       if (updates.status === "active") {
         setToast({
@@ -128,6 +148,13 @@ export default function UsersPage() {
           type: updated.activationEmailSent === false ? "error" : "success",
         });
       }
+      return true;
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "تعذر حفظ التغييرات",
+        type: "error",
+      });
+      return false;
     }
   };
 
@@ -139,8 +166,10 @@ export default function UsersPage() {
 
   const handleSaveRole = async (id: string) => {
     if (!newRole) return;
-    await updateProfile(id, { role: newRole });
-    setEditingId(null);
+    if (await updateProfile(id, { role: newRole })) {
+      setEditingId(null);
+      setToast({ message: lang === "en" ? "User role updated" : "تم تحديث صلاحية المستخدم", type: "success" });
+    }
   };
 
   const rejectInvitation = async () => {
@@ -257,6 +286,16 @@ export default function UsersPage() {
         <div className="space-y-3">
           {profilesLoading ? (
             [...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-2xl animate-pulse bg-muted" />)
+          ) : profilesError ? (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center" data-testid="status-users-load-error">
+              <p className="text-sm text-red-700 dark:text-red-300">{profilesError}</p>
+              <button
+                onClick={() => void fetchProfiles()}
+                data-testid="button-retry-users"
+                className="mt-3 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground hover:bg-muted">
+                {lang === "en" ? "Retry" : "إعادة المحاولة"}
+              </button>
+            </div>
           ) : profiles.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">لا يوجد مستخدمون حتى الآن</p>
           ) : (

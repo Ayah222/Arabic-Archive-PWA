@@ -75,12 +75,25 @@ router.get("/sa/profiles", async (req, res) => {
   if (membershipError) return res.status(500).json({ error: membershipError.message });
   const activeMemberships = memberships ?? [];
   if (!activeMemberships.length) return res.json([]);
+  // The legacy system administrator uses the non-Supabase ID "admin".
+  // profiles.id is a UUID, so passing that sentinel into PostgREST's UUID
+  // filter causes the whole organization user list to fail.
+  const profileIds = activeMemberships
+    .map((membership) => membership.user_id)
+    .filter((id): id is string =>
+      typeof id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
+    );
+  if (!profileIds.length) return res.json([]);
   const { data, error } = await adminClient()
     .from("profiles")
     .select("*")
-    .in("id", activeMemberships.map((membership) => membership.user_id))
+    .in("id", profileIds)
     .order("email");
-  if (error) return res.status(400).json({ error: error.message });
+  if (error) {
+    req.log.error({ err: error, tenantId: actor.tenantId }, "Failed to load organization user profiles");
+    return res.status(500).json({ error: "تعذر تحميل قائمة المستخدمين" });
+  }
   return res.json(data.map((profile) => ({
     ...profile,
     role: activeMemberships.find((membership) => membership.user_id === profile.id)?.role ?? profile.role,
