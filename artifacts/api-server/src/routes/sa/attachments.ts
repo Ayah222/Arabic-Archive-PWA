@@ -301,7 +301,9 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     });
     res.status(201).json(attachment);
   } catch (error) {
-    await deletePrivateObject(saved.objectName);
+    const driveFileId = parseTenantDriveObjectPath(saved.objectName);
+    if (driveFileId) await deleteTenantFile(String(res.locals.tenantId), driveFileId);
+    else await deletePrivateObject(saved.objectName);
     throw error;
   }
 });

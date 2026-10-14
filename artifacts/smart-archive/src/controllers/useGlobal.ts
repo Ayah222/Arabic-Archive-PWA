@@ -180,7 +180,7 @@ export function useAgencyActions() {
       let attachmentMimeType: string | undefined;
       let attachmentSize: number | undefined;
       if (input.file) {
-        const target = await uploadDirectToSupabase(input.file, `agencies/${input.projectId || "general"}`, fileLimits.data.maxFileBytes);
+        const target = await uploadFileToTenantDrive(input.file, `agencies/${input.projectId || "general"}`, fileLimits.data.maxFileBytes);
         attachmentPath = target.path;
         attachmentName = input.file.name;
         attachmentMimeType = input.file.type || "application/octet-stream";
@@ -204,9 +204,12 @@ export function useAgencyActions() {
   return { save };
 }
 
-export async function uploadDirectToSupabase(file: File, _namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes): Promise<{ bucket: string; path: string; token: string }> {
+export async function uploadFileToTenantDrive(file: File, namespace: string, maxBytes = DEFAULT_FILE_LIMITS.maxFileBytes): Promise<{ path: string }> {
   if (file.size > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
-  throw new Error("رفع المرفقات متوقف مؤقتًا؛ ملفات النظام لن تُخزّن في Supabase. سيتم تفعيله بعد ربط مساحة تخزين خارجية.");
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("namespace", namespace);
+  return postForm<{ path: string }>("/api/sa/tenants/storage/upload", form);
 }
 
 /* ─── Auth helpers (persistent device storage; logout removes it) ─── */
@@ -603,16 +606,12 @@ export function usePhotoActions(projectId: string) {
   const fileLimits = useFileLimits();
   const add = useMutation({
     mutationFn: (data: { file: File; name: string; description: string }) => {
-      return uploadDirectToSupabase(data.file, `project-photos/${projectId}`, fileLimits.data.maxFileBytes).then((target) =>
-        post<SAPhoto>(`${API}/projects/${projectId}/photos`, {
-          storagePath: target.path,
-          filename: data.file.name,
-           mimeType: getAttachmentMimeType(data.file),
-          size: data.file.size,
-          name: data.name,
-          description: data.description,
-        }),
-      );
+      if (data.file.size > fileLimits.data.maxFileBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
+      const form = new FormData();
+      form.append("file", data.file, data.file.name);
+      form.append("name", data.name);
+      form.append("description", data.description);
+      return postForm<SAPhoto>(`${API}/projects/${projectId}/photos`, form);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", projectId] }),
   });
@@ -652,19 +651,15 @@ export function useAttachmentActions(projectId: string) {
   const fileLimits = useFileLimits();
   const add = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; name: string; customType: string; relativePath?: string }) => {
-      return uploadDirectToSupabase(data.file, `attachments/${projectId}/${data.entityType}`, fileLimits.data.maxFileBytes).then((target) =>
-        post<SAAttachment>(`${API}/projects/${projectId}/attachments`, {
-          storagePath: target.path,
-          filename: data.file.name,
-          mimeType: getAttachmentMimeType(data.file),
-          size: data.file.size,
-          entityType: data.entityType,
-          entityId: data.entityId,
-          name: data.name,
-          customType: data.customType,
-          relativePath: data.relativePath,
-        }),
-      );
+      if (data.file.size > fileLimits.data.maxFileBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
+      const form = new FormData();
+      form.append("file", data.file, data.file.name);
+      form.append("entityType", data.entityType);
+      form.append("entityId", data.entityId);
+      form.append("name", data.name);
+      form.append("customType", data.customType);
+      if (data.relativePath) form.append("relativePath", data.relativePath);
+      return postForm<SAAttachment>(`${API}/projects/${projectId}/attachments`, form);
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
@@ -672,15 +667,14 @@ export function useAttachmentActions(projectId: string) {
   });
   const addFolderZip = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string; targetPath?: string }) => {
-      return uploadDirectToSupabase(data.file, `zip-inbox/${projectId}`, fileLimits.data.maxZipArchiveBytes).then((target) =>
-        post<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, {
-          storagePath: target.path,
-          entityType: data.entityType,
-          entityId: data.entityId,
-          customType: data.customType,
-          targetPath: data.targetPath,
-        }),
-      );
+      if (data.file.size > fileLimits.data.maxZipArchiveBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
+      const form = new FormData();
+      form.append("file", data.file, data.file.name);
+      form.append("entityType", data.entityType);
+      form.append("entityId", data.entityId);
+      form.append("customType", data.customType);
+      if (data.targetPath) form.append("targetPath", data.targetPath);
+      return postForm<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, form);
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });

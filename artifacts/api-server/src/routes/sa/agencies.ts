@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { parseSupabaseObjectPath, signedSupabaseUrl } from "../../lib/supabaseStorage";
+import { storageObjectUrl } from "../../lib/objectStorage";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const router: IRouter = Router();
@@ -39,7 +40,11 @@ async function toAgency(row: Record<string, unknown>): Promise<AgencyRecord> {
     expiresOn: (row.expires_on as string | null) ?? null,
     status: agencyStatus((row.expires_on as string | null) ?? null),
     attachmentPath,
-    attachmentUrl: supabasePath ? await signedSupabaseUrl(supabasePath) : null,
+    attachmentUrl: attachmentPath
+      ? supabasePath
+        ? await signedSupabaseUrl(supabasePath)
+        : storageObjectUrl(attachmentPath)
+      : null,
     attachmentName: (row.attachment_name as string | null) ?? null,
     attachmentMimeType: (row.attachment_mime_type as string | null) ?? null,
     attachmentSize: Number(row.attachment_size ?? 0),

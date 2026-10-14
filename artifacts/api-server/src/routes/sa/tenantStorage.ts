@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import {
   buildDriveOAuthUrl,
   completeDriveOAuth,
@@ -7,9 +8,12 @@ import {
   getTenantDriveStatus,
   verifyDriveOAuthState,
 } from "../../lib/tenantDrive";
+import { FILE_LIMITS } from "../../lib/fileLimits";
+import { saveTenantFile } from "../../lib/tenantDrive";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: FILE_LIMITS.maxFileBytes } });
 
 function callbackUrl(req: import("express").Request) {
   const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
@@ -30,6 +34,23 @@ router.get("/sa/tenants/storage", async (req, res): Promise<void> => {
     return;
   }
   res.json(await getTenantDriveStatus(actor.tenantId));
+});
+
+router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res): Promise<void> => {
+  const namespace = typeof req.body.namespace === "string" ? req.body.namespace : "";
+  const [category, folder] = namespace.split("/");
+  if (!req.file || category !== "agencies" || !folder || !/^[\p{L}\p{N}_-]{1,120}$/u.test(folder)) {
+    res.status(400).json({ error: "يرجى اختيار ملف صالح" });
+    return;
+  }
+  const saved = await saveTenantFile({
+    tenantId: String(res.locals.tenantId),
+    filename: req.file.originalname,
+    bytes: req.file.buffer,
+    contentType: req.file.mimetype,
+    folderSegments: [category, folder],
+  });
+  res.status(201).json({ path: saved.objectName });
 });
 
 router.get("/sa/tenants/storage/google/connect", (req, res): void => {
