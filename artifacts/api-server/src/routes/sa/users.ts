@@ -92,6 +92,78 @@ router.post("/sa/auth/register", (_req, res): void => {
   res.status(410).json({ error: "Self-registration is disabled. Ask an administrator for an invitation." });
 });
 
+// Completes an email invitation only for the invited account's pending membership.
+router.post("/sa/auth/accept-invite", async (req, res): Promise<void> => {
+  const authorization = req.headers.authorization;
+  const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!accessToken || !url || !serviceRoleKey) {
+    res.status(401).json({ error: "رابط الدعوة غير صالح أو منتهي الصلاحية." });
+    return;
+  }
+
+  const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
+  if (authError || !authData.user?.email) {
+    res.status(401).json({ error: "تعذر التحقق من حساب الدعوة." });
+    return;
+  }
+
+  const userId = authData.user.id;
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id,email,status")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileError || !profile || profile.status !== "pending" ||
+      profile.email?.toLowerCase() !== authData.user.email.toLowerCase()) {
+    res.status(403).json({ error: "لا توجد دعوة معلقة لهذا الحساب." });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await admin
+    .from("organization_memberships")
+    .select("tenant_id,status")
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (membershipError || !membership) {
+    res.status(403).json({ error: "لا توجد عضوية مؤسسة معلقة لهذا الحساب." });
+    return;
+  }
+
+  const { data: activatedMembership, error: activationError } = await admin
+    .from("organization_memberships")
+    .update({ status: "active" })
+    .eq("tenant_id", membership.tenant_id)
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .select("user_id")
+    .maybeSingle();
+  if (activationError || !activatedMembership) {
+    res.status(500).json({ error: "تعذر تفعيل عضوية المؤسسة." });
+    return;
+  }
+
+  const { error: profileActivationError } = await admin
+    .from("profiles")
+    .update({ status: "active", is_active: true })
+    .eq("id", userId)
+    .eq("status", "pending");
+  if (profileActivationError) {
+    await admin.from("organization_memberships")
+      .update({ status: "pending" })
+      .eq("tenant_id", membership.tenant_id)
+      .eq("user_id", userId)
+      .eq("status", "active");
+    res.status(500).json({ error: "تعذر تفعيل الحساب. حاولي فتح رابط الدعوة مرة أخرى." });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 router.post("/sa/auth/logout", (_req, res): void => {
   res.clearCookie("sa_email_archive_session", { path: "/" });
   res.clearCookie("sa_hr_session", { path: "/api/sa/hr" });

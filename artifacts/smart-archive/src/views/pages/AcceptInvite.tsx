@@ -43,24 +43,17 @@ export default function AcceptInvite() {
       const accessToken = sessionData.session?.access_token;
       if (sessionError || !accessToken) throw new Error("انتهت صلاحية رابط الدعوة، اطلب رابطاً جديداً");
 
-      const profileResponse = await fetch(`/api/sa/profiles/${updateData.user.id}`, {
-        credentials: "include",
+      const activationResponse = await fetch("/api/sa/auth/accept-invite", {
+        method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const profile = profileResponse.ok
-        ? await profileResponse.json() as { status?: string }
+      const activation = activationResponse.ok
+        ? await activationResponse.json() as { success?: boolean }
         : null;
-      if (!profile) throw new Error("تم تحديث كلمة المرور، لكن تعذر التحقق من حالة الحساب");
+      if (!activation?.success) throw new Error("تم تحديث كلمة المرور، لكن تعذر تفعيل عضوية المؤسسة");
 
       await supabase.auth.signOut();
-      if (profile.status === "active") {
-        navigate("/login", { replace: true });
-        return;
-      }
-      if (profile.status !== "pending") {
-        throw new Error("الحساب غير متاح. تواصل مع مدير النظام.");
-      }
-      setStep("pending");
+      navigate("/login", { replace: true });
     } catch (submitError: unknown) {
       await supabase.auth.signOut().catch(() => undefined);
       setErrorMsg(submitError instanceof Error ? submitError.message : "حدث خطأ أثناء تفعيل الدعوة");

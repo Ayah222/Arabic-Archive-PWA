@@ -1,13 +1,23 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import type { Request } from "express";
 
 const router = Router();
 
+function appOrigin(req: Request): string {
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+  if (origin) return origin.replace(/\/$/, "");
+  const hostHeader = req.headers["x-forwarded-host"] ?? req.headers.host;
+  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
+  const protoHeader = req.headers["x-forwarded-proto"];
+  const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
+  return host ? `${proto ?? "https"}://${host}` : "";
+}
+
 router.post("/sa/invite", async (req, res): Promise<void> => {
-  const { email: rawEmail, password: temporaryPassword, role } = req.body as {
+  const { email: rawEmail, role } = req.body as {
     email?: string;
-    password?: string;
     role?: string;
   };
   const email = rawEmail?.trim().toLowerCase();
@@ -15,10 +25,6 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     res.status(400).json({ error: "أدخلي بريداً إلكترونياً صحيحاً." });
-    return;
-  }
-  if (!temporaryPassword || temporaryPassword.length < 8) {
-    res.status(400).json({ error: "كلمة المرور المؤقتة يجب أن تكون 8 أحرف على الأقل." });
     return;
   }
   if (!["admin", "data_entry", "viewer"].includes(normalizedRole)) {
@@ -57,11 +63,14 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     return;
   }
 
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password: temporaryPassword,
-    email_confirm: true,
-    user_metadata: { role: normalizedRole },
+  const origin = appOrigin(req);
+  if (!origin) {
+    res.status(500).json({ error: "تعذر تحديد رابط التطبيق لإرسال الدعوة." });
+    return;
+  }
+  const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { role: normalizedRole },
+    redirectTo: `${origin}/accept-invite`,
   });
   if (createError || !created.user) {
     const duplicate = /already|registered|exists/i.test(createError?.message ?? "");
@@ -80,8 +89,8 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     name: email.split("@")[0],
     role: normalizedRole,
     hr_access: false,
-    status: "active",
-    is_active: true,
+    status: "pending",
+    is_active: false,
     invited_by: actor.id,
   }, { onConflict: "id" });
 
@@ -96,7 +105,7 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     user_id: userId,
     role: normalizedRole,
     hr_access: false,
-    status: "active",
+    status: "pending",
   });
 
   if (membershipError) {
@@ -108,7 +117,7 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
 
   res.status(201).json({
     success: true,
-    user: { id: userId, email, role: normalizedRole, status: "active" },
+    user: { id: userId, email, role: normalizedRole, status: "pending" },
   });
 });
 

@@ -81,7 +81,6 @@ export default function UsersPage() {
   // Invite modal
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [inviteRole, setInviteRole] = useState("data_entry");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -89,7 +88,6 @@ export default function UsersPage() {
   const closeInvite = () => {
     setInviteOpen(false);
     setInviteEmail("");
-    setTemporaryPassword("");
     setInviteMsg(null);
   };
 
@@ -101,17 +99,16 @@ export default function UsersPage() {
       const res = await fetch(`${API}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
-        body: JSON.stringify({ email: inviteEmail, password: temporaryPassword, role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "فشل إرسال الدعوة");
       setInviteMsg({
         ok: true,
-        text: "تم إنشاء الحساب وتفعيله مباشرة. شاركي بيانات الدخول مع الموظف عبر قناة آمنة.",
+        text: "تم إرسال رابط الدعوة إلى البريد الإلكتروني. سيختار الموظف كلمة مروره عند قبول الدعوة.",
       });
       void fetchProfiles();
       setInviteEmail("");
-      setTemporaryPassword("");
       setTimeout(closeInvite, 2500);
     } catch (err: any) {
       setInviteMsg({ ok: false, text: err.message });
@@ -216,20 +213,13 @@ export default function UsersPage() {
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeInvite}>
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-foreground">إضافة موظف مباشرة</h2>
-            <p className="text-xs text-muted-foreground">سيُنشأ الحساب نشطاً دون إرسال بريد من Supabase. شاركي كلمة المرور مع الموظف عبر قناة آمنة.</p>
+            <h2 className="text-lg font-bold text-foreground">دعوة موظف عبر البريد الإلكتروني</h2>
+            <p className="text-xs text-muted-foreground">سيتلقى الموظف رابطاً آمناً لاختيار كلمة المرور وتفعيل عضويته في مؤسستك.</p>
             <form onSubmit={handleInvite} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">البريد الإلكتروني</label>
                 <input type="email" required value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="example@company.com"
-                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">كلمة المرور المؤقتة</label>
-                <input type="password" required minLength={8} autoComplete="new-password"
-                  value={temporaryPassword} onChange={(e) => setTemporaryPassword(e.target.value)}
-                  placeholder="8 أحرف على الأقل"
                   className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
@@ -247,7 +237,7 @@ export default function UsersPage() {
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={inviteLoading}
                   className="flex-1 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold disabled:opacity-60">
-                  {inviteLoading ? "جاري إنشاء الحساب..." : "إنشاء الحساب"}
+                  {inviteLoading ? "جاري إرسال الدعوة..." : "إرسال الدعوة"}
                 </button>
                 <button type="button" onClick={closeInvite}
                   className="px-4 py-2 bg-secondary rounded-xl text-sm">إلغاء</button>

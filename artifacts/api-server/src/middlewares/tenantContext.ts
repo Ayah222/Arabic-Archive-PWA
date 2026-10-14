@@ -6,6 +6,7 @@ import { supabaseAdmin } from "../lib/supabaseAdmin";
 const publicTenantRoutes = new Set([
   "/sa/auth/login",
   "/sa/auth/register",
+  "/sa/auth/accept-invite",
   "/sa/auth/logout",
   "/sa/auth/session",
   "/sa/auth/supabase-email-archive-session",
