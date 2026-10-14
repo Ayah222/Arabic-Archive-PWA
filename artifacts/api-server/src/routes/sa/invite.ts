@@ -16,13 +16,19 @@ function appOrigin(req: Request): string {
 }
 
 router.post("/sa/invite", async (req, res): Promise<void> => {
-  const { email: rawEmail, role } = req.body as {
+  const { email: rawEmail, name: rawName, role } = req.body as {
     email?: string;
+    name?: string;
     role?: string;
   };
   const email = rawEmail?.trim().toLowerCase();
+  const name = rawName?.trim();
   const normalizedRole = role === "employee" ? "data_entry" : role ?? "data_entry";
 
+  if (!name || name.length > 120) {
+    res.status(400).json({ error: "أدخلي اسم المستخدم (حتى 120 حرفاً)." });
+    return;
+  }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     res.status(400).json({ error: "أدخلي بريداً إلكترونياً صحيحاً." });
     return;
@@ -69,7 +75,6 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     return;
   }
   const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role: normalizedRole },
     redirectTo: `${origin}/accept-invite`,
   });
   if (createError || !created.user) {
@@ -86,7 +91,7 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
   const { error: profileError } = await admin.from("profiles").upsert({
     id: userId,
     email,
-    name: email.split("@")[0],
+    name,
     role: normalizedRole,
     hr_access: false,
     status: "pending",

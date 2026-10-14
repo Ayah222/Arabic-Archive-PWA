@@ -24,6 +24,10 @@ An organization admin invites an employee by email → Supabase Auth sends a one
 **Why:** The owner wants employees to receive email invitations and choose their own passwords, while preserving strict tenant boundaries.
 **How to apply:** Only use the verified signed admin session's tenant ID; never accept an organization ID from the client. Accept invitations only with a verified Supabase bearer token matching the pending profile and membership.
 
+Invitation display names are archive profile data, not email sender branding; configure the sender identity separately through the Auth mail/SMTP settings.
+**Why:** The owner wants the employee's chosen name shown inside the archive, without replacing the invitation's inbox sender identity with that name.
+**How to apply:** Save the submitted name to the tenant user's archive profile; do not use it as Supabase Auth sender metadata or as a substitute for SMTP sender configuration.
+
 ## Profiles Table
 - `id` (ref auth.users), `email`, `role`, `status`
 - The current Supabase project has no `auth.users` trigger for profiles; the server account-creation route must create the active profile.

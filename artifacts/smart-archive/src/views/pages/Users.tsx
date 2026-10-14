@@ -9,6 +9,7 @@ const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api/sa";
 interface Profile {
   id: string;
   email: string;
+  name?: string | null;
   role: string;
   status: string;
   hr_access?: boolean;
@@ -80,6 +81,7 @@ export default function UsersPage() {
 
   // Invite modal
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("data_entry");
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -87,6 +89,7 @@ export default function UsersPage() {
 
   const closeInvite = () => {
     setInviteOpen(false);
+    setInviteName("");
     setInviteEmail("");
     setInviteMsg(null);
   };
@@ -99,7 +102,7 @@ export default function UsersPage() {
       const res = await fetch(`${API}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ name: inviteName, email: inviteEmail, role: inviteRole }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "فشل إرسال الدعوة");
@@ -108,6 +111,7 @@ export default function UsersPage() {
         text: "تم إرسال رابط الدعوة إلى البريد الإلكتروني. سيختار الموظف كلمة مروره عند قبول الدعوة.",
       });
       void fetchProfiles();
+      setInviteName("");
       setInviteEmail("");
       setTimeout(closeInvite, 2500);
     } catch (err: any) {
@@ -169,21 +173,30 @@ export default function UsersPage() {
     }
   };
 
-  const rejectInvitation = async () => {
+  const deleteUser = async () => {
     if (!profileToDelete) return;
     setDeleteLoading(true);
-    const res = await fetch(`${API}/profiles/${profileToDelete.id}`, {
-      method: "DELETE",
-      headers: getUserRequestHeaders(),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`${API}/profiles/${profileToDelete.id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getUserRequestHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "تعذر حذف المستخدم");
       setProfiles((current) => current.filter((item) => item.id !== profileToDelete.id));
-      setToast({ message: "تم حذف طلب الدعوة والحساب", type: "success" });
+      setToast({
+        message: data.deletedAuthUser
+          ? "تم حذف المستخدم وحساب دخوله من Supabase"
+          : "تمت إزالة المستخدم من هذه المؤسسة",
+        type: "success",
+      });
       setProfileToDelete(null);
-    } else {
-      setToast({ message: "تعذر حذف طلب الدعوة", type: "error" });
+    } catch (error) {
+      setToast({ message: error instanceof Error ? error.message : "تعذر حذف المستخدم", type: "error" });
+    } finally {
+      setDeleteLoading(false);
     }
-    setDeleteLoading(false);
   };
 
   if (!isAdmin) {
@@ -201,9 +214,9 @@ export default function UsersPage() {
       <ConfirmDialog
         isOpen={!!profileToDelete}
         onClose={() => setProfileToDelete(null)}
-        onConfirm={() => void rejectInvitation()}
-        title="حذف طلب الدعوة"
-        message={`سيتم حذف طلب الدعوة وحساب ${profileToDelete?.email || ""} نهائياً. هل تريد المتابعة؟`}
+        onConfirm={() => void deleteUser()}
+        title="حذف المستخدم"
+        message={`سيتم حذف عضوية ${profileToDelete?.name || profileToDelete?.email || ""} من المؤسسة. إذا لم يكن مرتبطاً بمؤسسة أخرى، سيُحذف حساب دخوله وملفه من Supabase أيضاً، ولن تُحذف ملفات الأرشيف بهذه العملية. هل تريد المتابعة؟`}
         confirmLabel="حذف"
         danger
         loading={deleteLoading}
@@ -216,6 +229,12 @@ export default function UsersPage() {
             <h2 className="text-lg font-bold text-foreground">دعوة موظف عبر البريد الإلكتروني</h2>
             <p className="text-xs text-muted-foreground">سيتلقى الموظف رابطاً آمناً لاختيار كلمة المرور وتفعيل عضويته في مؤسستك.</p>
             <form onSubmit={handleInvite} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">اسم المستخدم</label>
+                <input type="text" required maxLength={120} value={inviteName} onChange={(e) => setInviteName(e.target.value)}
+                  placeholder="اسم الموظف أو المدير"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">البريد الإلكتروني</label>
                 <input type="email" required value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
@@ -294,9 +313,10 @@ export default function UsersPage() {
                 {/* Info */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-secondary shrink-0">
-                    {profile.email.charAt(0).toUpperCase()}
+                    {(profile.name?.trim() || profile.email).charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
+                    {profile.name?.trim() && <p className="font-semibold text-sm truncate">{profile.name}</p>}
                     <p className="font-semibold text-sm truncate">{profile.email}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border mt-0.5 inline-block ${STATUS_COLORS[profile.status] ?? "bg-muted text-muted-foreground border-border"}`}>
                       {STATUS_LABELS[profile.status]?.[lang] ?? profile.status}
@@ -338,10 +358,6 @@ export default function UsersPage() {
                         className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors">
                         ✅ تفعيل
                       </button>
-                      <button onClick={() => setProfileToDelete(profile)}
-                        className="px-3 py-1.5 bg-red-500/15 text-red-600 border border-red-500/25 rounded-lg text-xs font-semibold hover:bg-red-500/25 transition-colors">
-                        ✖ رفض
-                      </button>
                     </>
                   )}
                   {profile.status === "active" && (
@@ -350,6 +366,11 @@ export default function UsersPage() {
                       🧊 تجميد
                     </button>
                   )}
+
+                  <button onClick={() => setProfileToDelete(profile)}
+                    className="px-3 py-1.5 bg-red-500/15 text-red-600 border border-red-500/25 rounded-lg text-xs font-semibold hover:bg-red-500/25 transition-colors">
+                    🗑 حذف
+                  </button>
 
                   {/* HR access toggle */}
                   {profile.status === "active" && profile.role !== "admin" && (

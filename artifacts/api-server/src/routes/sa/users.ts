@@ -192,7 +192,7 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, email, role, status")
+    .select("id, email, name, role, status")
     .eq("id", authData.user.id)
     .single();
   const requestedTenantId = (req.body as { tenantId?: unknown })?.tenantId;
@@ -207,7 +207,7 @@ router.post("/sa/auth/supabase-email-archive-session", async (req, res): Promise
 
   setEmailArchiveCookie(res, {
     id: profile.id,
-    name: profile.email?.split("@")[0] || "مستخدم",
+    name: profile.name?.trim() || profile.email?.split("@")[0] || "مستخدم",
     role: membership.role,
     tenantId: membership.tenantId,
   });
@@ -237,7 +237,7 @@ router.post("/sa/auth/supabase-hr-session", async (req, res): Promise<void> => {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, email, role, status, hr_access")
+    .select("id, email, name, role, status, hr_access")
     .eq("id", authData.user.id)
     .single();
   const archiveActor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
@@ -250,7 +250,7 @@ router.post("/sa/auth/supabase-hr-session", async (req, res): Promise<void> => {
     return;
   }
 
-  setHrCookie(res, { id: profile.id, name: profile.email?.split("@")[0] || "مستخدم", tenantId: membership.tenantId });
+  setHrCookie(res, { id: profile.id, name: profile.name?.trim() || profile.email?.split("@")[0] || "مستخدم", tenantId: membership.tenantId });
   res.status(204).end();
 });
 

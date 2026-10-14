@@ -2,6 +2,7 @@ import { Router, type Request } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { deleteNotificationsContaining } from "./notificationDb";
+import { addAuditLog } from "./archiveDb";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { getTenantMembership } from "../../lib/tenantMemberships";
 
@@ -229,23 +230,42 @@ router.delete("/sa/profiles/:id", async (req, res) => {
   const { id } = req.params;
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   if (!actor || !hasAdminAccess(actor)) return res.status(403).json({ error: "إدارة المستخدمين متاحة للمدير فقط" });
+  if (id === actor.id) return res.status(409).json({ error: "لا يمكنك حذف حسابك أثناء تسجيل الدخول." });
   const admin = adminClient();
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("id,status")
+    .select("*")
     .eq("id", id)
     .single();
 
   if (profileError || !profile) return res.status(404).json({ error: "Profile not found" });
   const { data: membership, error: membershipReadError } = await admin
     .from("organization_memberships")
-    .select("status")
+    .select("status,role,hr_access")
     .eq("tenant_id", actor.tenantId)
     .eq("user_id", id)
     .maybeSingle();
   if (membershipReadError) return res.status(400).json({ error: membershipReadError.message });
-  if (!membership || membership.status !== "pending") {
-    return res.status(409).json({ error: "Only a pending organization invitation can be rejected" });
+  if (!membership) return res.status(404).json({ error: "المستخدم ليس عضواً في مؤسستك." });
+  const restoreMembership = () => admin.from("organization_memberships").insert({
+    tenant_id: actor.tenantId,
+    user_id: id,
+    role: membership.role,
+    status: membership.status,
+    hr_access: membership.hr_access,
+  });
+
+  if (membership.role === "admin") {
+    const { count, error: adminCountError } = await admin
+      .from("organization_memberships")
+      .select("user_id", { count: "exact", head: true })
+      .eq("tenant_id", actor.tenantId)
+      .eq("role", "admin")
+      .eq("status", "active");
+    if (adminCountError) return res.status(500).json({ error: "تعذر التحقق من مديري المؤسسة." });
+    if (membership.status === "active" && count !== null && count <= 1) {
+      return res.status(409).json({ error: "لا يمكن حذف آخر مدير نشط في المؤسسة. عيّن مديراً آخر أولاً." });
+    }
   }
 
   const { error: membershipError } = await admin
@@ -254,19 +274,58 @@ router.delete("/sa/profiles/:id", async (req, res) => {
     .eq("tenant_id", actor.tenantId)
     .eq("user_id", id);
   if (membershipError) return res.status(400).json({ error: membershipError.message });
+
   const { data: remainingMemberships, error: remainingError } = await admin
     .from("organization_memberships")
     .select("id")
     .eq("user_id", id)
     .limit(1);
-  if (remainingError) return res.status(400).json({ error: remainingError.message });
-  if (!remainingMemberships?.length && profile.status === "pending") {
+  if (remainingError) {
+    const { error: restoreError } = await restoreMembership();
+    if (restoreError) {
+      req.log.error({ err: restoreError, userId: id }, "Failed to restore membership after deletion lookup error");
+      return res.status(500).json({ error: "تعذر إكمال الحذف واستعادة عضوية المستخدم؛ يلزم فحص تقني." });
+    }
+    return res.status(400).json({ error: remainingError.message });
+  }
+
+  // Keep the Auth identity intact if it is still attached to another tenant.
+  // Delete the profile before Auth, and restore both profile and membership if
+  // Auth deletion fails so the user is not left with a half-deleted account.
+  if (!remainingMemberships?.length) {
+    const { error: profileDeleteError } = await admin.from("profiles").delete().eq("id", id);
+    if (profileDeleteError) {
+      const { error: restoreError } = await restoreMembership();
+      if (restoreError) {
+        req.log.error({ err: restoreError, userId: id }, "Failed to restore membership after profile deletion error");
+        return res.status(500).json({ error: "تعذر حذف المستخدم واستعادة عضويته؛ يلزم فحص تقني." });
+      }
+      return res.status(400).json({ error: "تعذر إزالة ملف المستخدم؛ لم يُحذف حسابه. " + profileDeleteError.message });
+    }
     const { error: authError } = await admin.auth.admin.deleteUser(id);
-    if (authError) return res.status(400).json({ error: authError.message });
-    await admin.from("profiles").delete().eq("id", id);
+    if (authError) {
+      const { error: restoreProfileError } = await admin.from("profiles").upsert(profile);
+      const { error: restoreMembershipError } = await restoreMembership();
+      if (restoreProfileError || restoreMembershipError) {
+        req.log.error(
+          { restoreProfileError, restoreMembershipError, userId: id },
+          "Failed to restore user records after Auth deletion failure",
+        );
+        return res.status(500).json({ error: "فشل حذف حساب الدخول وتعذر استعادة جميع بيانات العضوية؛ يلزم فحص تقني." });
+      }
+      return res.status(400).json({ error: "تعذر حذف حساب Supabase؛ لم يكتمل الحذف. " + authError.message });
+    }
   }
   await deleteNotificationsContaining(`[pending-user:${id}]`);
-  return res.json({ id });
+  await addAuditLog(
+    actor.id,
+    actor.name,
+    "delete",
+    "مستخدم",
+    id,
+    `حذف المستخدم ${profile.name || profile.email || id} من المؤسسة`,
+  );
+  return res.json({ id, deletedAuthUser: !remainingMemberships?.length });
 });
 
 export default router;
