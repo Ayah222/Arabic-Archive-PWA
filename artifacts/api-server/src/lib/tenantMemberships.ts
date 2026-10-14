@@ -44,11 +44,24 @@ export async function listTenantMemberships(userId: string): Promise<TenantMembe
 }
 
 export async function getDefaultTenantId(): Promise<string> {
-  const { data, error } = await supabaseAdmin()
+  const admin = supabaseAdmin();
+  // The legacy system-admin login should open a real organization when one
+  // exists, not the empty placeholder tenant where its old membership lives.
+  const { data: organization, error: organizationError } = await admin
+    .from("organizations")
+    .select("id")
+    .neq("id", DEFAULT_TENANT_ID)
+    .order("name", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (organizationError) throw new Error(organizationError.message);
+  if (organization) return String(organization.id);
+
+  const { data: fallback, error: fallbackError } = await admin
     .from("organizations")
     .select("id")
     .eq("id", DEFAULT_TENANT_ID)
     .maybeSingle();
-  if (error || !data) throw new Error("Multi-tenant migration is required before sign-in");
-  return String(data.id);
+  if (fallbackError || !fallback) throw new Error("Multi-tenant migration is required before sign-in");
+  return String(fallback.id);
 }
