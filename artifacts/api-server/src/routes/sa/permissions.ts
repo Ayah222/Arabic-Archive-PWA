@@ -2,25 +2,6 @@ import type { NextFunction, Request, Response } from "express";
 import { addAuditLog } from "./archiveDb";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
-type SARole = "admin" | "data_entry" | "viewer";
-
-function normalizeRole(value: unknown): SARole | null {
-  if (value === "admin") return "admin";
-  if (value === "data_entry" || value === "employee") return "data_entry";
-  if (value === "viewer") return "viewer";
-  return null;
-}
-
-function headerValue(req: Request, name: string, fallback: string) {
-  const value = req.headers[name] as string | undefined;
-  if (!value) return fallback;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
 function entityForPath(path: string) {
   if (path.includes("/contracts")) return "عقد";
   if (path.includes("/contractors")) return "مقاول";
@@ -114,11 +95,12 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  const role = normalizeRole(req.headers["x-user-role"]);
-  if (!role) {
-    res.status(403).json({ error: "يلزم تسجيل الدخول بصلاحية صالحة لإجراء هذا التغيير" });
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.status(401).json({ error: "جلسة المؤسسة غير صالحة. يرجى تسجيل الدخول مجدداً." });
     return;
   }
+  const role = actor.role;
 
   if (role === "viewer") {
     res.status(403).json({ error: "حساب المراقب مخصص للمشاهدة والطباعة فقط" });
@@ -136,8 +118,6 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     const action = req.method === "POST" ? "create" : req.method === "DELETE" ? "delete" : "update";
     const entity = entityForPath(req.path);
     const actionLabel = action === "create" ? "إضافة" : action === "update" ? "تعديل" : "حذف نهائي";
-    const userId = headerValue(req, "x-user-id", "system");
-    const userLabel = headerValue(req, "x-user-label", "النظام");
     const entityId = String(
       req.params.did ??
       req.params.cid ??
@@ -149,7 +129,7 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
       "new",
     );
 
-    void addAuditLog(userId, userLabel, action, entity, entityId, `${actionLabel} ${entity}`);
+    void addAuditLog(actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
   });
 
   next();

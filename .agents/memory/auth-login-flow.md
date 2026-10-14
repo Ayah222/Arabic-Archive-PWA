@@ -40,6 +40,11 @@ An organization admin creates an employee directly with a temporary password →
 **Why:** Architectural archive data must be protected from accidental deletion while still allowing controlled operational entry.
 **How to apply:** Any new write or destructive feature must enforce these roles on both its UI and API, and successful actions should appear in the audit log with actor and timestamp.
 
+## One-organization membership and role enforcement
+- A Supabase-authenticated account belongs to one organization only; the local system-admin identity `admin` is the sole exception and can switch organizations using its signed server session.
+**Why:** The owner requires strict organization isolation while retaining one global platform administrator.
+**How to apply:** Preserve the partial unique membership constraint for Supabase users, derive API permissions from the signed session rather than role headers, scope service-role queries to the session tenant, and keep RLS role-aware.
+
 ## Supabase
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`
 - Anon key: `VITE_SUPABASE_ANON_KEY`

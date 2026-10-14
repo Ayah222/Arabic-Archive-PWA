@@ -1,8 +1,15 @@
 import { Router, type IRouter } from "express";
 import { decodeSupabasePath, encodeSupabasePath, signedSupabaseUrl, SUPABASE_STORAGE_DISABLED_MESSAGE } from "../../lib/supabaseStorage";
 import { FILE_LIMITS, publicFileLimits } from "../../lib/fileLimits";
+import { DEFAULT_TENANT_ID } from "../../lib/tenantContext";
 
 const router: IRouter = Router();
+
+function storagePathBelongsToTenant(path: string, tenantId: string): boolean {
+  if (!path || path.split("/").some((segment) => segment === "." || segment === "..")) return false;
+  if (tenantId === DEFAULT_TENANT_ID) return !path.startsWith("tenants/");
+  return path.startsWith(`tenants/${tenantId}/`);
+}
 
 router.get("/sa/storage/config", (_req, res) => {
   res.json(publicFileLimits());
@@ -25,6 +32,10 @@ router.post("/sa/storage/upload", (_req, res): void => {
 
 router.get("/sa/storage/file/:ref", async (req, res): Promise<void> => {
   const path = decodeSupabasePath(req.params.ref);
+  if (!storagePathBelongsToTenant(path, String(res.locals.tenantId))) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
   res.redirect(await signedSupabaseUrl(path));
 });
 
@@ -32,6 +43,10 @@ router.post("/sa/storage/download-url", async (req, res): Promise<void> => {
   const { path } = req.body as { path?: string };
   if (!path) {
     res.status(400).json({ error: "path is required" });
+    return;
+  }
+  if (!storagePathBelongsToTenant(path, String(res.locals.tenantId))) {
+    res.status(404).json({ error: "File not found" });
     return;
   }
   res.json({ url: await signedSupabaseUrl(path) });
