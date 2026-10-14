@@ -144,6 +144,7 @@ export default function App() {
     window.addEventListener("sa-auth-updated", handleAuthUpdate);
 
     const refreshAccount = async () => {
+      if (window.location.pathname.replace(/\/+$/, "").endsWith("/accept-invite")) return;
       const storedUser = getCurrentUser();
       if (storedUser?.authProvider === "local") return;
 

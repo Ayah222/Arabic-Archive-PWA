@@ -11,7 +11,7 @@ import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router: IRouter = Router();
 
-router.use((req, res, next) => {
+router.use("/sa/notifications", (req, res, next) => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   if (!actor || actor.role !== "admin") {
     res.status(403).json({ error: "الإشعارات الإدارية متاحة لمدير المؤسسة فقط" });
@@ -40,12 +40,13 @@ async function syncPendingUserNotifications(tenantId: string) {
   if (!profileIds.length) return;
   const { data: pendingProfiles, error } = await supabaseAdmin()
     .from("profiles")
-    .select("id,email")
+    .select("id,email,invited_by")
     .in("id", profileIds)
     .eq("status", "pending");
   if (error) throw new Error(error.message);
 
   for (const profile of pendingProfiles ?? []) {
+    if (profile.invited_by) continue;
     const marker = `[pending-user:${profile.id}]`;
     if (notifications.some((notification) => notification.message.includes(marker))) continue;
     notifications.unshift(await createNotification({

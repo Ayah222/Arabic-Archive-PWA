@@ -20,9 +20,9 @@ description: How employee and manager login works in Smart Archive
 **How to apply:** Grant the global bypass only through the signed local-manager login; never infer system-admin status from a client-supplied role or grant it to Supabase-authenticated employees.
 
 ## User Flow (full)
-An organization admin creates an employee directly with a temporary password → Supabase Auth account is email-confirmed by the admin API → profile and active membership are attached to the admin's tenant → employee logs in with email and password. No invitation or confirmation email is sent.
-**Why:** The owner explicitly chose immediate administrator-provisioned access to avoid Supabase's invitation email limits.
-**How to apply:** Only use the verified signed admin session's tenant ID; never accept an organization ID from the client. Keep the service-role key server-side and do not return or log passwords.
+An organization admin invites an employee by email → Supabase Auth sends a one-time invite link → the employee chooses a password on `/accept-invite` → the API activates only that user's pending membership in the inviting admin's tenant.
+**Why:** The owner wants employees to receive email invitations and choose their own passwords, while preserving strict tenant boundaries.
+**How to apply:** Only use the verified signed admin session's tenant ID; never accept an organization ID from the client. Accept invitations only with a verified Supabase bearer token matching the pending profile and membership.
 
 ## Profiles Table
 - `id` (ref auth.users), `email`, `role`, `status`
@@ -31,7 +31,7 @@ An organization admin creates an employee directly with a temporary password →
 
 **Why:** The replacement Supabase project was inspected and had no profile-creation trigger, so Auth invitations alone do not create the row required by login and approval.
 
-**How to apply:** Keep profile and membership tables inaccessible to browser roles; use the API's service-role client to create an active profile and tenant membership during direct account creation.
+**How to apply:** Keep profile and membership tables inaccessible to browser roles; create pending profile and tenant membership when inviting, then activate them only after the authenticated invitee chooses a password.
 
 ## Permission policy
 - `admin`: complete control, including user management and final deletion.
@@ -49,9 +49,9 @@ An organization admin creates an employee directly with a temporary password →
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`
 - Anon key: `VITE_SUPABASE_ANON_KEY`
 - Service role key: `SUPABASE_SERVICE_ROLE_KEY` (used only in api-server for admin account operations such as createUser)
-- Supabase's built-in Auth email sender has a shared project-wide rate limit; only password recovery still depends on Auth email.
-**Why:** Direct employee provisioning avoids invitation mail, but password recovery continues to use Supabase Auth's email provider.
-**How to apply:** Configure custom SMTP if reliable password-recovery email is required; never send invite or account-creation emails from the new direct-provisioning flow.
+- Supabase's built-in Auth email sender has a shared project-wide rate limit; invitations and password recovery both depend on Auth email.
+**Why:** Tenant invitations must use Supabase's single-use invitation token rather than a shared workspace mailbox.
+**How to apply:** Configure custom SMTP for reliable invitation delivery; keep service-role operations server-side and never send tenant invitations through the legacy workspace Gmail connection.
 
 ## Signed session alignment
 

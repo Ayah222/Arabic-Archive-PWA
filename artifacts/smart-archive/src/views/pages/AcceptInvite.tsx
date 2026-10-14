@@ -17,14 +17,21 @@ export default function AcceptInvite() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    // Supabase auto-processes the invite hash and sets a session
+    // Supabase auto-processes the invite hash. Listen as well as reading the
+    // current session because URL-token exchange may finish after this page mounts.
     let cancelled = false;
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!cancelled && session) setHasSession(true);
+    });
     void supabase.auth.getSession().then(({ data }) => {
       if (!cancelled) setHasSession(!!data.session);
     }).catch(() => {
       if (!cancelled) setHasSession(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

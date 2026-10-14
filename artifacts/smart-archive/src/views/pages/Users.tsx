@@ -27,7 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
   active:  { ar: "نشط",              en: "Active" },
-  pending: { ar: "بانتظار الموافقة", en: "Pending" },
+  pending: { ar: "بانتظار قبول الدعوة", en: "Awaiting invitation" },
 };
 
 const ACTION_LABELS: Record<string, { ar: string; en: string }> = {
