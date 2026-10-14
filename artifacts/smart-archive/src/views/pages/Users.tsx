@@ -187,7 +187,7 @@ export default function UsersPage() {
       setProfiles((current) => current.filter((item) => item.id !== profileToDelete.id));
       setToast({
         message: data.deletedAuthUser
-          ? "تم حذف المستخدم وحساب دخوله من Supabase"
+          ? "تم حذف المستخدم وحسابه من النظام"
           : "تمت إزالة المستخدم من هذه المؤسسة",
         type: "success",
       });
@@ -216,7 +216,7 @@ export default function UsersPage() {
         onClose={() => setProfileToDelete(null)}
         onConfirm={() => void deleteUser()}
         title="حذف المستخدم"
-        message={`سيتم حذف عضوية ${profileToDelete?.name || profileToDelete?.email || ""} من المؤسسة. إذا لم يكن مرتبطاً بمؤسسة أخرى، سيُحذف حساب دخوله وملفه من Supabase أيضاً، ولن تُحذف ملفات الأرشيف بهذه العملية. هل تريد المتابعة؟`}
+        message={`سيتم حذف ${profileToDelete?.name || profileToDelete?.email || "المستخدم"} من مؤسستك. إذا لم يكن تابعاً لمؤسسة أخرى، سيفقد إمكانية الدخول إلى النظام. لن تُحذف ملفات الأرشيف. هل تريد المتابعة؟`}
         confirmLabel="حذف"
         danger
         loading={deleteLoading}

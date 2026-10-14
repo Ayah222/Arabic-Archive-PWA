@@ -313,7 +313,7 @@ router.delete("/sa/profiles/:id", async (req, res) => {
         );
         return res.status(500).json({ error: "فشل حذف حساب الدخول وتعذر استعادة جميع بيانات العضوية؛ يلزم فحص تقني." });
       }
-      return res.status(400).json({ error: "تعذر حذف حساب Supabase؛ لم يكتمل الحذف. " + authError.message });
+      return res.status(400).json({ error: "تعذر إتمام حذف المستخدم. لم يكتمل الحذف." });
     }
   }
   await deleteNotificationsContaining(`[pending-user:${id}]`);
