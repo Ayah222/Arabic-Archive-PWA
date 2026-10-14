@@ -2321,9 +2321,27 @@ function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment |
     void (async () => {
       try {
         const response = await fetch(attachment.dataUrl, { credentials: "include" });
-        if (!response.ok) throw new Error("تعذر تحميل ملف Word للمعاينة");
+        if (!response.ok) {
+          let message = "تعذر تحميل ملف Word للمعاينة";
+          try {
+            const body = await response.json() as { error?: string };
+            if (body.error) message = body.error;
+          } catch {
+            // Keep the readable message if the server did not return JSON.
+          }
+          throw new Error(message);
+        }
         const arrayBuffer = await response.arrayBuffer();
-        const result = await mammoth.convertToHtml({ arrayBuffer });
+        const bytes = new Uint8Array(arrayBuffer);
+        if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+          throw new Error("هذا الملف فارغ أو ليس مستند Word صالحاً. نزّلي نسخة سليمة بصيغة DOCX ثم ارفعيها من جديد.");
+        }
+        let result: Awaited<ReturnType<typeof mammoth.convertToHtml>>;
+        try {
+          result = await mammoth.convertToHtml({ arrayBuffer });
+        } catch {
+          throw new Error("تعذرت قراءة محتوى ملف Word، ويبدو أن الملف غير مكتمل أو تالف. نزّلي نسخة سليمة بصيغة DOCX ثم ارفعيها من جديد.");
+        }
         if (!cancelled) setDocxHtml(result.value || "<p>لا يحتوي الملف على نص قابل للعرض.</p>");
       } catch (error) {
         if (!cancelled) {

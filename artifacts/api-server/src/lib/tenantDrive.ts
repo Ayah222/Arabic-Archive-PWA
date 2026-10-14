@@ -345,6 +345,13 @@ export async function saveTenantFile(input: {
   contentType?: string;
   folderSegments?: string[];
 }) {
+  if (input.bytes.length === 0) throw new Error("الملف المحدد فارغ");
+  if (
+    input.filename.toLowerCase().endsWith(".docx")
+    && !(input.bytes.length >= 4 && input.bytes[0] === 0x50 && input.bytes[1] === 0x4b)
+  ) {
+    throw new Error("الملف ليس مستند Word صالحاً بصيغة DOCX");
+  }
   if (input.bytes.length > MAX_DRIVE_FILE_BYTES) throw new Error("File exceeds the Google Drive upload limit");
   const connection = await getConnection(input.tenantId);
   let parentId = connection.rootFolderId;
@@ -388,6 +395,10 @@ export async function saveTenantFile(input: {
   const uploaded = await uploadResponse.json() as DriveFile;
   if (!uploadResponse.ok) throw new Error(`Google Drive upload failed (${uploadResponse.status})`);
   if (!uploaded.id) throw new Error("Google Drive did not return the uploaded file ID");
+  if (uploaded.size !== undefined && Number(uploaded.size) !== input.bytes.length) {
+    await driveRequest<void>(connection, `${DRIVE_API}/files/${encodeURIComponent(uploaded.id)}`, { method: "DELETE" });
+    throw new Error("تعذر التأكد من اكتمال رفع الملف إلى Google Drive");
+  }
   return { objectName: `drive://${uploaded.id}`, url: `/api/sa/storage/files/${encodeURIComponent(uploaded.id)}` };
 }
 
@@ -409,6 +420,16 @@ export async function downloadTenantFile(tenantId: string, fileId: string, maxBy
   if (length > maxBytes) throw new Error("File exceeds the allowed download size");
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length > maxBytes) throw new Error("File exceeds the allowed download size");
+  const expectedSize = Number(metadata.size ?? 0);
+  if (expectedSize > 0 && bytes.length !== expectedSize) {
+    throw new Error(`Google Drive returned an incomplete file (${bytes.length}/${expectedSize} bytes)`);
+  }
+  if (
+    metadata.name?.toLowerCase().endsWith(".docx")
+    && !(bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b)
+  ) {
+    throw new Error("ملف Word المخزن في Google Drive فارغ أو غير صالح");
+  }
   return {
     bytes,
     filename: metadata.name ?? "file",
