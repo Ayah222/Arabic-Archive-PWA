@@ -2294,14 +2294,19 @@ function AttachmentFolderBrowser({
 }
 
 function openAttachmentInNewTab(attachment: SAAttachment) {
-  const tab = window.open("", "_blank");
-  if (!tab) {
+  const fileName = attachment.name.split(/[\\/]/).pop() || "document";
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const isOfficeFile = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(extension);
+  const tab = isOfficeFile ? null : window.open("", "_blank");
+  if (!isOfficeFile && !tab) {
     window.alert("يرجى السماح بفتح النوافذ المنبثقة لعرض المستند.");
     return;
   }
-  tab.opener = null;
-  tab.document.title = attachment.name || "المستند";
-  tab.document.body.textContent = "جارٍ فتح المستند…";
+  if (tab) {
+    tab.opener = null;
+    tab.document.title = attachment.name || "المستند";
+    tab.document.body.textContent = "جارٍ فتح المستند…";
+  }
 
   void (async () => {
     try {
@@ -2318,9 +2323,19 @@ function openAttachmentInNewTab(attachment: SAAttachment) {
       const mimeType = response.headers.get("content-type") || attachment.mimeType || blob.type || "application/octet-stream";
       const fileBlob = new Blob([blob], { type: mimeType });
       const objectUrl = URL.createObjectURL(fileBlob);
-      tab.location.replace(objectUrl);
+      if (isOfficeFile) {
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = fileName;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      } else {
+        tab!.location.replace(objectUrl);
+      }
     } catch (error) {
-      tab.document.body.textContent = error instanceof Error ? error.message : "تعذر فتح المستند. حاول تنزيله ثم فتحه.";
+      const message = error instanceof Error ? error.message : "تعذر فتح المستند. حاول تنزيله ثم فتحه.";
+      if (tab) tab.document.body.textContent = message;
+      else window.alert(message);
     }
   })();
 }
