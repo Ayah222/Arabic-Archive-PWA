@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import mammoth from "mammoth";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useProject } from "../../controllers/useProjects";
 import {
@@ -2298,15 +2299,51 @@ function AttachmentFolderBrowser({
 }
 
 function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment | null; onClose: () => void }) {
+  const fileName = attachment?.name.split("/").filter(Boolean).pop() || attachment?.name || "";
+  const extension = fileName.toLowerCase().split(".").pop() || "";
+  const [docxHtml, setDocxHtml] = useState<string | null>(null);
+  const [docxLoading, setDocxLoading] = useState(false);
+  const [docxError, setDocxError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!attachment || extension !== "docx") {
+      setDocxHtml(null);
+      setDocxError(null);
+      setDocxLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDocxHtml(null);
+    setDocxError(null);
+    setDocxLoading(true);
+
+    void (async () => {
+      try {
+        const response = await fetch(attachment.dataUrl, { credentials: "include" });
+        if (!response.ok) throw new Error("تعذر تحميل ملف Word للمعاينة");
+        const arrayBuffer = await response.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        if (!cancelled) setDocxHtml(result.value || "<p>لا يحتوي الملف على نص قابل للعرض.</p>");
+      } catch (error) {
+        if (!cancelled) {
+          setDocxError(error instanceof Error ? error.message : "تعذرت معاينة ملف Word");
+        }
+      } finally {
+        if (!cancelled) setDocxLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [attachment?.id, attachment?.dataUrl, extension]);
+
   if (!attachment) return null;
-  const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
   const declaredMime = attachment.mimeType || "application/octet-stream";
   const extensionMime: Record<string, string> = {
     jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
     pdf: "application/pdf", txt: "text/plain", csv: "text/csv", json: "application/json",
     mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", wav: "audio/wav",
   };
-  const extension = fileName.toLowerCase().split(".").pop() || "";
   const mime = declaredMime !== "application/octet-stream"
     ? declaredMime
     : extensionMime[extension] || declaredMime;
@@ -2315,11 +2352,7 @@ function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment |
   const isText = mime.startsWith("text/") || mime === "application/json";
   const isVideo = mime.startsWith("video/");
   const isAudio = mime.startsWith("audio/");
-  const officeExtensions = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx"]);
-  const isOfficeFile = officeExtensions.has(extension);
-  const openUrl = isOfficeFile
-    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(attachment.dataUrl)}`
-    : attachment.dataUrl;
+  const isDocx = extension === "docx";
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={(event) => event.stopPropagation()}>
@@ -2334,12 +2367,31 @@ function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment |
           {isImage && <img src={attachment.dataUrl} alt={fileName} className="max-w-full max-h-[70vh] object-contain rounded-lg" />}
           {isPdf && <iframe src={attachment.dataUrl} title={fileName} className="w-full h-[70vh] rounded-lg bg-white" />}
           {isText && <iframe src={attachment.dataUrl} title={fileName} className="w-full h-[70vh] rounded-lg bg-white" />}
+          {isDocx && (
+            <div className="w-full space-y-3">
+              {docxLoading && <p className="text-sm text-muted-foreground text-center py-8">جارٍ تجهيز معاينة ملف Word…</p>}
+              {docxError && (
+                <p role="alert" className="text-sm text-red-600 text-center py-4">{docxError}</p>
+              )}
+              {docxHtml && (
+                <iframe
+                  title={`معاينة ${fileName}`}
+                  sandbox=""
+                  srcDoc={`<!doctype html><html lang="ar" dir="auto"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;line-height:1.8;color:#1f2937;padding:24px;max-width:900px;margin:auto}img{max-width:100%;height:auto}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #9ca3af;padding:6px}a{color:#2563eb}</style></head><body>${docxHtml}</body></html>`}
+                  className="w-full h-[70vh] rounded-lg bg-white border border-border"
+                />
+              )}
+              <a href={attachment.dataUrl} download={fileName} className="inline-flex px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">
+                تنزيل ملف Word
+              </a>
+            </div>
+          )}
           {isVideo && <video src={attachment.dataUrl} controls className="max-w-full max-h-[70vh] rounded-lg" />}
           {isAudio && <audio src={attachment.dataUrl} controls />}
-          {!isImage && !isPdf && !isText && !isVideo && !isAudio && (
+          {!isImage && !isPdf && !isText && !isDocx && !isVideo && !isAudio && (
             <div className="text-center space-y-3">
               <p className="text-sm text-muted-foreground">هذا النوع لا يعرض داخل المتصفح، ويمكن فتحه أو تنزيله.</p>
-              <a href={openUrl} target="_blank" rel="noreferrer" className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">فتح الملف في تبويب جديد</a>
+              <a href={attachment.dataUrl} download={fileName} className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">تنزيل الملف</a>
             </div>
           )}
         </div>
