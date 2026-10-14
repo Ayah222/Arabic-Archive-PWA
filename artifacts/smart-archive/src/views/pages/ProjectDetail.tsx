@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import mammoth from "mammoth";
 import { useProject } from "../../controllers/useProjects";
 import {
   useContracts,
@@ -1586,6 +1587,7 @@ function AttachmentsPanel({
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<SAAttachment | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1749,10 +1751,11 @@ function AttachmentsPanel({
         canDelete={canDelete}
         onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
         onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType, entityId, folderPath })}
-        onPreview={openAttachmentInNewTab}
+        onPreview={setPreviewAttachment}
         mimeIcon={mimeIcon}
         compact
       />}
+      <AttachmentPreviewDialog attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />
     </div>
   );
 }
@@ -1772,6 +1775,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<SAAttachment | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1924,7 +1928,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
             onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
             onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
-          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={openAttachmentInNewTab} mimeIcon={mimeIcon}
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={setPreviewAttachment} mimeIcon={mimeIcon}
             selected={selectedIds.has(d.id)}
             onToggle={() => setSelectedIds((current) => {
               const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
@@ -1938,7 +1942,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           uploading={Boolean(uploadProgress)}
           onAddFile={(file) => void uploadFiles([file])}
           canDelete={canDelete}
-            onPreview={openAttachmentInNewTab}
+            onPreview={setPreviewAttachment}
            onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath })}
           onDelete={async (att) => {
             await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
@@ -1957,6 +1961,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         danger
         loading={remove.isPending}
       />
+      <AttachmentPreviewDialog attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />
 
       {/* Add Modal */}
       {canEdit && showAdd && (
@@ -2293,51 +2298,100 @@ function AttachmentFolderBrowser({
   );
 }
 
-function openAttachmentInNewTab(attachment: SAAttachment) {
-  const fileName = attachment.name.split(/[\\/]/).pop() || "document";
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-  const isOfficeFile = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(extension);
-  const tab = isOfficeFile ? null : window.open("", "_blank");
-  if (!isOfficeFile && !tab) {
-    window.alert("يرجى السماح بفتح النوافذ المنبثقة لعرض المستند.");
-    return;
-  }
-  if (tab) {
-    tab.opener = null;
-    tab.document.title = attachment.name || "المستند";
-    tab.document.body.textContent = "جارٍ فتح المستند…";
-  }
+function AttachmentPreviewDialog({
+  attachment,
+  onClose,
+}: {
+  attachment: SAAttachment | null;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<
+    | { kind: "pdf"; url: string }
+    | { kind: "image"; url: string }
+    | { kind: "text"; text: string }
+    | null
+  >(null);
 
-  void (async () => {
-    try {
-      const url = new URL(attachment.dataUrl, window.location.href);
-      const sameOrigin = url.origin === window.location.origin;
-      const response = await fetch(url, {
-        credentials: sameOrigin ? "include" : "omit",
-        headers: sameOrigin ? getUserRequestHeaders() : undefined,
-      });
-      if (!response.ok) {
-        throw new Error(`تعذر تحميل المستند (${response.status})`);
-      }
-      const blob = await response.blob();
-      const mimeType = response.headers.get("content-type") || attachment.mimeType || blob.type || "application/octet-stream";
-      const fileBlob = new Blob([blob], { type: mimeType });
-      const objectUrl = URL.createObjectURL(fileBlob);
-      if (isOfficeFile) {
-        const link = document.createElement("a");
-        link.href = objectUrl;
-        link.download = fileName;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-      } else {
-        tab!.location.replace(objectUrl);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "تعذر فتح المستند. حاول تنزيله ثم فتحه.";
-      if (tab) tab.document.body.textContent = message;
-      else window.alert(message);
+  useEffect(() => {
+    if (!attachment) {
+      setPreview(null);
+      setError("");
+      setLoading(false);
+      return;
     }
-  })();
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setPreview(null);
+    setError("");
+    setLoading(true);
+
+    void (async () => {
+      try {
+        const url = new URL(attachment.dataUrl, window.location.href);
+        const sameOrigin = url.origin === window.location.origin;
+        const response = await fetch(url, {
+          credentials: sameOrigin ? "include" : "omit",
+          headers: sameOrigin ? getUserRequestHeaders() : undefined,
+        });
+        if (!response.ok) throw new Error(`تعذر جلب الملف للمعاينة (${response.status})`);
+        const bytes = await response.arrayBuffer();
+        const fileName = attachment.name.split(/[\\/]/).pop() || attachment.name;
+        const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+
+        if (extension === "docx" || attachment.mimeType.includes("wordprocessingml")) {
+          const result = await mammoth.extractRawText({ arrayBuffer: bytes });
+          const text = result.value.trim();
+          if (!text) throw new Error("لا يحتوي ملف Word على نص قابل للمعاينة.");
+          if (!cancelled) setPreview({ kind: "text", text });
+        } else if (extension === "doc" || attachment.mimeType === "application/msword") {
+          throw new Error("معاينة ملفات Word القديمة (.doc) غير مدعومة؛ احفظ الملف بصيغة DOCX ثم أعد رفعه.");
+        } else if (extension === "pdf" || attachment.mimeType === "application/pdf") {
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+          if (!cancelled) setPreview({ kind: "pdf", url: objectUrl });
+        } else if (attachment.mimeType.startsWith("image/")) {
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: attachment.mimeType }));
+          if (!cancelled) setPreview({ kind: "image", url: objectUrl });
+        } else if (attachment.mimeType.startsWith("text/") || ["txt", "csv"].includes(extension)) {
+          if (!cancelled) setPreview({ kind: "text", text: new TextDecoder().decode(bytes) });
+        } else {
+          throw new Error("لا تتوفر معاينة داخلية لهذا النوع من الملفات.");
+        }
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "تعذر معاينة الملف.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [attachment]);
+
+  return (
+    <Modal isOpen={!!attachment} onClose={onClose} title={attachment?.name ?? "معاينة المستند"} size="lg">
+      <div className="min-h-[55vh]">
+        {loading && <p className="py-12 text-center text-muted-foreground">جارٍ تجهيز المعاينة…</p>}
+        {error && <p role="alert" className="py-12 text-center text-destructive">{error}</p>}
+        {preview?.kind === "pdf" && (
+          <iframe src={preview.url} title={attachment?.name ?? "معاينة PDF"} className="h-[65vh] w-full rounded-lg border border-border" />
+        )}
+        {preview?.kind === "image" && (
+          <div className="flex min-h-[55vh] items-center justify-center">
+            <img src={preview.url} alt={attachment?.name ?? "معاينة صورة"} className="max-h-[65vh] max-w-full object-contain" />
+          </div>
+        )}
+        {preview?.kind === "text" && (
+          <pre dir="auto" className="min-h-[55vh] whitespace-pre-wrap break-words rounded-lg bg-background p-5 text-sm leading-8 text-foreground">
+            {preview.text}
+          </pre>
+        )}
+      </div>
+    </Modal>
+  );
 }
 
 /* ===== SHARED HELPERS ===== */
