@@ -1,10 +1,10 @@
 ---
-name: Private Word previews
-description: Safe in-app previews for DOCX files stored in organization Google Drives
+name: Private document opening
+description: Open tenant archive attachments natively without exposing Google Drive files
 ---
 
-Preview private `.docx` files inside Smart Archive by fetching them through the authenticated, tenant-scoped API and converting them in the browser. Do not pass protected Drive URLs to Office Online or make files public for preview.
+Open Word, PDF, and other attachments in a new browser tab through the authenticated, tenant-scoped file endpoint so the browser or installed app can handle each type. Do not pass protected Drive URLs to Office Online or make files public.
 
-**Why:** Office Online cannot read URLs protected by the archive session. Public sharing would weaken organization isolation for private documents.
+**Why:** The archive's private file URLs require its signed-in session; native browser handling avoids a separate viewer service and keeps organization isolation intact.
 
-**How to apply:** Keep Drive access behind the tenant-authenticated API; use a sandboxed in-app renderer for DOCX and provide download as a fallback. Legacy `.doc` files may remain download-only.
+**How to apply:** Keep downloads behind the tenant-authenticated API, preserve the original MIME type and inline disposition, and offer download separately. Never create public Drive links for previews.

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import mammoth from "mammoth";
+import { useRef, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useProject } from "../../controllers/useProjects";
 import {
@@ -1585,7 +1584,6 @@ function AttachmentsPanel({
   const [attType, setAttType] = useState("مستند");
   const [currentPath, setCurrentPath] = useState("");
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
-  const [preview, setPreview] = useState<SAAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
 
@@ -1751,11 +1749,10 @@ function AttachmentsPanel({
         canDelete={canDelete}
         onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
         onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType, entityId, folderPath })}
-        onPreview={setPreview}
+        onPreview={openAttachmentInNewTab}
         mimeIcon={mimeIcon}
         compact
       />}
-      <AttachmentPreview attachment={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
@@ -1771,7 +1768,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [attType, setAttType] = useState("");
   const [search, setSearch] = useState("");
   const [currentPath, setCurrentPath] = useState("");
-  const [preview, setPreview] = useState<SAAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1928,7 +1924,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
             onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
             onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
-          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={setPreview} mimeIcon={mimeIcon}
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={openAttachmentInNewTab} mimeIcon={mimeIcon}
             selected={selectedIds.has(d.id)}
             onToggle={() => setSelectedIds((current) => {
               const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
@@ -1942,7 +1938,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           uploading={Boolean(uploadProgress)}
           onAddFile={(file) => void uploadFiles([file])}
           canDelete={canDelete}
-           onPreview={setPreview}
+            onPreview={openAttachmentInNewTab}
            onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath })}
           onDelete={async (att) => {
             await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
@@ -1951,7 +1947,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           mimeIcon={mimeIcon}
         />
       )}
-      <AttachmentPreview attachment={preview} onClose={() => setPreview(null)} />
       <ConfirmDialog
         isOpen={!!deleteIds?.length}
         onClose={() => setDeleteIds(null)}
@@ -2298,124 +2293,8 @@ function AttachmentFolderBrowser({
   );
 }
 
-function AttachmentPreview({ attachment, onClose }: { attachment: SAAttachment | null; onClose: () => void }) {
-  const fileName = attachment?.name.split("/").filter(Boolean).pop() || attachment?.name || "";
-  const extension = fileName.toLowerCase().split(".").pop() || "";
-  const [docxHtml, setDocxHtml] = useState<string | null>(null);
-  const [docxLoading, setDocxLoading] = useState(false);
-  const [docxError, setDocxError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!attachment || extension !== "docx") {
-      setDocxHtml(null);
-      setDocxError(null);
-      setDocxLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setDocxHtml(null);
-    setDocxError(null);
-    setDocxLoading(true);
-
-    void (async () => {
-      try {
-        const response = await fetch(attachment.dataUrl, { credentials: "include" });
-        if (!response.ok) {
-          let message = "تعذر تحميل ملف Word للمعاينة";
-          try {
-            const body = await response.json() as { error?: string };
-            if (body.error) message = body.error;
-          } catch {
-            // Keep the readable message if the server did not return JSON.
-          }
-          throw new Error(message);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
-          throw new Error("هذا الملف فارغ أو ليس مستند Word صالحاً. نزّلي نسخة سليمة بصيغة DOCX ثم ارفعيها من جديد.");
-        }
-        let result: Awaited<ReturnType<typeof mammoth.convertToHtml>>;
-        try {
-          result = await mammoth.convertToHtml({ arrayBuffer });
-        } catch {
-          throw new Error("تعذرت قراءة محتوى ملف Word، ويبدو أن الملف غير مكتمل أو تالف. نزّلي نسخة سليمة بصيغة DOCX ثم ارفعيها من جديد.");
-        }
-        if (!cancelled) setDocxHtml(result.value || "<p>لا يحتوي الملف على نص قابل للعرض.</p>");
-      } catch (error) {
-        if (!cancelled) {
-          setDocxError(error instanceof Error ? error.message : "تعذرت معاينة ملف Word");
-        }
-      } finally {
-        if (!cancelled) setDocxLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [attachment?.id, attachment?.dataUrl, extension]);
-
-  if (!attachment) return null;
-  const declaredMime = attachment.mimeType || "application/octet-stream";
-  const extensionMime: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
-    pdf: "application/pdf", txt: "text/plain", csv: "text/csv", json: "application/json",
-    mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", wav: "audio/wav",
-  };
-  const mime = declaredMime !== "application/octet-stream"
-    ? declaredMime
-    : extensionMime[extension] || declaredMime;
-  const isImage = mime.startsWith("image/");
-  const isPdf = mime === "application/pdf";
-  const isText = mime.startsWith("text/") || mime === "application/json";
-  const isVideo = mime.startsWith("video/");
-  const isAudio = mime.startsWith("audio/");
-  const isDocx = extension === "docx";
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border" dir="rtl">
-          <div className="min-w-0">
-            <h3 className="font-semibold truncate">{fileName}</h3>
-            <p className="text-xs text-muted-foreground">انقر خارج النافذة للإغلاق</p>
-          </div>
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted">إغلاق</button>
-        </div>
-        <div className="p-4 overflow-auto min-h-[220px] flex items-center justify-center bg-black/5">
-          {isImage && <img src={attachment.dataUrl} alt={fileName} className="max-w-full max-h-[70vh] object-contain rounded-lg" />}
-          {isPdf && <iframe src={attachment.dataUrl} title={fileName} className="w-full h-[70vh] rounded-lg bg-white" />}
-          {isText && <iframe src={attachment.dataUrl} title={fileName} className="w-full h-[70vh] rounded-lg bg-white" />}
-          {isDocx && (
-            <div className="w-full space-y-3">
-              {docxLoading && <p className="text-sm text-muted-foreground text-center py-8">جارٍ تجهيز معاينة ملف Word…</p>}
-              {docxError && (
-                <p role="alert" className="text-sm text-red-600 text-center py-4">{docxError}</p>
-              )}
-              {docxHtml && (
-                <iframe
-                  title={`معاينة ${fileName}`}
-                  sandbox=""
-                  srcDoc={`<!doctype html><html lang="ar" dir="auto"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline';"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;line-height:1.8;color:#1f2937;padding:24px;max-width:900px;margin:auto}img{max-width:100%;height:auto}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #9ca3af;padding:6px}a{color:#2563eb}</style></head><body>${docxHtml}</body></html>`}
-                  className="w-full h-[70vh] rounded-lg bg-white border border-border"
-                />
-              )}
-              <a href={attachment.dataUrl} download={fileName} className="inline-flex px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">
-                تنزيل ملف Word
-              </a>
-            </div>
-          )}
-          {isVideo && <video src={attachment.dataUrl} controls className="max-w-full max-h-[70vh] rounded-lg" />}
-          {isAudio && <audio src={attachment.dataUrl} controls />}
-          {!isImage && !isPdf && !isText && !isDocx && !isVideo && !isAudio && (
-            <div className="text-center space-y-3">
-              <p className="text-sm text-muted-foreground">هذا النوع لا يعرض داخل المتصفح، ويمكن فتحه أو تنزيله.</p>
-              <a href={attachment.dataUrl} download={fileName} className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">تنزيل الملف</a>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function openAttachmentInNewTab(attachment: SAAttachment) {
+  window.open(attachment.dataUrl, "_blank", "noopener,noreferrer");
 }
 
 /* ===== SHARED HELPERS ===== */

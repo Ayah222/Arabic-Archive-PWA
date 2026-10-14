@@ -8,7 +8,7 @@ import MicrophoneButton from "../components/shared/MicrophoneButton";
 import Toast from "../components/shared/Toast";
 import TenantControls from "./TenantControls";
 import {
-  LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid,
+  LayoutDashboard, FolderOpen, Bell, Menu, Moon, Sun, X, LayoutGrid, PanelRightClose, PanelRightOpen,
   CheckCheck, Info, AlertTriangle, ShieldAlert,
   Mail, Inbox, Search, Wallet, HelpCircle, Users, LogOut, UserCog, MessageCircle, BadgeCheck,
 } from "lucide-react";
@@ -58,6 +58,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return savedTheme ? savedTheme === "dark" : true;
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("sa_sidebar_collapsed") === "true");
   const [bellOpen, setBellOpen]   = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
 
@@ -72,6 +73,18 @@ export default function MainLayout({ children }: MainLayoutProps) {
     document.documentElement.classList.toggle("dark", isDark);
     localStorage.setItem("sa_theme", isDark ? "dark" : "light");
   }, [isDark]);
+
+  useEffect(() => {
+    localStorage.setItem("sa_sidebar_collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = () => {
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      setSidebarCollapsed((collapsed) => !collapsed);
+    } else {
+      setSidebarOpen((open) => !open);
+    }
+  };
 
   const handleBellClick = () => setBellOpen(p => !p);
 
@@ -117,15 +130,29 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* ── Sidebar ── */}
       <aside
-        className={`fixed top-0 right-0 z-40 h-screen flex flex-col transition-transform duration-300 ease-in-out will-change-transform w-[260px] md:w-64 ${sidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"} md:sticky md:translate-x-0`}
+        className={`fixed top-0 right-0 z-40 h-screen flex flex-col transition-[width,transform] duration-300 ease-in-out will-change-transform w-[260px] ${sidebarCollapsed ? "md:w-16" : "md:w-64"} ${sidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"} md:sticky md:translate-x-0`}
         style={{
           background: isDark ? "rgba(8,6,18,0.82)" : "rgba(248,250,255,0.85)",
           backdropFilter: "blur(24px) saturate(180%)", WebkitBackdropFilter: "blur(24px) saturate(180%)",
           borderLeft: isDark ? "1px solid rgba(0,240,255,0.10)" : "1px solid rgba(99,102,241,0.14)",
           boxShadow: isDark ? "inset 0 1px 0 rgba(0,240,255,0.08), -2px 0 60px rgba(0,0,0,0.65)" : "inset 0 1px 0 rgba(255,255,255,0.90), -2px 0 32px rgba(99,102,241,0.08)",
         }}>
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          className="hidden md:flex absolute -left-3 top-5 z-50 w-7 h-7 items-center justify-center rounded-full border shadow-md"
+          style={{
+            color: isDark ? "#67e8f9" : "#4f46e5",
+            background: isDark ? "#111827" : "#ffffff",
+            borderColor: isDark ? "rgba(0,240,255,0.35)" : "rgba(99,102,241,0.28)",
+          }}
+          title={sidebarCollapsed ? "توسيع القائمة" : "طيّ القائمة"}
+          aria-label={sidebarCollapsed ? "توسيع القائمة الجانبية" : "طيّ القائمة الجانبية"}
+        >
+          {sidebarCollapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
+        </button>
         {/* Logo */}
-        <div className="p-4 flex items-center gap-3 min-h-[68px] relative overflow-hidden"
+        <div className={`p-4 flex items-center gap-3 min-h-[68px] relative overflow-hidden ${sidebarCollapsed ? "md:justify-center md:px-2" : ""}`}
           style={{ borderBottom: isDark ? "1px solid rgba(0,240,255,0.08)" : "1px solid rgba(99,102,241,0.10)" }}>
           <div style={{ position:"absolute", top:0, left:0, right:0, height:1,
             background: isDark ? "linear-gradient(to right, transparent 5%, rgba(0,240,255,0.40) 35%, rgba(112,0,255,0.30) 65%, transparent 95%)" : "rgba(255,255,255,0.95)",
@@ -137,7 +164,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               border: isDark ? "1px solid rgba(0,240,255,0.30)" : "1px solid rgba(99,102,241,0.30)" }}>
             <FolderOpen className="w-4 h-4 text-white" />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className={`flex-1 min-w-0 ${sidebarCollapsed ? "block md:hidden" : ""}`}>
             <h1 className="font-bold text-sm leading-tight whitespace-nowrap overflow-hidden" style={{ color: isDark ? "#ffffff" : "#1e1b4b" }}>{t("appName")}</h1>
             <p className="text-[10px] mt-0.5 font-medium" style={{ color: isDark ? "rgba(0,240,255,0.55)" : "rgba(99,102,241,0.70)" }}>{t("appSub")}</p>
           </div>
@@ -146,28 +173,31 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </button>
         </div>
 
+        <div className={sidebarCollapsed ? "block md:hidden" : ""}>
         <TenantControls
           isDark={isDark}
           isAdmin={currentUser?.role === "admin"}
           isSystemAdmin={currentUser?.id === "admin"}
           lang={lang}
         />
+        </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-3 flex flex-col gap-0.5 px-3 overflow-y-auto">
+        <nav className={`flex-1 py-3 flex flex-col gap-0.5 overflow-y-auto ${sidebarCollapsed ? "px-3 md:px-2" : "px-3"}`}>
           {navItems.map(({ to, label, Icon }) => {
             const active = isActive(to);
             return (
               <div key={to} className="flex items-center gap-1 group/row">
                 <Link to={to} onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group flex-1 min-w-0"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group flex-1 min-w-0 ${sidebarCollapsed ? "justify-start md:justify-center md:px-2" : ""}`}
+                  title={sidebarCollapsed ? label : undefined}
                   style={active ? activeStyle : { color: isDark ? "rgba(255,255,255,0.55)" : "#6b7280", border:"1px solid transparent" }}>
                   {!active && (
                     <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ background: isDark ? "rgba(0,240,255,0.04)" : "rgba(99,102,241,0.06)" }} />
                   )}
                   <Icon className={`w-4 h-4 shrink-0 relative z-10 ${active ? "" : "opacity-50 group-hover:opacity-80 transition-opacity"}`} />
-                  <span className="whitespace-nowrap relative z-10 text-sm font-bold flex-1">{label}</span>
+                  <span className={`whitespace-nowrap relative z-10 text-sm font-bold flex-1 ${sidebarCollapsed ? "block md:hidden" : ""}`}>{label}</span>
                   {to === "/notifications" && unreadCount > 0 && (
                     <span className="text-xs font-black px-1.5 py-0.5 rounded-full shrink-0 relative z-10"
                       style={{ background: isDark ? "rgba(200,80,130,0.12)" : "rgba(200,80,130,0.09)", color: isDark ? "rgba(210,100,150,0.85)" : "#9d3f6e", border: isDark ? "1px solid rgba(200,80,130,0.22)" : "1px solid rgba(200,80,130,0.18)" }}>
@@ -198,7 +228,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
           <div className="flex items-center gap-2 md:gap-3">
             <button className="rounded-xl w-9 h-9 md:w-10 md:h-10 flex items-center justify-center" style={btnStyle}
-              onClick={() => setSidebarOpen(!sidebarOpen)}>
+              onClick={toggleSidebar}
+              aria-label="طيّ أو فتح القائمة"
+              title="طيّ أو فتح القائمة">
               <Menu className="w-5 h-5" />
             </button>
             <h2 className="font-bold text-sm md:text-base truncate" style={{ color: isDark ? "#ffffff" : "#1e1b4b" }}>{currentLabel}</h2>
