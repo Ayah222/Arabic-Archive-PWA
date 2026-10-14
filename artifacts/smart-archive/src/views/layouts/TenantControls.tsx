@@ -143,16 +143,27 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
         {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" style={{ color: muted }} />}
       </div>
 
-      <select
-        aria-label={text.chooseOrganization}
-        value={tenants.find((tenant) => tenant.active)?.id ?? ""}
-        disabled={busy || tenants.length === 0}
-        onChange={(event) => void switchTenant(event.target.value)}
-        className="w-full rounded-lg px-2.5 py-2 text-xs outline-none"
-        style={{ color: isDark ? "#f3f4f6" : "#25224d", background: isDark ? "rgba(0,0,0,0.24)" : "rgba(255,255,255,0.76)", border: `1px solid ${border}` }}
-      >
-        {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
-      </select>
+      {isSystemAdmin ? (
+        <select
+          aria-label={text.chooseOrganization}
+          value={tenants.find((tenant) => tenant.active)?.id ?? ""}
+          disabled={busy || tenants.length === 0}
+          onChange={(event) => void switchTenant(event.target.value)}
+          className="w-full rounded-lg px-2.5 py-2 text-xs outline-none"
+          style={{ color: isDark ? "#f3f4f6" : "#25224d", background: isDark ? "rgba(0,0,0,0.24)" : "rgba(255,255,255,0.76)", border: `1px solid ${border}` }}
+        >
+          {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+        </select>
+      ) : (
+        <div
+          role="status"
+          aria-label={text.organization}
+          className="w-full rounded-lg px-2.5 py-2 text-xs"
+          style={{ color: isDark ? "#f3f4f6" : "#25224d", background: isDark ? "rgba(0,0,0,0.24)" : "rgba(255,255,255,0.76)", border: `1px solid ${border}` }}
+        >
+          {tenants.find((tenant) => tenant.active)?.name ?? "—"}
+        </div>
+      )}
 
       {isAdmin && (
         <>
