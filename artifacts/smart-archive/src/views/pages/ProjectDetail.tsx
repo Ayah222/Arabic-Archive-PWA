@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, getUserRequestHeaders, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -2294,7 +2294,35 @@ function AttachmentFolderBrowser({
 }
 
 function openAttachmentInNewTab(attachment: SAAttachment) {
-  window.open(attachment.dataUrl, "_blank", "noopener,noreferrer");
+  const tab = window.open("", "_blank");
+  if (!tab) {
+    window.alert("يرجى السماح بفتح النوافذ المنبثقة لعرض المستند.");
+    return;
+  }
+  tab.opener = null;
+  tab.document.title = attachment.name || "المستند";
+  tab.document.body.textContent = "جارٍ فتح المستند…";
+
+  void (async () => {
+    try {
+      const url = new URL(attachment.dataUrl, window.location.href);
+      const sameOrigin = url.origin === window.location.origin;
+      const response = await fetch(url, {
+        credentials: sameOrigin ? "include" : "omit",
+        headers: sameOrigin ? getUserRequestHeaders() : undefined,
+      });
+      if (!response.ok) {
+        throw new Error(`تعذر تحميل المستند (${response.status})`);
+      }
+      const blob = await response.blob();
+      const mimeType = response.headers.get("content-type") || attachment.mimeType || blob.type || "application/octet-stream";
+      const fileBlob = new Blob([blob], { type: mimeType });
+      const objectUrl = URL.createObjectURL(fileBlob);
+      tab.location.replace(objectUrl);
+    } catch (error) {
+      tab.document.body.textContent = error instanceof Error ? error.message : "تعذر فتح المستند. حاول تنزيله ثم فتحه.";
+    }
+  })();
 }
 
 /* ===== SHARED HELPERS ===== */
