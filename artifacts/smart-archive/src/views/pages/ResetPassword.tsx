@@ -16,28 +16,55 @@ export default function ResetPassword() {
 
   useEffect(() => {
     let active = true;
-
-    const verifyRecovery = async () => {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-      if (code) {
-        await supabase.auth.exchangeCodeForSession(code);
-      }
-
-      const { data } = await supabase.auth.getSession();
-      if (active) {
-        setValid(Boolean(data.session));
-        setChecking(false);
-      }
-    };
-
-    void verifyRecovery();
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && active) {
+      if (
+        active
+        && session
+        && ["PASSWORD_RECOVERY", "SIGNED_IN", "INITIAL_SESSION"].includes(event)
+      ) {
         setValid(Boolean(session));
         setChecking(false);
       }
     });
+
+    const verifyRecovery = async () => {
+      try {
+        const url = new URL(window.location.href);
+        let { data } = await supabase.auth.getSession();
+        let session = data.session;
+
+        // Supabase normally consumes PKCE codes from the URL automatically.
+        // Exchange manually only if that did not already establish a session.
+        const code = url.searchParams.get("code");
+        const tokenHash = url.searchParams.get("token_hash");
+        if (!session && code) {
+          const { data: exchanged } = await supabase.auth.exchangeCodeForSession(code);
+          session = exchanged.session;
+          if (!session) {
+            const retry = await supabase.auth.getSession();
+            session = retry.data.session;
+          }
+        } else if (!session && tokenHash) {
+          const { data: verified } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+          session = verified.session;
+        }
+
+        if (active) {
+          setValid(Boolean(session));
+          setChecking(false);
+        }
+      } catch {
+        if (active) {
+          setValid(false);
+          setChecking(false);
+        }
+      }
+    };
+
+    void verifyRecovery();
 
     return () => {
       active = false;
@@ -59,15 +86,18 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) {
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) {
+        throw updateError;
+      }
+      await supabase.auth.signOut().catch(() => undefined);
+      navigate("/login?reset=success", { replace: true });
+    } catch {
       setError("تعذر تغيير كلمة المرور. قد يكون الرابط منتهياً أو سبق استخدامه.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    await supabase.auth.signOut();
-    navigate("/login?reset=success", { replace: true });
   };
 
   return (

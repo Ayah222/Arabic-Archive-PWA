@@ -15,16 +15,17 @@ export default function ForgotPassword() {
 
     setLoading(true);
     setError(null);
-    const base = import.meta.env.BASE_URL || "/";
-    const redirectTo = new URL(`${base.replace(/\/?$/, "/")}reset-password`, window.location.origin).toString();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
-
-    if (resetError) {
-      setError("تعذر إرسال رابط إعادة التعيين حالياً. حاول مرة أخرى لاحقاً.");
-    } else {
+    try {
+      const base = import.meta.env.BASE_URL || "/";
+      const redirectTo = new URL(`${base.replace(/\/?$/, "/")}reset-password`, window.location.origin).toString();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (resetError) throw resetError;
       setSent(true);
+    } catch {
+      setError("تعذر إرسال رابط إعادة التعيين حالياً. حاول مرة أخرى لاحقاً.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

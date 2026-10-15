@@ -12,6 +12,9 @@ description: How employee and manager login works in Smart Archive
 - Forgotten-password recovery uses Supabase Auth recovery links and applies only to employee email accounts. The separate local manager login is intentionally excluded.
 **Why:** Supabase provides expiring, single-use recovery tokens tied to the employee account, while the local manager account follows a separate authentication design.
 **How to apply:** Keep employee password recovery on the public recovery pages; do not route the local manager credentials through Supabase recovery.
+- The recovery page must handle both PKCE `code` and `token_hash` links, subscribe to auth changes before checking the session, and recheck the session after an exchange error because Supabase may consume the code automatically.
+**Why:** An unhandled duplicate/automatic code exchange could leave the page stuck in its checking state even when the recovery session was being established.
+**How to apply:** Guard URL exchange and always finish loading; recognize the recovery event and verify the resulting session before enabling the new-password form.
 
 ### Manager Side ("جهة داري")
 - Separate login using environment-configured **username + password** (not email)
