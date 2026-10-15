@@ -68,10 +68,14 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     redirectTo: `${origin}/accept-invite`,
   });
   if (createError || !created.user) {
-    const duplicate = /already|registered|exists/i.test(createError?.message ?? "");
-    res.status(duplicate ? 409 : 400).json({
+    const providerMessage = createError?.message ?? "";
+    const duplicate = /already|registered|exists/i.test(providerMessage);
+    const emailRateLimited = /email rate limit exceeded|over_email_send_rate_limit|too many emails/i.test(providerMessage);
+    res.status(duplicate ? 409 : emailRateLimited ? 429 : 400).json({
       error: duplicate
         ? "يوجد حساب بهذا البريد الإلكتروني مسبقاً."
+        : emailRateLimited
+          ? "تجاوز Supabase حد إرسال رسائل الدعوة عبر البريد الافتراضي. انتظري أو أعدّي SMTP مخصصاً في Supabase ثم أعيدي إرسال الدعوة."
         : "تعذر إنشاء الحساب في Supabase.",
     });
     return;
