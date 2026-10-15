@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
-import mammoth from "mammoth";
 import { useProject } from "../../controllers/useProjects";
 import {
   useContracts,
@@ -9,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, getUserRequestHeaders, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
+import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -263,6 +262,18 @@ function getUploadFailureReason(error: unknown) {
     return "خطأ من الخادم أثناء حفظ المرفق";
   }
   return message.slice(0, 180);
+}
+
+function openAttachmentPreview(attachment: SAAttachment) {
+  const query = new URLSearchParams({
+    projectId: attachment.projectId,
+    entityType: attachment.entityType,
+    entityId: attachment.entityId,
+    attachmentId: attachment.id,
+  });
+  const target = new URL(`${import.meta.env.BASE_URL}attachment-preview`, window.location.origin);
+  target.search = query.toString();
+  window.open(target.toString(), "_blank", "noopener,noreferrer");
 }
 
 export default function ProjectDetail() {
@@ -1602,7 +1613,6 @@ function AttachmentsPanel({
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
-  const [previewAttachment, setPreviewAttachment] = useState<SAAttachment | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1767,11 +1777,10 @@ function AttachmentsPanel({
         canDelete={canDelete}
         onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
         onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType, entityId, folderPath })}
-        onPreview={setPreviewAttachment}
+        onPreview={openAttachmentPreview}
         mimeIcon={mimeIcon}
         compact
       />}
-      <AttachmentPreviewDialog attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />
     </div>
   );
 }
@@ -1791,7 +1800,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
-  const [previewAttachment, setPreviewAttachment] = useState<SAAttachment | null>(null);
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1945,7 +1953,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
             onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
             onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
-          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={setPreviewAttachment} mimeIcon={mimeIcon}
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={openAttachmentPreview} mimeIcon={mimeIcon}
             selected={selectedIds.has(d.id)}
             onToggle={() => setSelectedIds((current) => {
               const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
@@ -1959,7 +1967,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           uploading={Boolean(uploadProgress)}
           onAddFile={(file) => void uploadFiles([file])}
           canDelete={canDelete}
-            onPreview={setPreviewAttachment}
+            onPreview={openAttachmentPreview}
            onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath })}
           onDelete={async (att) => {
             await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
@@ -1978,7 +1986,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         danger
         loading={remove.isPending}
       />
-      <AttachmentPreviewDialog attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />
 
       {/* Add Modal */}
       {canEdit && showAdd && (
@@ -2312,102 +2319,6 @@ function AttachmentFolderBrowser({
         danger
       />
     </div>
-  );
-}
-
-function AttachmentPreviewDialog({
-  attachment,
-  onClose,
-}: {
-  attachment: SAAttachment | null;
-  onClose: () => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [preview, setPreview] = useState<
-    | { kind: "pdf"; url: string }
-    | { kind: "image"; url: string }
-    | { kind: "text"; text: string }
-    | null
-  >(null);
-
-  useEffect(() => {
-    if (!attachment) {
-      setPreview(null);
-      setError("");
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    setPreview(null);
-    setError("");
-    setLoading(true);
-
-    void (async () => {
-      try {
-        const url = new URL(attachment.dataUrl, window.location.href);
-        const sameOrigin = url.origin === window.location.origin;
-        const response = await fetch(url, {
-          credentials: sameOrigin ? "include" : "omit",
-          headers: sameOrigin ? getUserRequestHeaders() : undefined,
-        });
-        if (!response.ok) throw new Error(`تعذر جلب الملف للمعاينة (${response.status})`);
-        const bytes = await response.arrayBuffer();
-        const fileName = attachment.name.split(/[\\/]/).pop() || attachment.name;
-        const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-        if (extension === "docx" || attachment.mimeType.includes("wordprocessingml")) {
-          const result = await mammoth.extractRawText({ arrayBuffer: bytes });
-          const text = result.value.trim();
-          if (!text) throw new Error("لا يحتوي ملف Word على نص قابل للمعاينة.");
-          if (!cancelled) setPreview({ kind: "text", text });
-        } else if (extension === "doc" || attachment.mimeType === "application/msword") {
-          throw new Error("معاينة ملفات Word القديمة (.doc) غير مدعومة؛ احفظ الملف بصيغة DOCX ثم أعد رفعه.");
-        } else if (extension === "pdf" || attachment.mimeType === "application/pdf") {
-          objectUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-          if (!cancelled) setPreview({ kind: "pdf", url: objectUrl });
-        } else if (attachment.mimeType.startsWith("image/")) {
-          objectUrl = URL.createObjectURL(new Blob([bytes], { type: attachment.mimeType }));
-          if (!cancelled) setPreview({ kind: "image", url: objectUrl });
-        } else if (attachment.mimeType.startsWith("text/") || ["txt", "csv"].includes(extension)) {
-          if (!cancelled) setPreview({ kind: "text", text: new TextDecoder().decode(bytes) });
-        } else {
-          throw new Error("لا تتوفر معاينة داخلية لهذا النوع من الملفات.");
-        }
-      } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "تعذر معاينة الملف.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [attachment]);
-
-  return (
-    <Modal isOpen={!!attachment} onClose={onClose} title={attachment?.name ?? "معاينة المستند"} size="lg">
-      <div className="min-h-[55vh]">
-        {loading && <p className="py-12 text-center text-muted-foreground">جارٍ تجهيز المعاينة…</p>}
-        {error && <p role="alert" className="py-12 text-center text-destructive">{error}</p>}
-        {preview?.kind === "pdf" && (
-          <iframe src={preview.url} title={attachment?.name ?? "معاينة PDF"} className="h-[65vh] w-full rounded-lg border border-border" />
-        )}
-        {preview?.kind === "image" && (
-          <div className="flex min-h-[55vh] items-center justify-center">
-            <img src={preview.url} alt={attachment?.name ?? "معاينة صورة"} className="max-h-[65vh] max-w-full object-contain" />
-          </div>
-        )}
-        {preview?.kind === "text" && (
-          <pre dir="auto" className="min-h-[55vh] whitespace-pre-wrap break-words rounded-lg bg-background p-5 text-sm leading-8 text-foreground">
-            {preview.text}
-          </pre>
-        )}
-      </div>
-    </Modal>
   );
 }
 

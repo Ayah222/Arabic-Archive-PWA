@@ -11,6 +11,7 @@ import Projects from "./views/pages/Projects";
 import Agencies from "./views/pages/Agencies";
 import ProjectDetail from "./views/pages/ProjectDetail";
 import ProjectReport from "./views/pages/ProjectReport";
+import AttachmentPreview from "./views/pages/AttachmentPreview";
 import AllContractors from "./views/pages/AllContractors";
 import AllContracts from "./views/pages/AllContracts";
 import AllMeetings from "./views/pages/AllMeetings";
@@ -261,6 +262,10 @@ export default function App() {
         <PwaInstallPrompt />
         <AppUpdateNotice />
         <Routes>
+          <Route
+            path="/attachment-preview"
+            element={<RequireAuth><AttachmentPreview /></RequireAuth>}
+          />
           {/* Public pages — no layout, no auth */}
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
