@@ -102,8 +102,8 @@ router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): 
     .single();
   if (error) {
     const driveFileId = parseTenantDriveObjectPath(saved.objectName);
-    if (driveFileId) await deleteTenantFile(currentTenantId(), driveFileId);
-    else await deletePrivateObject(saved.objectName);
+    if (driveFileId) await deleteTenantFile(currentTenantId(), driveFileId).catch(() => undefined);
+    else await deletePrivateObject(saved.objectName).catch(() => undefined);
     throw new Error(error.message);
   }
   res.status(201).json(await toPhoto(data));

@@ -8,3 +8,7 @@ Require a verified Google account dedicated to each organization and bind its en
 **Why:** The archive is intended for separate offices, and using one Google account across organizations can expose a combined Drive view and quota even when folders are distinct.
 
 **How to apply:** Force account selection during OAuth, reject account reuse across tenants, validate the tenant root before writes, and verify file tenant markers before reads/deletes. Review existing links before applying a unique-account database constraint; do not delete or move files automatically.
+
+For multipart uploads to Drive, configure Multer's `defParamCharset` as UTF-8; its default Latin-1 decoding can corrupt Arabic `originalname` before Drive receives the UTF-8 JSON metadata. Never substitute generic project/folder names for missing upload context, and prune only empty app-owned folders after failed uploads or deletions.
+**Why:** The Drive API metadata request can be UTF-8-correct while the filename has already been corrupted by multipart parsing, and failed DB writes can leave empty Drive parents behind.
+**How to apply:** Preserve Arabic combining marks during filename sanitization, require real project/section context where needed, and check that an app-marked folder is empty before removing it.

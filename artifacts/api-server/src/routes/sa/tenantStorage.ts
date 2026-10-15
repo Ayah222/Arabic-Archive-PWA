@@ -42,8 +42,15 @@ router.get("/sa/tenants/storage", async (req, res): Promise<void> => {
 
 router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res): Promise<void> => {
   const namespace = typeof req.body.namespace === "string" ? req.body.namespace : "";
-  const [category, folder] = namespace.split("/");
-  if (!req.file || category !== "agencies" || !folder || !/^[\p{L}\p{N}_-]{1,120}$/u.test(folder)) {
+  const segments = namespace.split("/");
+  const [category, folder] = segments;
+  const safeSegment = /^[\p{L}\p{M}\p{N}_-]{1,120}$/u;
+  const folderSegments = category === "agencies" && segments.length === 1
+    ? ["agencies"]
+    : category === "agencies" && segments.length === 2 && folder && safeSegment.test(folder)
+      ? [category, folder]
+      : null;
+  if (!req.file || !folderSegments) {
     res.status(400).json({ error: "يرجى اختيار ملف صالح" });
     return;
   }
@@ -52,7 +59,7 @@ router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    folderSegments: [category, folder],
+    folderSegments,
   });
   res.status(201).json({ path: saved.objectName });
 });

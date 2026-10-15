@@ -180,7 +180,8 @@ export function useAgencyActions() {
       let attachmentMimeType: string | undefined;
       let attachmentSize: number | undefined;
       if (input.file) {
-        const target = await uploadFileToTenantDrive(input.file, `agencies/${input.projectId || "general"}`, fileLimits.data.maxFileBytes);
+        const agencyNamespace = input.projectId ? `agencies/${input.projectId}` : "agencies";
+        const target = await uploadFileToTenantDrive(input.file, agencyNamespace, fileLimits.data.maxFileBytes);
         attachmentPath = target.path;
         attachmentName = input.file.name;
         attachmentMimeType = input.file.type || "application/octet-stream";

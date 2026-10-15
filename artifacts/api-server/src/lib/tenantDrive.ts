@@ -40,6 +40,8 @@ interface DriveFile {
   name: string;
   mimeType?: string;
   size?: string;
+  parents?: string[];
+  appProperties?: Record<string, string>;
 }
 
 const accessTokens = new Map<string, { token: string; expiresAt: number }>();
@@ -368,11 +370,11 @@ async function driveRequest<T>(connection: DriveConnection, url: string, init: R
   return response.json() as Promise<T>;
 }
 
-async function ensureFolder(connection: DriveConnection, parentId: string, name: string): Promise<string> {
+async function ensureFolder(connection: DriveConnection, parentId: string, name: string): Promise<{ id: string; created: boolean }> {
   const q = `name = '${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and appProperties has { key='smartArchiveTenantId' and value='${connection.tenantId}' } and trashed = false`;
   const query = new URLSearchParams({ q, fields: "files(id,name)", pageSize: "100" });
   const results = await driveRequest<{ files?: DriveFile[] }>(connection, `${DRIVE_API}/files?${query}`);
-  if (results.files?.[0]?.id) return results.files[0].id;
+  if (results.files?.[0]?.id) return { id: results.files[0].id, created: false };
   const folder = await driveRequest<DriveFile>(connection, `${DRIVE_API}/files?fields=id,name`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -384,7 +386,43 @@ async function ensureFolder(connection: DriveConnection, parentId: string, name:
     }),
   });
   if (!folder.id) throw new Error(`Unable to create Google Drive folder: ${name}`);
-  return folder.id;
+  return { id: folder.id, created: true };
+}
+
+async function removeEmptyDriveFolder(connection: DriveConnection, folderId: string): Promise<boolean> {
+  const query = new URLSearchParams({
+    q: `'${folderId}' in parents and trashed = false`,
+    fields: "files(id)",
+    pageSize: "1",
+  });
+  const children = await driveRequest<{ files?: DriveFile[] }>(connection, `${DRIVE_API}/files?${query}`);
+  if (children.files?.length) return false;
+  await driveRequest<void>(connection, `${DRIVE_API}/files/${encodeURIComponent(folderId)}`, { method: "DELETE" });
+  return true;
+}
+
+async function pruneEmptyDriveFolderTree(
+  connection: DriveConnection,
+  folderId: string,
+  seen = new Set<string>(),
+): Promise<void> {
+  if (!folderId || folderId === connection.rootFolderId || seen.has(folderId)) return;
+  seen.add(folderId);
+
+  const folder = await driveRequest<DriveFile>(
+    connection,
+    `${DRIVE_API}/files/${encodeURIComponent(folderId)}?fields=mimeType,parents,appProperties`,
+  );
+  if (
+    folder.mimeType !== "application/vnd.google-apps.folder"
+    || folder.appProperties?.smartArchiveTenantId !== connection.tenantId
+  ) return;
+
+  const removed = await removeEmptyDriveFolder(connection, folderId);
+  if (!removed) return;
+  for (const parentId of folder.parents ?? []) {
+    await pruneEmptyDriveFolderTree(connection, parentId, seen);
+  }
 }
 
 export async function saveTenantFile(input: {
@@ -420,51 +458,80 @@ export async function saveTenantFile(input: {
     throw new Error("تم إيقاف الرفع: مجلد التخزين لا يطابق المؤسسة الحالية.");
   }
   let parentId = connection.rootFolderId;
-  for (const segment of input.folderSegments ?? []) {
-    const safeName = segment.normalize("NFKC").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 120) || "files";
-    parentId = await ensureFolder(connection, parentId, safeName);
-  }
+  const createdFolderIds: string[] = [];
+  try {
+    for (const segment of input.folderSegments ?? []) {
+      const safeName = segment
+        .normalize("NFKC")
+        .replace(/[^\p{L}\p{M}\p{N}._ -]/gu, "_")
+        .trim()
+        .slice(0, 120);
+      if (!safeName || safeName === "." || safeName === "..") {
+        throw new Error("اسم مجلد التخزين غير صالح");
+      }
+      const folder = await ensureFolder(connection, parentId, safeName);
+      parentId = folder.id;
+      if (folder.created) createdFolderIds.push(folder.id);
+    }
 
-  const uploadContentType = input.contentType || "application/octet-stream";
-  const metadata = JSON.stringify({
-    name: input.filename.normalize("NFKC").replace(/[^\p{L}\p{N}._() -]/gu, "_").slice(0, 180) || "file",
-    parents: [parentId],
-    appProperties: { smartArchiveTenantId: input.tenantId },
-  });
-  const token = await getAccessToken(connection);
-  const sessionResponse = await fetch(
-    `${DRIVE_UPLOAD_API}/files?uploadType=resumable&fields=id,name,mimeType,size`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json; charset=UTF-8",
-        "X-Upload-Content-Type": uploadContentType,
-        "X-Upload-Content-Length": String(input.bytes.length),
+    const safeFilename = input.filename
+      .normalize("NFKC")
+      .replace(/[^\p{L}\p{M}\p{N}._() -]/gu, "_")
+      .trim()
+      .slice(0, 180);
+    if (!safeFilename || safeFilename === "." || safeFilename === "..") {
+      throw new Error("اسم الملف غير صالح");
+    }
+    const uploadContentType = input.contentType || "application/octet-stream";
+    const metadata = JSON.stringify({
+      name: safeFilename,
+      parents: [parentId],
+      appProperties: { smartArchiveTenantId: input.tenantId },
+    });
+    const token = await getAccessToken(connection);
+    const sessionResponse = await fetch(
+      `${DRIVE_UPLOAD_API}/files?uploadType=resumable&fields=id,name,mimeType,size`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json; charset=UTF-8",
+          "X-Upload-Content-Type": uploadContentType,
+          "X-Upload-Content-Length": String(input.bytes.length),
+        },
+        body: metadata,
       },
-      body: metadata,
-    },
-  );
-  if (!sessionResponse.ok) {
-    throw new Error(`Google Drive upload setup failed (${sessionResponse.status})`);
+    );
+    if (!sessionResponse.ok) {
+      throw new Error(`Google Drive upload setup failed (${sessionResponse.status})`);
+    }
+    const sessionUrl = sessionResponse.headers.get("location");
+    if (!sessionUrl || new URL(sessionUrl).hostname !== "www.googleapis.com") {
+      throw new Error("Google Drive returned an invalid upload session");
+    }
+    const uploadResponse = await fetch(sessionUrl, {
+      method: "PUT",
+      headers: { "Content-Type": uploadContentType, "Content-Length": String(input.bytes.length) },
+      body: input.bytes,
+    });
+    const uploaded = await uploadResponse.json() as DriveFile;
+    if (!uploadResponse.ok) throw new Error(`Google Drive upload failed (${uploadResponse.status})`);
+    if (!uploaded.id) throw new Error("Google Drive did not return the uploaded file ID");
+    if (uploaded.size !== undefined && Number(uploaded.size) !== input.bytes.length) {
+      await driveRequest<void>(connection, `${DRIVE_API}/files/${encodeURIComponent(uploaded.id)}`, { method: "DELETE" });
+      throw new Error("تعذر التأكد من اكتمال رفع الملف إلى Google Drive");
+    }
+    return { objectName: `drive://${uploaded.id}`, url: `/api/sa/storage/files/${encodeURIComponent(uploaded.id)}` };
+  } catch (error) {
+    for (const folderId of createdFolderIds.reverse()) {
+      try {
+        await removeEmptyDriveFolder(connection, folderId);
+      } catch {
+        // Keep the original upload error; only app-created empty folders are eligible for cleanup.
+      }
+    }
+    throw error;
   }
-  const sessionUrl = sessionResponse.headers.get("location");
-  if (!sessionUrl || new URL(sessionUrl).hostname !== "www.googleapis.com") {
-    throw new Error("Google Drive returned an invalid upload session");
-  }
-  const uploadResponse = await fetch(sessionUrl, {
-    method: "PUT",
-    headers: { "Content-Type": uploadContentType, "Content-Length": String(input.bytes.length) },
-    body: input.bytes,
-  });
-  const uploaded = await uploadResponse.json() as DriveFile;
-  if (!uploadResponse.ok) throw new Error(`Google Drive upload failed (${uploadResponse.status})`);
-  if (!uploaded.id) throw new Error("Google Drive did not return the uploaded file ID");
-  if (uploaded.size !== undefined && Number(uploaded.size) !== input.bytes.length) {
-    await driveRequest<void>(connection, `${DRIVE_API}/files/${encodeURIComponent(uploaded.id)}`, { method: "DELETE" });
-    throw new Error("تعذر التأكد من اكتمال رفع الملف إلى Google Drive");
-  }
-  return { objectName: `drive://${uploaded.id}`, url: `/api/sa/storage/files/${encodeURIComponent(uploaded.id)}` };
 }
 
 export async function downloadTenantFile(tenantId: string, fileId: string, maxBytes = MAX_DRIVE_FILE_BYTES) {
@@ -505,12 +572,19 @@ export async function downloadTenantFile(tenantId: string, fileId: string, maxBy
 export async function deleteTenantFile(tenantId: string, fileId: string) {
   if (!/^[A-Za-z0-9_-]{5,256}$/.test(fileId)) throw new Error("Invalid Google Drive file ID");
   const connection = await getConnection(tenantId);
-  const metadata = await driveRequest<{ appProperties?: Record<string, string> }>(
+  const metadata = await driveRequest<{ appProperties?: Record<string, string>; parents?: string[] }>(
     connection,
-    `${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=appProperties`,
+    `${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=appProperties,parents`,
   );
   if (metadata.appProperties?.smartArchiveTenantId !== tenantId) throw new Error("Google Drive file belongs to a different organization");
   await driveRequest<void>(connection, `${DRIVE_API}/files/${encodeURIComponent(fileId)}`, { method: "DELETE" });
+  for (const parentId of metadata.parents ?? []) {
+    try {
+      await pruneEmptyDriveFolderTree(connection, parentId);
+    } catch {
+      // File deletion has completed; empty-folder pruning is best-effort.
+    }
+  }
 }
 
 export async function getTenantDriveStatus(tenantId: string) {
