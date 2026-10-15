@@ -265,6 +265,16 @@ function getUploadFailureReason(error: unknown) {
 }
 
 function openAttachmentPreview(attachment: SAAttachment) {
+  const driveFileId = attachment.objectPath?.match(/^drive:\/\/([A-Za-z0-9_-]{5,256})$/)?.[1];
+  if (driveFileId) {
+    window.open(
+      `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    return;
+  }
+
   const query = new URLSearchParams({
     projectId: attachment.projectId,
     entityType: attachment.entityType,
@@ -2113,7 +2123,7 @@ function AttachmentFileRow({
             type="button"
             onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
             className="block max-w-full truncate text-right font-semibold text-primary hover:underline"
-            aria-label={`معاينة الملف ${fileName} في تبويب جديد`}
+            aria-label={`فتح الملف ${fileName} في Google Drive`}
           >
             {fileName}
           </button>
@@ -2130,7 +2140,7 @@ function AttachmentFileRow({
           onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
           className="text-xs text-primary hover:underline shrink-0"
         >
-          معاينة
+          فتح في Drive
         </button>
       )}
       <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
