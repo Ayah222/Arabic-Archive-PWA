@@ -13,7 +13,11 @@ import { saveTenantFile } from "../../lib/tenantDrive";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: FILE_LIMITS.maxFileBytes } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
+  limits: { fileSize: FILE_LIMITS.maxFileBytes },
+});
 
 function callbackUrl(req: import("express").Request) {
   const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();

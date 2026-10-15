@@ -42,6 +42,7 @@ const SAFE_EXTENSIONS: Record<string, string> = {
 
 const upload = multer({
   storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
   limits: { fileSize: FILE_LIMITS.maxFileBytes },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();

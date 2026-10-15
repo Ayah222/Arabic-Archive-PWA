@@ -10,6 +10,7 @@ import { deleteTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "..
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
   limits: { fileSize: FILE_LIMITS.maxFileBytes },
   fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith("image/")),
 });

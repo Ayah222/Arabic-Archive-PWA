@@ -11,6 +11,7 @@ import { saveTenantFile } from "../../lib/tenantDrive";
 
 const upload = multer({
   storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
   limits: { fileSize: FILE_LIMITS.maxFileBytes },
 });
 
@@ -22,8 +23,13 @@ router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void>
     return;
   }
 
-  const projectId = String(req.body.projectId || "general");
-  const section = String(req.body.section || "files");
+  const projectId = typeof req.body.projectId === "string" ? req.body.projectId.trim() : "";
+  const section = typeof req.body.section === "string" ? req.body.section.trim() : "";
+  const safeSegment = /^[\p{L}\p{M}\p{N}_-]{1,120}$/u;
+  if (!safeSegment.test(projectId) || !safeSegment.test(section)) {
+    res.status(400).json({ error: "يلزم تحديد مشروع وقسم صالحين قبل رفع الملف" });
+    return;
+  }
   const saved = await saveTenantFile({
     tenantId: String(res.locals.tenantId),
     filename: req.file.originalname,

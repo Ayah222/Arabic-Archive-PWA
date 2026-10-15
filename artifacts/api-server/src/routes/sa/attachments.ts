@@ -16,6 +16,7 @@ const MAX_FOLDER_TOTAL_BYTES = FILE_LIMITS.maxFolderBytes;
 const MAX_ZIP_ARCHIVE_BYTES = FILE_LIMITS.maxZipArchiveBytes;
 const upload = multer({
   storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
   limits: { fileSize: MAX_UPLOAD_BYTES },
 });
 
