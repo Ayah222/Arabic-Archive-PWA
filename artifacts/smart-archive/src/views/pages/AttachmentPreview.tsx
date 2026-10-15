@@ -6,7 +6,59 @@ import { getUserRequestHeaders, type SAAttachment } from "../../controllers/useG
 type PreviewContent =
   | { kind: "pdf" | "image"; url: string }
   | { kind: "text"; text: string }
+  | { kind: "html"; html: string }
   | null;
+
+const SAFE_DOCX_TAGS = new Set([
+  "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "br",
+  "strong", "em", "b", "i", "u", "s", "del", "ins", "sub", "sup",
+  "ul", "ol", "li", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "a", "img",
+]);
+const DROP_DOCX_TAGS = new Set(["script", "style", "iframe", "object", "embed", "svg", "math", "form"]);
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  })[character] ?? character);
+}
+
+function sanitizeDocxHtml(source: string) {
+  const document = new DOMParser().parseFromString(source, "text/html");
+  const render = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return escapeHtml(node.textContent ?? "");
+    if (!(node instanceof Element)) return "";
+    const tag = node.tagName.toLowerCase();
+    if (DROP_DOCX_TAGS.has(tag)) return "";
+    const children = Array.from(node.childNodes, render).join("");
+    if (!SAFE_DOCX_TAGS.has(tag)) return children;
+
+    let attributes = "";
+    if (tag === "a") {
+      const href = node.getAttribute("href") ?? "";
+      try {
+        const url = new URL(href, window.location.origin);
+        if (["https:", "http:", "mailto:"].includes(url.protocol)) {
+          attributes += ` href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer"`;
+        }
+      } catch {
+        // Ignore malformed links from the document.
+      }
+    } else if (tag === "td" || tag === "th") {
+      for (const name of ["colspan", "rowspan"]) {
+        const value = Number(node.getAttribute(name));
+        if (Number.isInteger(value) && value >= 1 && value <= 20) {
+          attributes += ` ${name}="${value}"`;
+        }
+      }
+    } else if (tag === "img") {
+      const src = node.getAttribute("src") ?? "";
+      if (!/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(src)) return "";
+      attributes = ` src="${src}" alt="${escapeHtml(node.getAttribute("alt") ?? "")}" loading="lazy"`;
+    }
+    return `<${tag}${attributes}>${children}</${tag}>`;
+  };
+  return Array.from(document.body.childNodes, render).join("");
+}
 
 export default function AttachmentPreview() {
   const [searchParams] = useSearchParams();
@@ -54,10 +106,10 @@ export default function AttachmentPreview() {
         const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
 
         if (extension === "docx" || attachment.mimeType.includes("wordprocessingml")) {
-          const result = await mammoth.extractRawText({ arrayBuffer: bytes });
-          const text = result.value.trim();
-          if (!text) throw new Error("لا يحتوي ملف Word على نص قابل للمعاينة.");
-          if (!cancelled) setPreview({ kind: "text", text });
+          const result = await mammoth.convertToHtml({ arrayBuffer: bytes });
+          const html = sanitizeDocxHtml(result.value);
+          if (!html) throw new Error("لا يحتوي ملف Word على محتوى قابل للمعاينة.");
+          if (!cancelled) setPreview({ kind: "html", html });
         } else if (extension === "doc" || attachment.mimeType === "application/msword") {
           throw new Error("معاينة ملفات Word القديمة (.doc) غير مدعومة؛ احفظ الملف بصيغة DOCX ثم أعد رفعه.");
         } else if (extension === "pdf" || attachment.mimeType === "application/pdf") {
@@ -118,6 +170,13 @@ export default function AttachmentPreview() {
           <pre dir="auto" className="min-h-[70vh] w-full whitespace-pre-wrap break-words p-5 text-sm leading-8">
             {preview.text}
           </pre>
+        )}
+        {preview?.kind === "html" && (
+          <article
+            dir="auto"
+            className="prose prose-slate min-h-[70vh] w-full max-w-none overflow-auto bg-white p-6 text-slate-900 sm:p-10"
+            dangerouslySetInnerHTML={{ __html: preview.html }}
+          />
         )}
       </section>
     </main>

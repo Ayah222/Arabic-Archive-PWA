@@ -2108,13 +2108,31 @@ function AttachmentFileRow({
       />}
       <span className={compact ? "text-base" : "text-3xl"}>{mimeIcon(attachment.mimeType)}</span>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold truncate">{fileName}</p>
+        {onPreview ? (
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
+            className="block max-w-full truncate text-right font-semibold text-primary hover:underline"
+            aria-label={`معاينة الملف ${fileName} في تبويب جديد`}
+          >
+            {fileName}
+          </button>
+        ) : <p className="font-semibold truncate">{fileName}</p>}
         <span className="text-muted-foreground text-xs">{attachment.customType}</span>
         {!compact && <p className="text-xs text-muted-foreground mt-0.5">
           {new Date(attachment.uploadedAt).toLocaleDateString("ar-SA")}
           {attachment.size ? ` · ${(attachment.size / 1024).toFixed(0)} KB` : ""}
         </p>}
       </div>
+      {onPreview && (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
+          className="text-xs text-primary hover:underline shrink-0"
+        >
+          معاينة
+        </button>
+      )}
       <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
       {canDelete && <button onClick={(event) => { event.stopPropagation(); void onDelete(attachment); }} className="text-xs text-destructive hover:underline shrink-0">حذف</button>}
     </div>
