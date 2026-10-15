@@ -9,5 +9,6 @@
 - [Debugging silent AI-feature fallbacks](ai-fallback-debugging.md) — test the OpenAI key with a raw fetch before assuming a code bug when a graceful-fallback AI helper always returns its default.
 - [Large PDF downloads](bulk-downloads.md) — deliver large attachment batches as one server-side ZIP, not hundreds of browser-triggered downloads.
 - [Large folder uploads](large-folder-uploads.md) — one transient file failure must not abort a mixed PDF/Excel folder upload.
+- [Tenant context after external uploads](tenant-context-after-upload.md) — re-enter tenant scope for tenant-filtered inserts after external storage awaits.
 - [Private Word previews](private-word-previews.md) — render private DOCX files inside the authenticated archive; never make tenant Drive files public for Office Online.
 - [Bulk deletion permissions](bulk-selection-permissions.md) — preserve each module's existing delete guard when adding selection and bulk confirmation.

@@ -6,6 +6,7 @@ import { deletePrivateObject, downloadPrivateObject, savePrivateObject } from ".
 import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { deleteTenantFile, downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
+import { runWithTenant } from "../../lib/tenantContext";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
@@ -259,7 +260,7 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
       res.status(400).json({ error: `حجم الملف يتجاوز ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB` });
       return;
     }
-    const attachment = await createAttachment(projectId, {
+    const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
       entityType,
       entityId,
       objectPath: supabaseObjectPath(String(req.body.storagePath)),
@@ -267,11 +268,12 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
       customType,
       mimeType: req.body.mimeType,
       size: Number(req.body.size || 0),
-    });
+    }));
     res.status(201).json(attachment);
     return;
   }
-  if (!req.file) {
+  const uploadedFile = req.file;
+  if (!uploadedFile) {
     res.status(400).json({ error: "entityType and file are required" });
     return;
   }
@@ -284,21 +286,21 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     .slice(0, 20);
   const saved = await saveTenantFile({
     tenantId: String(res.locals.tenantId),
-    filename: req.file.originalname,
-    bytes: req.file.buffer,
-    contentType: req.file.mimetype,
+    filename: uploadedFile.originalname,
+    bytes: uploadedFile.buffer,
+    contentType: uploadedFile.mimetype,
     folderSegments: ["attachments", projectId, entityType, ...relativeParts],
   });
   try {
-    const attachment = await createAttachment(projectId, {
+    const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
       entityType,
       entityId,
       objectPath: saved.objectName,
-      name: name || relativePath || req.file.originalname,
+      name: name || relativePath || uploadedFile.originalname,
       customType,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-    });
+      mimeType: uploadedFile.mimetype,
+      size: uploadedFile.size,
+    }));
     res.status(201).json(attachment);
   } catch (error) {
     const driveFileId = parseTenantDriveObjectPath(saved.objectName);
@@ -354,7 +356,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
             folderSegments: ["attachments", projectId, entityType, ...relativeParts],
           })).objectName;
       try {
-        const attachment = await createAttachment(projectId, {
+        const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
           entityType,
           entityId,
           objectPath: savedPath,
@@ -362,7 +364,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
           customType: customType || "مجلد مستندات",
           mimeType,
           size: bytes.length,
-        });
+        }));
         createdIds.push(attachment.id);
         results.push(attachment);
       } catch (error) {

@@ -250,6 +250,21 @@ async function uploadFilesReliably(
   return { completed: files.length - failed.length, failed };
 }
 
+function getUploadFailureReason(error: unknown) {
+  if (!(error instanceof Error)) return "تعذر تحديد السبب";
+  const message = error.message.trim();
+  try {
+    const parsed = JSON.parse(message) as { error?: unknown };
+    if (typeof parsed.error === "string" && parsed.error.trim()) return parsed.error.slice(0, 180);
+  } catch {
+    // The API may return plain text rather than JSON.
+  }
+  if (!message || message.startsWith("<") || message === "Internal Server Error") {
+    return "خطأ من الخادم أثناء حفظ المرفق";
+  }
+  return message.slice(0, 180);
+}
+
 export default function ProjectDetail() {
   const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -1618,8 +1633,9 @@ function AttachmentsPanel({
         setRetryableFiles(result.failed.map(({ file }) => file));
         const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
         const suffix = result.failed.length > 3 ? "…" : "";
+        const reason = getUploadFailureReason(result.failed[0]?.error);
         setNotice({
-          message: `تم رفع ${result.completed} من ${files.length} ملفاً، وتعذر رفع ${result.failed.length} (${failedNames}${suffix}). أعد محاولة الملفات المتعذرة فقط.`,
+          message: `تم رفع ${result.completed} من ${files.length} ملفاً، وتعذر رفع ${result.failed.length} (${failedNames}${suffix}). السبب: ${reason}. أعد محاولة الملفات المتعذرة فقط.`,
           type: "error",
         });
         return;
@@ -1806,8 +1822,9 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         setRetryableFiles(result.failed.map(({ file }) => file));
         const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
         const suffix = result.failed.length > 3 ? "…" : "";
+        const reason = getUploadFailureReason(result.failed[0]?.error);
         _setToast({
-          message: `تم رفع ${result.completed} من ${files.length} ملفاً، وتعذر رفع ${result.failed.length} (${failedNames}${suffix}). أعد محاولة الملفات المتعذرة فقط.`,
+          message: `تم رفع ${result.completed} من ${files.length} ملفاً، وتعذر رفع ${result.failed.length} (${failedNames}${suffix}). السبب: ${reason}. أعد محاولة الملفات المتعذرة فقط.`,
           type: "error",
         });
         return;
