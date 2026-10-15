@@ -11,6 +11,8 @@ interface Tenant {
 interface DriveStatus {
   connected: boolean;
   connectedEmail: string | null;
+  sharedAccount: boolean;
+  accountVerified: boolean;
 }
 
 interface TenantControlsProps {
@@ -39,6 +41,8 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     driveTitle: "Organization files on Google Drive",
     connectDrive: "Connect Google Drive",
     connected: "Connected",
+    driveShared: "This Google account is linked to another organization. New uploads are blocked; existing files remain available.",
+    driveUnverified: "Google account identity could not be verified. Reconnect the same account.",
     chooseOrganization: "Choose organization",
     loadOrganizations: "Unable to load organizations",
     loadStorage: "Unable to load storage status",
@@ -50,6 +54,8 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     driveTitle: "ملفات المؤسسة على Google Drive",
     connectDrive: "ربط Google Drive",
     connected: "متصل",
+    driveShared: "حساب Google هذا مربوط بمؤسسة أخرى؛ أُوقف رفع الملفات الجديدة وتبقى الملفات السابقة متاحة.",
+    driveUnverified: "تعذر التحقق من حساب Google المرتبط. أعد ربط الحساب نفسه.",
     chooseOrganization: "اختيار المؤسسة",
     loadOrganizations: "تعذر تحميل المؤسسات",
     loadStorage: "تعذر تحميل حالة التخزين",
@@ -194,7 +200,15 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
               <HardDrive className="w-3.5 h-3.5" />
               {text.driveTitle}
             </div>
-            {drive?.connected ? (
+            {drive?.sharedAccount ? (
+              <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
+                {text.driveShared}
+              </p>
+            ) : drive?.connected && !drive.accountVerified ? (
+              <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
+                {text.driveUnverified}
+              </p>
+            ) : drive?.connected ? (
               <div className="flex items-center gap-1.5 text-[10px]" style={{ color: isDark ? "#86efac" : "#15803d" }}>
                 <Check className="w-3.5 h-3.5" />
                 <span className="truncate">{drive.connectedEmail || text.connected}</span>

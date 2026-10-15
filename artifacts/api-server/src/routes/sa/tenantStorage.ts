@@ -99,7 +99,16 @@ router.get("/sa/storage/google/callback", async (req, res): Promise<void> => {
     res.redirect(`${state.returnPath}?${query.toString()}`);
   } catch (error) {
     req.log.error({ err: error, tenantId: actor.tenantId }, "Google Drive connection failed");
-    res.status(502).send("تعذر ربط Google Drive. تحقق من إعداد OAuth وحاول مرة أخرى.");
+    const message = error instanceof Error ? error.message : "";
+    const isolationError = [
+      "حساب Google هذا مربوط",
+      "هذه المؤسسة مربوطة",
+      "تعذر استبدال مساحة التخزين الحالية",
+      "تعذر التحقق من حساب Google",
+    ].some((prefix) => message.startsWith(prefix));
+    res.status(isolationError ? 409 : 502).send(
+      isolationError ? message : "تعذر ربط Google Drive. تحقق من إعداد OAuth وحاول مرة أخرى.",
+    );
   }
 });
 

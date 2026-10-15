@@ -162,7 +162,7 @@ export function buildDriveOAuthUrl(state: string, redirectUri: string) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "https://www.googleapis.com/auth/drive.file email openid");
   url.searchParams.set("access_type", "offline");
-  url.searchParams.set("prompt", "consent");
+  url.searchParams.set("prompt", "select_account consent");
   url.searchParams.set("include_granted_scopes", "true");
   url.searchParams.set("state", state);
   return url.toString();
@@ -209,6 +209,32 @@ export async function completeDriveOAuth(input: {
   });
   const about = await aboutResponse.json() as { user?: { emailAddress?: string } };
   if (!aboutResponse.ok) throw new Error("Unable to read the connected Google account");
+  const connectedEmail = about.user?.emailAddress?.trim().toLowerCase();
+  if (!connectedEmail) {
+    throw new Error("تعذر التحقق من حساب Google. لم يتم حفظ الربط.");
+  }
+
+  const { data: existingConnections, error: connectionsError } = await supabaseAdmin()
+    .from("tenant_storage_connections")
+    .select("tenant_id,connected_email,root_folder_id")
+    .eq("provider", "google_drive");
+  if (connectionsError) throw new Error("تعذر التحقق من ملكية حساب Google لمؤسستك");
+  const normalizedConnections = existingConnections ?? [];
+  const currentConnection = normalizedConnections.find((item) => String(item.tenant_id) === input.tenantId);
+  if (
+    currentConnection?.connected_email
+    && String(currentConnection.connected_email).trim().toLowerCase() !== connectedEmail
+  ) {
+    throw new Error("هذه المؤسسة مربوطة بحساب Google آخر. لا يمكن استبداله تلقائياً حتى لا تنقطع الملفات المخزنة.");
+  }
+  const accountUsedByAnotherTenant = normalizedConnections.some((item) =>
+    String(item.tenant_id) !== input.tenantId
+    && typeof item.connected_email === "string"
+    && item.connected_email.trim().toLowerCase() === connectedEmail,
+  );
+  if (accountUsedByAnotherTenant) {
+    throw new Error("حساب Google هذا مربوط بمؤسسة أخرى. استخدم حساب Google مستقل لهذه المؤسسة.");
+  }
 
   const rootFolderName = `Smart Archive - ${input.tenantId}`;
   const folderQuery = `name = '${rootFolderName}' and mimeType = 'application/vnd.google-apps.folder' and appProperties has { key='smartArchiveTenantId' and value='${input.tenantId}' } and trashed = false`;
@@ -231,6 +257,9 @@ export async function completeDriveOAuth(input: {
     rootFolder = await createdFolder.json() as DriveFile;
     if (!createdFolder.ok || !rootFolder.id) throw new Error("Unable to create the Smart Archive folder in Google Drive");
   }
+  if (currentConnection?.root_folder_id && String(currentConnection.root_folder_id) !== rootFolder.id) {
+    throw new Error("تعذر استبدال مساحة التخزين الحالية تلقائياً حتى لا تنقطع الملفات القديمة.");
+  }
 
   const credentials = encryptCredentials({
     refreshToken: tokenBody.refresh_token,
@@ -244,30 +273,50 @@ export async function completeDriveOAuth(input: {
       provider: "google_drive",
       encrypted_credentials: credentials,
       root_folder_id: rootFolder.id,
-      connected_email: about.user?.emailAddress ?? null,
+      connected_email: connectedEmail,
       connected_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: "tenant_id" });
   if (error) throw new Error(error.message);
   accessTokens.set(input.tenantId, { token: accessToken, expiresAt: Date.now() + Math.max(60, tokenBody.expires_in ?? 3600) * 1000 });
-  return { email: about.user?.emailAddress ?? null };
+  return { email: connectedEmail };
 }
 
 async function getConnection(tenantId: string): Promise<DriveConnection> {
   const { data, error } = await supabaseAdmin()
     .from("tenant_storage_connections")
-    .select("tenant_id,encrypted_credentials,root_folder_id,connected_email")
+    .select("tenant_id,provider,encrypted_credentials,root_folder_id,connected_email")
     .eq("tenant_id", tenantId)
     .maybeSingle();
-  if (error || !data || !data.root_folder_id) {
+  if (error || !data || data.provider !== "google_drive" || !data.root_folder_id) {
     throw new Error("Google Drive is not connected for this organization");
   }
+  const connectedEmail = typeof data.connected_email === "string" ? data.connected_email.trim().toLowerCase() : null;
   return {
     tenantId: String(data.tenant_id),
     credentials: decryptCredentials(data.encrypted_credentials),
     rootFolderId: String(data.root_folder_id),
-    connectedEmail: data.connected_email ? String(data.connected_email) : null,
+    connectedEmail,
   };
+}
+
+async function assertDriveAccountIsIsolatedForUpload(connection: DriveConnection) {
+  if (!connection.connectedEmail) {
+    throw new Error("تم إيقاف الرفع: تعذر التحقق من حساب Google المرتبط بهذه المؤسسة.");
+  }
+  const { data: allConnections, error: isolationError } = await supabaseAdmin()
+    .from("tenant_storage_connections")
+    .select("tenant_id,connected_email")
+    .eq("provider", "google_drive");
+  if (isolationError) throw new Error("تعذر التحقق من عزل مساحة Google Drive قبل الرفع");
+  const sharedAccount = (allConnections ?? []).some((item) =>
+    String(item.tenant_id) !== connection.tenantId
+    && typeof item.connected_email === "string"
+    && item.connected_email.trim().toLowerCase() === connection.connectedEmail,
+  );
+  if (sharedAccount) {
+    throw new Error("تم إيقاف رفع الملفات الجديدة: حساب Google هذا مربوط بمؤسسة أخرى. اربط حساباً مستقلاً لهذه المؤسسة.");
+  }
 }
 
 async function getAccessToken(connection: DriveConnection) {
@@ -354,6 +403,22 @@ export async function saveTenantFile(input: {
   }
   if (input.bytes.length > MAX_DRIVE_FILE_BYTES) throw new Error("File exceeds the Google Drive upload limit");
   const connection = await getConnection(input.tenantId);
+  await assertDriveAccountIsIsolatedForUpload(connection);
+  const rootFolder = await driveRequest<{
+    mimeType?: string;
+    trashed?: boolean;
+    appProperties?: Record<string, string>;
+  }>(
+    connection,
+    `${DRIVE_API}/files/${encodeURIComponent(connection.rootFolderId)}?fields=mimeType,trashed,appProperties`,
+  );
+  if (
+    rootFolder.mimeType !== "application/vnd.google-apps.folder"
+    || rootFolder.trashed
+    || rootFolder.appProperties?.smartArchiveTenantId !== input.tenantId
+  ) {
+    throw new Error("تم إيقاف الرفع: مجلد التخزين لا يطابق المؤسسة الحالية.");
+  }
   let parentId = connection.rootFolderId;
   for (const segment of input.folderSegments ?? []) {
     const safeName = segment.normalize("NFKC").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 120) || "files";
@@ -451,14 +516,29 @@ export async function deleteTenantFile(tenantId: string, fileId: string) {
 export async function getTenantDriveStatus(tenantId: string) {
   const { data, error } = await supabaseAdmin()
     .from("tenant_storage_connections")
-    .select("provider,connected_email,connected_at")
+    .select("tenant_id,provider,connected_email,connected_at")
     .eq("tenant_id", tenantId)
     .maybeSingle();
   if (error) throw new Error(error.message);
+  let sharedAccount = false;
+  if (data?.provider === "google_drive" && typeof data.connected_email === "string") {
+    const { data: connections, error: isolationError } = await supabaseAdmin()
+      .from("tenant_storage_connections")
+      .select("tenant_id,connected_email")
+      .eq("provider", "google_drive");
+    if (isolationError) throw new Error(isolationError.message);
+    sharedAccount = (connections ?? []).some((item) =>
+      String(item.tenant_id) !== tenantId
+      && typeof item.connected_email === "string"
+      && item.connected_email.trim().toLowerCase() === data.connected_email.trim().toLowerCase(),
+    );
+  }
   return {
     connected: data?.provider === "google_drive",
     provider: data?.provider ?? null,
     connectedEmail: data?.connected_email ?? null,
     connectedAt: data?.connected_at ?? null,
+    sharedAccount,
+    accountVerified: typeof data?.connected_email === "string" && data.connected_email.trim().length > 0,
   };
 }
