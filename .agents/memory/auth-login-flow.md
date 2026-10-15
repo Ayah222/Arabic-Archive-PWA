@@ -59,6 +59,9 @@ Invitation display names are archive profile data, not email sender branding; co
 - Supabase's built-in Auth email sender has a shared project-wide rate limit; invitations and password recovery both depend on Auth email.
 **Why:** Tenant invitations must use Supabase's single-use invitation token rather than a shared workspace mailbox.
 **How to apply:** Configure custom SMTP for reliable invitation delivery; keep service-role operations server-side and never send tenant invitations through the legacy workspace Gmail connection.
+- Invitation redirects must use the public app origin and that exact destination must be allowed in Supabase Auth URL Configuration; custom email templates should use `{{ .RedirectTo }}` or `{{ .ConfirmationURL }}`, not a hardcoded `{{ .SiteURL }}` destination.
+**Why:** Supabase's default Site URL can be a local development address, and a custom template that ignores the per-invite redirect can send invitees to localhost even when the server supplied the correct app URL.
+**How to apply:** Keep the Site URL set to the deployed app, allow the app's `/accept-invite` URL, and verify invite templates preserve the redirect supplied by `inviteUserByEmail`.
 
 ## Signed session alignment
 

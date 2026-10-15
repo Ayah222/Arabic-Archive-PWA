@@ -1,19 +1,9 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
-import type { Request } from "express";
+import { getAppOrigin } from "../../lib/appOrigin";
 
 const router = Router();
-
-function appOrigin(req: Request): string {
-  const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
-  if (origin) return origin.replace(/\/$/, "");
-  const hostHeader = req.headers["x-forwarded-host"] ?? req.headers.host;
-  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
-  const protoHeader = req.headers["x-forwarded-proto"];
-  const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
-  return host ? `${proto ?? "https"}://${host}` : "";
-}
 
 router.post("/sa/invite", async (req, res): Promise<void> => {
   const { email: rawEmail, name: rawName, role } = req.body as {
@@ -69,7 +59,7 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     return;
   }
 
-  const origin = appOrigin(req);
+  const origin = getAppOrigin(req);
   if (!origin) {
     res.status(500).json({ error: "تعذر تحديد رابط التطبيق لإرسال الدعوة." });
     return;

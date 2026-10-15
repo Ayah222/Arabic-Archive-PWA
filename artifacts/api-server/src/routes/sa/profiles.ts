@@ -1,10 +1,11 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { deleteNotificationsContaining } from "./notificationDb";
 import { addAuditLog } from "./archiveDb";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { getTenantMembership } from "../../lib/tenantMemberships";
+import { getAppOrigin } from "../../lib/appOrigin";
 
 const router = Router();
 const gmail = new ReplitConnectors();
@@ -13,16 +14,6 @@ function adminClient() {
   const url = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"] ?? "";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
-function appOrigin(req: Request): string {
-  const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
-  if (origin) return origin.replace(/\/$/, "");
-  const hostHeader = req.headers["x-forwarded-host"] ?? req.headers.host;
-  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
-  const protoHeader = req.headers["x-forwarded-proto"];
-  const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
-  return host ? `${proto ?? "https"}://${host}` : "";
 }
 
 function escapeHtml(value: string): string {
@@ -205,7 +196,7 @@ router.patch("/sa/profiles/:id", async (req, res) => {
       try {
         const { data: authUser } = await admin.auth.admin.getUserById(id);
         const name = String(authUser.user?.user_metadata?.name ?? data.email.split("@")[0]);
-        const origin = appOrigin(req);
+        const origin = getAppOrigin(req);
         if (!origin) throw new Error("Application origin is unavailable");
         await sendActivationEmail(data.email, name, `${origin}/login`);
         activationEmailSent = true;
