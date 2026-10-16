@@ -64,20 +64,25 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     res.status(500).json({ error: "تعذر تحديد رابط التطبيق لإرسال الدعوة." });
     return;
   }
-  const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${origin}/accept-invite`,
+  const { data: created, error: createError } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo: `${origin}/accept-invite` },
   });
   if (createError || !created.user) {
     const providerMessage = createError?.message ?? "";
     const duplicate = /already|registered|exists/i.test(providerMessage);
-    const emailRateLimited = /email rate limit exceeded|over_email_send_rate_limit|too many emails/i.test(providerMessage);
-    res.status(duplicate ? 409 : emailRateLimited ? 429 : 400).json({
+    res.status(duplicate ? 409 : 400).json({
       error: duplicate
         ? "يوجد حساب بهذا البريد الإلكتروني مسبقاً."
-        : emailRateLimited
-          ? "تجاوز Supabase حد إرسال رسائل الدعوة عبر البريد الافتراضي. انتظري أو أعدّي SMTP مخصصاً في Supabase ثم أعيدي إرسال الدعوة."
-        : "تعذر إنشاء الحساب في Supabase.",
+        : "تعذر إنشاء رابط الدعوة في Supabase.",
     });
+    return;
+  }
+
+  if (!created.properties.action_link) {
+    await admin.auth.admin.deleteUser(created.user.id);
+    res.status(500).json({ error: "تعذر إنشاء رابط الدعوة؛ أُلغي إنشاء الحساب." });
     return;
   }
 
@@ -117,6 +122,7 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
   res.status(201).json({
     success: true,
     user: { id: userId, email, role: normalizedRole, status: "pending" },
+    inviteLink: created.properties.action_link,
   });
 });
 

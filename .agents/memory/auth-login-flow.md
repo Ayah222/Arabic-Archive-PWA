@@ -23,9 +23,9 @@ description: How employee and manager login works in Smart Archive
 **How to apply:** Grant the global bypass only through the signed local-manager login; never infer system-admin status from a client-supplied role or grant it to Supabase-authenticated employees.
 
 ## User Flow (full)
-An organization admin invites an employee by email → Supabase Auth sends a one-time invite link → the employee chooses a password on `/accept-invite` → the API activates only that user's pending membership in the inviting admin's tenant.
-**Why:** The owner wants employees to receive email invitations and choose their own passwords, while preserving strict tenant boundaries.
-**How to apply:** Only use the verified signed admin session's tenant ID; never accept an organization ID from the client. Accept invitations only with a verified Supabase bearer token matching the pending profile and membership.
+An organization admin creates an employee invitation → the system generates a one-time Supabase invite URL without sending email → the admin shares it manually → the employee chooses a password on `/accept-invite` → the API activates only that user's pending membership in the inviting admin's tenant.
+**Why:** The owner chose manual link sharing to avoid paid SMTP, phone verification, and Supabase's built-in email rate limits.
+**How to apply:** Do not claim the app emailed the invitation. Keep the one-time URL visible only to the inviting admin after creation; only use the verified signed admin session's tenant ID and activate only the matching pending profile and membership.
 
 Invitation display names are archive profile data, not email sender branding; configure the sender identity separately through the Auth mail/SMTP settings.
 **Why:** The owner wants the employee's chosen name shown inside the archive, without replacing the invitation's inbox sender identity with that name.
@@ -56,9 +56,9 @@ Invitation display names are archive profile data, not email sender branding; co
 - URL stored in env var: `SUPABASE_URL` and `VITE_SUPABASE_URL`
 - Anon key: `VITE_SUPABASE_ANON_KEY`
 - Service role key: `SUPABASE_SERVICE_ROLE_KEY` (used only in api-server for admin account operations such as createUser)
-- Supabase's built-in Auth email sender has a shared project-wide rate limit; invitations and password recovery both depend on Auth email.
-**Why:** Tenant invitations must use Supabase's single-use invitation token rather than a shared workspace mailbox.
-**How to apply:** Configure custom SMTP for reliable invitation delivery; keep service-role operations server-side and never send tenant invitations through the legacy workspace Gmail connection.
+- Supabase's built-in Auth email sender has a shared project-wide rate limit. Manual invitation links avoid that email sender; password recovery still depends on Auth email.
+**Why:** The owner chose a no-cost invitation flow without linking a phone or configuring SMTP.
+**How to apply:** Generate a Supabase invite link server-side and let the manager share it manually; keep service-role operations server-side and never send tenant invitations through the legacy workspace Gmail connection.
 - Invitation redirects must use the public app origin and that exact destination must be allowed in Supabase Auth URL Configuration; custom email templates should use `{{ .RedirectTo }}` or `{{ .ConfirmationURL }}`, not a hardcoded `{{ .SiteURL }}` destination.
 **Why:** Supabase's default Site URL can be a local development address, and a custom template that ignores the per-invite redirect can send invitees to localhost even when the server supplied the correct app URL.
 **How to apply:** Keep the Site URL set to the deployed app, allow the app's `/accept-invite` URL, and verify invite templates preserve the redirect supplied by `inviteUserByEmail`.

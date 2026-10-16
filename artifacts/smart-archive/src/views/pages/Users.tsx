@@ -86,12 +86,16 @@ export default function UsersPage() {
   const [inviteRole, setInviteRole] = useState("data_entry");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   const closeInvite = () => {
     setInviteOpen(false);
     setInviteName("");
     setInviteEmail("");
     setInviteMsg(null);
+    setInviteLink("");
+    setInviteCopied(false);
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -105,20 +109,32 @@ export default function UsersPage() {
         body: JSON.stringify({ name: inviteName, email: inviteEmail, role: inviteRole }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "فشل إرسال الدعوة");
-      setInviteMsg({
-        ok: true,
-        text: "تم إرسال رابط الدعوة إلى البريد الإلكتروني. سيختار الموظف كلمة مروره عند قبول الدعوة.",
-      });
+      if (!res.ok) throw new Error(data.error ?? "فشل إنشاء رابط الدعوة");
+      if (typeof data.inviteLink !== "string" || !data.inviteLink) {
+        throw new Error("تم إنشاء الحساب لكن لم يصل رابط الدعوة من الخادم.");
+      }
+      setInviteLink(data.inviteLink);
       void fetchProfiles();
-      setInviteName("");
-      setInviteEmail("");
-      setTimeout(closeInvite, 2500);
     } catch (err: any) {
       setInviteMsg({ ok: false, text: err.message });
     } finally {
       setInviteLoading(false);
     }
+  };
+
+  const copyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setInviteCopied(true);
+    } catch {
+      setInviteMsg({ ok: false, text: "تعذر النسخ تلقائياً. حددي الرابط وانسخيه يدوياً." });
+    }
+  };
+
+  const openInviteEmailDraft = () => {
+    const subject = `دعوة للانضمام إلى أرشيف ذكي`;
+    const body = `مرحباً ${inviteName}،\n\nتمت دعوتك للانضمام إلى أرشيف المؤسسة. افتح الرابط التالي لتعيين كلمة المرور وتفعيل حسابك:\n\n${inviteLink}\n\nإذا لم تطلب هذه الدعوة، يمكنك تجاهل هذه الرسالة.`;
+    window.location.href = `mailto:${encodeURIComponent(inviteEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   // Update profile (role, status, or HR access)
@@ -226,8 +242,38 @@ export default function UsersPage() {
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeInvite}>
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-foreground">دعوة موظف عبر البريد الإلكتروني</h2>
-            <p className="text-xs text-muted-foreground">سيتلقى الموظف رابطاً آمناً لاختيار كلمة المرور وتفعيل عضويته في مؤسستك.</p>
+            <h2 className="text-lg font-bold text-foreground">{inviteLink ? "رابط دعوة الموظف جاهز" : "إنشاء دعوة موظف"}</h2>
+            {inviteLink ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  لم يُرسل النظام بريداً تلقائياً. انسخي الرابط وأرسليه للموظف عبر Gmail أو واتساب. عند فتحه، سيختار الموظف كلمة المرور ويكمل تفعيل الحساب.
+                </p>
+                <textarea
+                  readOnly
+                  value={inviteLink}
+                  aria-label="رابط دعوة الموظف"
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="w-full h-24 px-3 py-2 rounded-xl border border-border bg-background text-foreground text-xs break-all"
+                  dir="ltr"
+                />
+                <p className="text-xs text-muted-foreground">هذا رابط خاص لمرة واحدة؛ أرسليه إلى الموظف المدعو فقط.</p>
+                {inviteMsg && <p className="text-sm text-red-500">{inviteMsg.text}</p>}
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => void copyInviteLink()}
+                    className="flex-1 min-w-[120px] py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold">
+                    {inviteCopied ? "تم نسخ الرابط" : "نسخ الرابط"}
+                  </button>
+                  <button type="button" onClick={openInviteEmailDraft}
+                    className="flex-1 min-w-[120px] py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-semibold">
+                    فتح رسالة بريد جاهزة
+                  </button>
+                  <button type="button" onClick={closeInvite}
+                    className="px-4 py-2 border border-border rounded-xl text-sm">إغلاق</button>
+                </div>
+              </div>
+            ) : (
+            <>
+            <p className="text-xs text-muted-foreground">سينشئ النظام رابطاً آمناً؛ انسخيه بعد ذلك وأرسليه للموظف بنفسك عبر البريد أو واتساب. لا يحتاج ذلك إلى إعداد SMTP أو إرسال تلقائي.</p>
             <form onSubmit={handleInvite} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">اسم المستخدم</label>
@@ -251,17 +297,19 @@ export default function UsersPage() {
                 </select>
               </div>
               {inviteMsg && (
-                <p className={`text-sm rounded-xl px-3 py-2 ${inviteMsg.ok ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-500"}`}>{inviteMsg.text}</p>
+                <p className="text-sm rounded-xl px-3 py-2 bg-red-500/10 text-red-500">{inviteMsg.text}</p>
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={inviteLoading}
                   className="flex-1 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold disabled:opacity-60">
-                  {inviteLoading ? "جاري إرسال الدعوة..." : "إرسال الدعوة"}
+                  {inviteLoading ? "جاري إنشاء الرابط..." : "إنشاء رابط الدعوة"}
                 </button>
                 <button type="button" onClick={closeInvite}
                   className="px-4 py-2 bg-secondary rounded-xl text-sm">إلغاء</button>
               </div>
             </form>
+            </>
+            )}
           </div>
         </div>
       )}
