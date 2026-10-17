@@ -93,6 +93,49 @@ router.post("/sa/auth/register", (_req, res): void => {
 });
 
 // Completes an email invitation only for the invited account's pending membership.
+// Validate the invite session before allowing the user to change any password.
+router.get("/sa/auth/accept-invite", async (req, res): Promise<void> => {
+  const authorization = req.headers.authorization;
+  const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!accessToken || !url || !serviceRoleKey) {
+    res.status(401).json({ error: "رابط الدعوة غير صالح أو منتهي الصلاحية." });
+    return;
+  }
+
+  const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
+  if (authError || !authData.user?.email) {
+    res.status(401).json({ error: "تعذر التحقق من جلسة رابط الدعوة." });
+    return;
+  }
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id,email,status")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+  if (profileError || !profile || profile.status !== "pending" ||
+      profile.email?.toLowerCase() !== authData.user.email.toLowerCase()) {
+    res.status(403).json({ error: "هذا الرابط لا يخص دعوة معلّقة. اطلب من المدير إصدار رابط تفعيل جديد." });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await admin
+    .from("organization_memberships")
+    .select("user_id")
+    .eq("user_id", authData.user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (membershipError || !membership) {
+    res.status(403).json({ error: "لم يتم العثور على عضوية معلّقة لهذا الحساب. اطلب من المدير التحقق من الدعوة." });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 router.post("/sa/auth/accept-invite", async (req, res): Promise<void> => {
   const authorization = req.headers.authorization;
   const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;

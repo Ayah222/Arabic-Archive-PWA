@@ -11,22 +11,83 @@ export default function AcceptInvite() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingInvite, setCheckingInvite] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [hasSession, setHasSession] = useState(false);
+  const [invalidLink, setInvalidLink] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
+    // Never let an unrelated session already stored in this browser stand in
+    // for an invite that Supabase has explicitly rejected or expired.
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const authError = url.searchParams.get("error_code")
+      || url.searchParams.get("error")
+      || hashParams.get("error_code")
+      || hashParams.get("error");
+    if (authError) {
+      setInvalidLink(true);
+      setHasSession(false);
+      setCheckingInvite(false);
+      return;
+    }
+
     // Supabase auto-processes the invite hash. Listen as well as reading the
     // current session because URL-token exchange may finish after this page mounts.
     let cancelled = false;
+    let latestToken = "";
+    const validateInviteSession = async (accessToken: string) => {
+      if (cancelled || !accessToken || accessToken === latestToken) return;
+      latestToken = accessToken;
+      setCheckingInvite(true);
+      try {
+        const response = await fetch("/api/sa/auth/accept-invite", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const result = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        if (cancelled || accessToken !== latestToken) return;
+        if (!response.ok || !result?.success) {
+          setHasSession(false);
+          setInvalidLink(true);
+          setErrorMsg(result?.error ?? "رابط الدعوة غير صالح أو منتهي الصلاحية.");
+        } else {
+          setInvalidLink(false);
+          setErrorMsg("");
+          setHasSession(true);
+        }
+      } catch {
+        if (!cancelled && accessToken === latestToken) {
+          setHasSession(false);
+          setInvalidLink(true);
+          setErrorMsg("تعذر التحقق من رابط الدعوة. تحققي من اتصال الإنترنت أو اطلبي رابطاً جديداً.");
+        }
+      } finally {
+        if (!cancelled && accessToken === latestToken) setCheckingInvite(false);
+      }
+    };
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!cancelled && session) setHasSession(true);
+      if (session) {
+        void validateInviteSession(session.access_token);
+      } else if (!cancelled) {
+        latestToken = "";
+        setHasSession(false);
+        setCheckingInvite(false);
+      }
     });
     void supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setHasSession(!!data.session);
+      if (data.session) {
+        void validateInviteSession(data.session.access_token);
+      } else if (!cancelled) {
+        setHasSession(false);
+        setCheckingInvite(false);
+      }
     }).catch(() => {
-      if (!cancelled) setHasSession(false);
+      if (!cancelled) {
+        setHasSession(false);
+        setCheckingInvite(false);
+      }
     });
     return () => {
       cancelled = true;
@@ -54,10 +115,12 @@ export default function AcceptInvite() {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const activation = activationResponse.ok
-        ? await activationResponse.json() as { success?: boolean }
-        : null;
-      if (!activation?.success) throw new Error("تم تحديث كلمة المرور، لكن تعذر تفعيل عضوية المؤسسة");
+      const activation = await activationResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!activationResponse.ok || !activation?.success) {
+        throw new Error(activation?.error
+          ? `تم تحديث كلمة المرور، لكن تعذر تفعيل العضوية: ${activation.error}`
+          : "تم تحديث كلمة المرور، لكن تعذر تفعيل عضوية المؤسسة");
+      }
 
       await supabase.auth.signOut();
       navigate("/login", { replace: true });
@@ -101,13 +164,22 @@ export default function AcceptInvite() {
     );
   }
 
-  if (!hasSession) {
+  if (invalidLink || !hasSession) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
         <div className="max-w-md w-full text-center space-y-4">
-          <div className="text-5xl">⚠️</div>
-          <h1 className="text-xl font-bold text-foreground">رابط الدعوة غير صالح أو منتهي الصلاحية</h1>
-          <p className="text-muted-foreground text-sm">يرجى التواصل مع المدير للحصول على دعوة جديدة.</p>
+          <div className="text-5xl">{checkingInvite ? "⏳" : "⚠️"}</div>
+          <h1 className="text-xl font-bold text-foreground">
+            {checkingInvite ? "جاري التحقق من رابط الدعوة" : "رابط الدعوة غير صالح أو منتهي الصلاحية"}
+          </h1>
+          {checkingInvite ? (
+            <p className="text-muted-foreground text-sm">لحظة من فضلك...</p>
+          ) : (
+            <>
+              <p className="text-muted-foreground text-sm">{errorMsg || "قد يكون الرابط منتهي الصلاحية أو سبق استخدامه."}</p>
+              <p className="text-muted-foreground text-sm">لا تعيدي إدخال كلمة المرور من هذه الصفحة؛ تواصلي مع المدير لإصدار رابط تفعيل جديد.</p>
+            </>
+          )}
         </div>
       </div>
     );
