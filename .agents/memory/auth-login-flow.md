@@ -61,7 +61,7 @@ Invitation display names are archive profile data, not email sender branding; co
 **How to apply:** Generate a Supabase invite link server-side and let the manager share it manually; keep service-role operations server-side and never send tenant invitations through the legacy workspace Gmail connection.
 - Invitation redirects must use the public app origin and that exact destination must be allowed in Supabase Auth URL Configuration; custom email templates should use `{{ .RedirectTo }}` or `{{ .ConfirmationURL }}`, not a hardcoded `{{ .SiteURL }}` destination.
 **Why:** Supabase's default Site URL can be a local development address, and a custom template that ignores the per-invite redirect can send invitees to localhost even when the server supplied the correct app URL.
-**How to apply:** Keep the Site URL set to the deployed app, allow the app's `/accept-invite` URL, and verify invite templates preserve the redirect supplied by `inviteUserByEmail`.
+**How to apply:** Keep the Site URL set to the current published app, allow its exact `/accept-invite` URL, and pass that public origin as `redirectTo` when generating invitation links.
 
 ## Signed session alignment
 

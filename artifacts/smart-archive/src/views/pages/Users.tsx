@@ -88,6 +88,7 @@ export default function UsersPage() {
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [inviteLink, setInviteLink] = useState("");
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [linkLoadingId, setLinkLoadingId] = useState<string | null>(null);
 
   const closeInvite = () => {
     setInviteOpen(false);
@@ -135,6 +136,35 @@ export default function UsersPage() {
     const subject = `دعوة للانضمام إلى أرشيف ذكي`;
     const body = `مرحباً ${inviteName}،\n\nتمت دعوتك للانضمام إلى أرشيف المؤسسة. افتح الرابط التالي لتعيين كلمة المرور وتفعيل حسابك:\n\n${inviteLink}\n\nإذا لم تطلب هذه الدعوة، يمكنك تجاهل هذه الرسالة.`;
     window.location.href = `mailto:${encodeURIComponent(inviteEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  const createFreshInviteLink = async (profile: Profile) => {
+    setLinkLoadingId(profile.id);
+    try {
+      const res = await fetch(`${API}/profiles/${profile.id}/invite-link`, {
+        method: "POST",
+        credentials: "include",
+        headers: getUserRequestHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "تعذر إنشاء رابط جديد");
+      if (typeof data.inviteLink !== "string" || !data.inviteLink) {
+        throw new Error("لم يصل رابط التفعيل من الخادم.");
+      }
+      setInviteName(profile.name?.trim() || profile.email);
+      setInviteEmail(profile.email);
+      setInviteMsg(null);
+      setInviteLink(data.inviteLink);
+      setInviteCopied(false);
+      setInviteOpen(true);
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "تعذر إنشاء رابط جديد",
+        type: "error",
+      });
+    } finally {
+      setLinkLoadingId(null);
+    }
   };
 
   // Update profile (role, status, or HR access)
@@ -402,6 +432,12 @@ export default function UsersPage() {
                   {/* Approve / Suspend */}
                   {profile.status === "pending" && (
                     <>
+                      <button
+                        onClick={() => void createFreshInviteLink(profile)}
+                        disabled={linkLoadingId === profile.id}
+                        className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-semibold hover:bg-primary/15 transition-colors disabled:opacity-60">
+                        {linkLoadingId === profile.id ? "جاري إنشاء الرابط..." : "رابط تفعيل جديد"}
+                      </button>
                       <button onClick={() => updateProfile(profile.id, { status: "active" })}
                         className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors">
                         ✅ تفعيل

@@ -96,6 +96,60 @@ router.get("/sa/profiles", async (req, res) => {
   })));
 });
 
+// Creates a fresh password-setting link for an existing pending membership.
+// A recovery link is used because the invited Auth user already exists.
+router.post("/sa/profiles/:id/invite-link", async (req, res): Promise<void> => {
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor || !hasAdminAccess(actor)) {
+    res.status(403).json({ error: "إدارة المستخدمين متاحة لمدير المؤسسة فقط." });
+    return;
+  }
+
+  const id = req.params.id;
+  const admin = adminClient();
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id,email,status")
+    .eq("id", id)
+    .maybeSingle();
+  if (profileError || !profile) {
+    res.status(404).json({ error: "لم يتم العثور على حساب الموظف." });
+    return;
+  }
+  if (profile.status !== "pending" || typeof profile.email !== "string") {
+    res.status(409).json({ error: "يمكن إنشاء رابط جديد للحسابات المعلّقة فقط." });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await admin
+    .from("organization_memberships")
+    .select("status")
+    .eq("tenant_id", actor.tenantId)
+    .eq("user_id", id)
+    .maybeSingle();
+  if (membershipError || !membership || membership.status !== "pending") {
+    res.status(404).json({ error: "لا توجد دعوة معلّقة لهذا الموظف في مؤسستك." });
+    return;
+  }
+
+  const origin = getAppOrigin(req);
+  if (!origin) {
+    res.status(500).json({ error: "تعذر تحديد عنوان التطبيق العام لإنشاء الرابط." });
+    return;
+  }
+
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: profile.email,
+    options: { redirectTo: `${origin}/accept-invite` },
+  });
+  if (error || !data.properties.action_link) {
+    res.status(400).json({ error: "تعذر إنشاء رابط تفعيل جديد لهذا الحساب." });
+    return;
+  }
+  res.json({ success: true, inviteLink: data.properties.action_link });
+});
+
 // A profile is visible to its owner (verified Supabase bearer or signed session)
 // and to administrators. The public anon key alone is never sufficient.
 router.get("/sa/profiles/:id", async (req, res) => {
