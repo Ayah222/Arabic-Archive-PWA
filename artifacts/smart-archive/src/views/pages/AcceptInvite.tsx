@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -7,6 +8,16 @@ type Step = "verify" | "form" | "pending" | "error";
 
 export default function AcceptInvite() {
   const navigate = useNavigate();
+  const [inviteSupabase] = useState(() => createClient(
+    import.meta.env.VITE_SUPABASE_URL as string,
+    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+    { auth: {
+      persistSession: false,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: "sa-invite-auth-session",
+    } },
+  ));
   const [step, setStep] = useState<Step>("form");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -17,6 +28,7 @@ export default function AcceptInvite() {
   const [invalidLink, setInvalidLink] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [pendingOtp, setPendingOtp] = useState<{ tokenHash: string; type: "invite" | "recovery" } | null>(null);
 
   useEffect(() => {
@@ -112,14 +124,13 @@ export default function AcceptInvite() {
     if (!pendingOtp || checkingInvite) return;
     setCheckingInvite(true);
     setErrorMsg("");
-    // This device may already hold the inviter's session. Do not let that
-    // persisted identity be confused with the account in the invite token.
-    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
     // The token is now kept only in component memory; remove it from address
     // history before verification and before any further page/resource loads.
     window.history.replaceState({}, document.title, window.location.pathname);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      // Keep invitation auth isolated from any signed-in manager/employee
+      // session and in-memory auth listeners elsewhere in the application.
+      const { data, error } = await inviteSupabase.auth.verifyOtp({
         token_hash: pendingOtp.tokenHash,
         type: pendingOtp.type,
       });
@@ -141,7 +152,7 @@ export default function AcceptInvite() {
       setHasSession(true);
       setStep("form");
     } catch (error) {
-      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+      await inviteSupabase.auth.signOut({ scope: "local" }).catch(() => undefined);
       setErrorMsg(error instanceof Error ? error.message : "تعذر التحقق من رابط الدعوة.");
       setInvalidLink(true);
       setStep("error");
@@ -152,17 +163,20 @@ export default function AcceptInvite() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirm) { setErrorMsg("كلمتا المرور غير متطابقتين"); return; }
-    if (password.length < 8) { setErrorMsg("كلمة المرور يجب أن تكون 8 أحرف على الأقل"); return; }
+    if (!passwordUpdated && password !== confirm) { setErrorMsg("كلمتا المرور غير متطابقتين"); return; }
+    if (!passwordUpdated && password.length < 8) { setErrorMsg("كلمة المرور يجب أن تكون 8 أحرف على الأقل"); return; }
 
     setLoading(true);
     setErrorMsg("");
 
     try {
-      const { data: updateData, error } = await supabase.auth.updateUser({ password });
-      if (error || !updateData.user) throw new Error(error?.message ?? "تعذر تحديث الحساب");
+      if (!passwordUpdated) {
+        const { data: updateData, error } = await inviteSupabase.auth.updateUser({ password });
+        if (error || !updateData.user) throw new Error(error?.message ?? "تعذر تحديث الحساب");
+        setPasswordUpdated(true);
+      }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await inviteSupabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (sessionError || !accessToken) throw new Error("انتهت صلاحية رابط الدعوة، اطلب رابطاً جديداً");
 
@@ -177,12 +191,12 @@ export default function AcceptInvite() {
           : "تم تحديث كلمة المرور، لكن تعذر تفعيل عضوية المؤسسة");
       }
 
-      await supabase.auth.signOut();
+      await inviteSupabase.auth.signOut({ scope: "local" });
       navigate("/login", { replace: true });
     } catch (submitError: unknown) {
-      await supabase.auth.signOut().catch(() => undefined);
       setErrorMsg(submitError instanceof Error ? submitError.message : "حدث خطأ أثناء تفعيل الدعوة");
-      setStep("error");
+      const { data: sessionData } = await inviteSupabase.auth.getSession();
+      setStep(sessionData.session ? "form" : "error");
     } finally {
       setLoading(false);
     }
@@ -322,7 +336,7 @@ export default function AcceptInvite() {
             disabled={loading}
             className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60 text-sm"
           >
-            {loading ? "جاري الحفظ..." : "حفظ ومتابعة"}
+            {loading ? "جاري الحفظ..." : passwordUpdated ? "إعادة محاولة التفعيل" : "حفظ ومتابعة"}
           </button>
         </form>
       </div>
