@@ -87,6 +87,7 @@ export interface SAAttachment {
   mimeType: string;
   size: number;
   uploadedAt: string;
+  uploadedBy?: string | null;
 }
 
 export interface SADocument {

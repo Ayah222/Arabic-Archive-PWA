@@ -637,6 +637,7 @@ export interface SAAttachment {
   mimeType: string;
   size: number;
   uploadedAt: string;
+  uploadedBy?: string | null;
 }
 
 export function useEntityAttachments(projectId: string, entityType: string, entityId: string) {

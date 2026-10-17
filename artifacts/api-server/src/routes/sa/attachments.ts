@@ -7,6 +7,7 @@ import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, 
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { deleteTenantFile, downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
 import { runWithTenant } from "../../lib/tenantContext";
+import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
@@ -249,6 +250,11 @@ router.post("/sa/projects/:id/attachments/download-zip", async (req, res): Promi
 router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, res): Promise<void> => {
   const { id } = req.params;
   const projectId = String(id);
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.status(401).json({ error: "جلسة المؤسسة غير صالحة. يرجى تسجيل الدخول مجدداً." });
+    return;
+  }
   const { entityType, entityId, name, customType, relativePath } = req.body as {
     entityType?: string; entityId?: string; name?: string; customType?: string; relativePath?: string;
   };
@@ -269,6 +275,7 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
       customType,
       mimeType: req.body.mimeType,
       size: Number(req.body.size || 0),
+      uploadedBy: actor.id,
     }));
     res.status(201).json(attachment);
     return;
@@ -301,6 +308,7 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
       customType,
       mimeType: uploadedFile.mimetype,
       size: uploadedFile.size,
+      uploadedBy: actor.id,
     }));
     res.status(201).json(attachment);
   } catch (error) {
@@ -313,6 +321,11 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
 
 router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), async (req, res): Promise<void> => {
   const projectId = String(req.params.id);
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.status(401).json({ error: "جلسة المؤسسة غير صالحة. يرجى تسجيل الدخول مجدداً." });
+    return;
+  }
   const { entityType, entityId, customType, targetPath } = req.body as {
     entityType?: string; entityId?: string; customType?: string; targetPath?: string;
   };
@@ -365,6 +378,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
           customType: customType || "مجلد مستندات",
           mimeType,
           size: bytes.length,
+          uploadedBy: actor.id,
         }));
         createdIds.push(attachment.id);
         results.push(attachment);
@@ -405,9 +419,14 @@ router.delete("/sa/projects/:id/attachments/folder", async (req, res): Promise<v
 
 router.delete("/sa/projects/:id/attachments/:aid", async (req, res): Promise<void> => {
   const { id, aid } = req.params;
-  const deleted = await deleteAttachment(id, aid);
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.status(401).json({ error: "جلسة المؤسسة غير صالحة. يرجى تسجيل الدخول مجدداً." });
+    return;
+  }
+  const deleted = await deleteAttachment(id, aid, actor.role === "admin" ? undefined : actor.id);
   if (!deleted) {
-    res.status(404).json({ error: "Attachment not found" });
+    res.status(404).json({ error: "Attachment not found or not owned by this user" });
     return;
   }
   res.sendStatus(204);

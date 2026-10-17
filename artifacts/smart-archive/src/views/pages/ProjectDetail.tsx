@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
+import { getCurrentUser, useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -1616,6 +1616,7 @@ function AttachmentsPanel({
   const { add, addFolderZip, remove, removeFolder } = useAttachmentActions(projectId);
   const { data: fileLimits } = useFileLimits();
   const { canEdit, canDelete } = getArchivePermissions();
+  const currentUserId = getCurrentUser()?.id ?? null;
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("مستند");
@@ -1782,6 +1783,7 @@ function AttachmentsPanel({
         currentPath={currentPath}
         onPathChange={setCurrentPath}
         canEdit={canEdit}
+        currentUserId={currentUserId}
         uploading={Boolean(uploadProgress)}
         onAddFile={(file) => void uploadFiles([file])}
         canDelete={canDelete}
@@ -1801,6 +1803,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const { add, addFolderZip, remove, removeFolder } = useAttachmentActions(projectId);
   const { data: fileLimits } = useFileLimits();
   const { canEdit, canDelete } = getArchivePermissions();
+  const currentUserId = getCurrentUser()?.id ?? null;
   const [showAdd, setShowAdd] = useState(false);
   const [attName, setAttName] = useState("");
   const [attType, setAttType] = useState("");
@@ -1906,7 +1909,9 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         d.customType.toLowerCase().includes(search.toLowerCase())
       )
     : docs;
-  const visibleIds = filtered.map((attachment) => attachment.id);
+  const visibleIds = filtered
+    .filter((attachment) => canDelete || (currentUserId !== null && attachment.uploadedBy === currentUserId))
+    .map((attachment) => attachment.id);
   const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
   const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
   const handleBulkDelete = async () => {
@@ -1960,10 +1965,10 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         />
       ) : (
         search ? <div className="space-y-2">
-          {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+          {(canDelete || visibleIds.length > 0) && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
             onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
             onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
-          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete} onPreview={openAttachmentPreview} mimeIcon={mimeIcon}
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete || (currentUserId !== null && d.uploadedBy === currentUserId)} onPreview={openAttachmentPreview} mimeIcon={mimeIcon}
             selected={selectedIds.has(d.id)}
             onToggle={() => setSelectedIds((current) => {
               const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
@@ -1974,6 +1979,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           currentPath={currentPath}
           onPathChange={setCurrentPath}
           canEdit={canEdit}
+          currentUserId={currentUserId}
           uploading={Boolean(uploadProgress)}
           onAddFile={(file) => void uploadFiles([file])}
           canDelete={canDelete}
@@ -2155,6 +2161,7 @@ function AttachmentFolderBrowser({
   onPathChange,
   canEdit,
   uploading,
+  currentUserId = null,
   onAddFile,
   canDelete,
   onDelete,
@@ -2168,6 +2175,7 @@ function AttachmentFolderBrowser({
   onPathChange: (path: string) => void;
   canEdit?: boolean;
   uploading?: boolean;
+  currentUserId?: string | null;
   onAddFile?: (file: File) => void | Promise<unknown>;
   canDelete: boolean;
   onDelete: (attachment: SAAttachment) => void | Promise<unknown>;
@@ -2202,7 +2210,10 @@ function AttachmentFolderBrowser({
   const pdfAttachments = attachments.filter((attachment) =>
     attachment.mimeType === "application/pdf" || attachment.name.toLowerCase().endsWith(".pdf"),
   );
-  const visibleIds = files.map((attachment) => attachment.id);
+  const deletableFiles = files.filter((attachment) =>
+    canDelete || (currentUserId !== null && attachment.uploadedBy === currentUserId),
+  );
+  const visibleIds = deletableFiles.map((attachment) => attachment.id);
   const selectedVisibleIds = visibleIds.filter((id) => selectedIds.has(id));
   const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
   const handleBulkDelete = async () => {
@@ -2273,7 +2284,7 @@ function AttachmentFolderBrowser({
           {downloadError && <span className="text-destructive">{downloadError}</span>}
         </div>
       </div>
-      {canDelete && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
+      {(canDelete || visibleIds.length > 0) && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
         onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
         onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} />}
       {[...folders.entries()].sort(([a], [b]) => a.localeCompare(b, "ar")).map(([folder, count]) => (
@@ -2308,6 +2319,7 @@ function AttachmentFolderBrowser({
       ))}
       {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
         <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon}
+          canDelete={canDelete || (currentUserId !== null && attachment.uploadedBy === currentUserId)}
           selected={selectedIds.has(attachment.id)}
           onToggle={() => setSelectedIds((current) => {
             const next = new Set(current); if (next.has(attachment.id)) next.delete(attachment.id); else next.add(attachment.id); return next;

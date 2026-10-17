@@ -206,6 +206,7 @@ async function toAttachment(row: Record<string, unknown>): Promise<SAAttachment>
     mimeType: row.mime_type as string,
     size: Number(row.size),
     uploadedAt: row.uploaded_at as string,
+    uploadedBy: (row.uploaded_by as string | null) ?? null,
   };
 }
 
@@ -912,7 +913,7 @@ export async function listAttachmentStorageByIds(
 
 export async function createAttachment(
   projectId: string,
-  input: { entityType: string; entityId?: string; objectPath: string; name: string; customType?: string; mimeType?: string; size?: number },
+  input: { entityType: string; entityId?: string; objectPath: string; name: string; customType?: string; mimeType?: string; size?: number; uploadedBy?: string | null },
 ): Promise<SAAttachment> {
   const baseRow = {
     project_id: projectId,
@@ -922,6 +923,7 @@ export async function createAttachment(
     custom_type: input.customType ?? "مستند",
     mime_type: input.mimeType ?? "application/octet-stream",
     size: input.size ?? 0,
+    uploaded_by: input.uploadedBy ?? null,
   };
   let result = await supabaseAdmin()
     .from("attachments")
@@ -962,14 +964,14 @@ export async function deleteAttachmentsByCategory(projectId: string, categoryId:
   return count ?? 0;
 }
 
-export async function deleteAttachment(projectId: string, id: string): Promise<boolean> {
-  const { data, error } = await supabaseAdmin()
+export async function deleteAttachment(projectId: string, id: string, allowedUploaderId?: string): Promise<boolean> {
+  let query = supabaseAdmin()
     .from("attachments")
     .delete()
     .eq("id", id)
-    .eq("project_id", projectId)
-    .select("*")
-    .maybeSingle();
+    .eq("project_id", projectId);
+  if (allowedUploaderId) query = query.eq("uploaded_by", allowedUploaderId);
+  const { data, error } = await query.select("*").maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return false;
   const objectPath = attachmentObjectPath(data);
