@@ -2318,8 +2318,9 @@ function AttachmentFolderBrowser({
         </div>
       ))}
       {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
-        <AttachmentFileRow key={attachment.id} attachment={attachment} canDelete={canDelete} onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon}
+        <AttachmentFileRow key={attachment.id} attachment={attachment}
           canDelete={canDelete || (currentUserId !== null && attachment.uploadedBy === currentUserId)}
+          onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon}
           selected={selectedIds.has(attachment.id)}
           onToggle={() => setSelectedIds((current) => {
             const next = new Set(current); if (next.has(attachment.id)) next.delete(attachment.id); else next.add(attachment.id); return next;

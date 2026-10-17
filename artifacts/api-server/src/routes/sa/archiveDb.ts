@@ -970,7 +970,7 @@ export async function deleteAttachment(projectId: string, id: string, allowedUpl
     .delete()
     .eq("id", id)
     .eq("project_id", projectId);
-  if (allowedUploaderId) query = query.eq("uploaded_by", allowedUploaderId);
+  if (allowedUploaderId !== undefined) query = query.eq("uploaded_by", allowedUploaderId);
   const { data, error } = await query.select("*").maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return false;
