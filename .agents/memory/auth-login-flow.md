@@ -62,6 +62,9 @@ Invitation display names are archive profile data, not email sender branding; co
 - Invitation redirects must use the public app origin and that exact destination must be allowed in Supabase Auth URL Configuration; custom email templates should use `{{ .RedirectTo }}` or `{{ .ConfirmationURL }}`, not a hardcoded `{{ .SiteURL }}` destination.
 **Why:** Supabase's default Site URL can be a local development address, and a custom template that ignores the per-invite redirect can send invitees to localhost even when the server supplied the correct app URL.
 **How to apply:** Keep the Site URL set to the current published app, allow its exact `/accept-invite` URL, and pass that public origin as `redirectTo` when generating invitation links.
+- For manually shared one-time auth links, share an app landing URL containing `token_hash` and verification type, then call `verifyOtp` only after an explicit user action; do not expose Supabase's direct GET `/verify` action link.
+**Why:** Supabase Auth logs showed the one-time token being verified successfully and then rejected as “One-time token not found” by rapid repeat GET requests, consistent with link scanners or duplicate opens consuming the token.
+**How to apply:** Have the app route show a deliberate “continue” action before verifying invite/recovery tokens; test that opening or previewing the landing URL alone does not consume the token.
 
 ## Signed session alignment
 

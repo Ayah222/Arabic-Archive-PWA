@@ -143,11 +143,14 @@ router.post("/sa/profiles/:id/invite-link", async (req, res): Promise<void> => {
     email: profile.email,
     options: { redirectTo: `${origin}/accept-invite` },
   });
-  if (error || !data.properties.action_link) {
+  if (error || !data.properties.hashed_token) {
     res.status(400).json({ error: "تعذر إنشاء رابط تفعيل جديد لهذا الحساب." });
     return;
   }
-  res.json({ success: true, inviteLink: data.properties.action_link });
+  const inviteUrl = new URL("/accept-invite", origin);
+  inviteUrl.searchParams.set("token_hash", data.properties.hashed_token);
+  inviteUrl.searchParams.set("type", "recovery");
+  res.json({ success: true, inviteLink: inviteUrl.toString() });
 });
 
 // A profile is visible to its owner (verified Supabase bearer or signed session)

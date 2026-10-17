@@ -80,7 +80,7 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!created.properties.action_link) {
+  if (!created.properties.hashed_token) {
     await admin.auth.admin.deleteUser(created.user.id);
     res.status(500).json({ error: "تعذر إنشاء رابط الدعوة؛ أُلغي إنشاء الحساب." });
     return;
@@ -119,10 +119,14 @@ router.post("/sa/invite", async (req, res): Promise<void> => {
     return;
   }
 
+  const inviteUrl = new URL("/accept-invite", origin);
+  inviteUrl.searchParams.set("token_hash", created.properties.hashed_token);
+  inviteUrl.searchParams.set("type", "invite");
+
   res.status(201).json({
     success: true,
     user: { id: userId, email, role: normalizedRole, status: "pending" },
-    inviteLink: created.properties.action_link,
+    inviteLink: inviteUrl.toString(),
   });
 });
 

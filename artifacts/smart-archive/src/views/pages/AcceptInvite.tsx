@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { Eye, EyeOff } from "lucide-react";
 
-type Step = "form" | "pending" | "error";
+type Step = "verify" | "form" | "pending" | "error";
 
 export default function AcceptInvite() {
   const navigate = useNavigate();
@@ -17,6 +17,7 @@ export default function AcceptInvite() {
   const [invalidLink, setInvalidLink] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingOtp, setPendingOtp] = useState<{ tokenHash: string; type: "invite" | "recovery" } | null>(null);
 
   useEffect(() => {
     // Never let an unrelated session already stored in this browser stand in
@@ -30,6 +31,18 @@ export default function AcceptInvite() {
     if (authError) {
       setInvalidLink(true);
       setHasSession(false);
+      setCheckingInvite(false);
+      return;
+    }
+
+    // The shared URL points to this app, not Supabase's GET /verify endpoint.
+    // Wait for an explicit user click before consuming its one-time token so
+    // link scanners and previews cannot use it first.
+    const tokenHash = url.searchParams.get("token_hash");
+    const tokenType = url.searchParams.get("type");
+    if (tokenHash && (tokenType === "invite" || tokenType === "recovery")) {
+      setPendingOtp({ tokenHash, type: tokenType });
+      setStep("verify");
       setCheckingInvite(false);
       return;
     }
@@ -95,6 +108,41 @@ export default function AcceptInvite() {
     };
   }, []);
 
+  const verifyInvite = async () => {
+    if (!pendingOtp || checkingInvite) return;
+    setCheckingInvite(true);
+    setErrorMsg("");
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: pendingOtp.tokenHash,
+        type: pendingOtp.type,
+      });
+      if (error || !data.session) {
+        throw new Error("انتهت صلاحية رابط الدعوة أو سبق استخدامه. اطلبي رابطاً جديداً من المدير.");
+      }
+
+      const validationResponse = await fetch("/api/sa/auth/accept-invite", {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+      const validation = await validationResponse.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!validationResponse.ok || !validation?.success) {
+        throw new Error(validation?.error ?? "تعذر التحقق من عضوية الدعوة.");
+      }
+
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setPendingOtp(null);
+      setInvalidLink(false);
+      setHasSession(true);
+      setStep("form");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "تعذر التحقق من رابط الدعوة.");
+      setInvalidLink(true);
+      setStep("error");
+    } finally {
+      setCheckingInvite(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setErrorMsg("كلمتا المرور غير متطابقتين"); return; }
@@ -146,6 +194,29 @@ export default function AcceptInvite() {
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 text-yellow-600 rounded-xl text-sm font-semibold border border-yellow-500/20">
             ⏳ بانتظار الموافقة
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "verify") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
+        <div className="max-w-md w-full text-center space-y-5">
+          <div className="text-5xl">🏛️</div>
+          <h1 className="text-2xl font-bold text-foreground">تم استلام دعوة الانضمام</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            اضغطي على الزر أدناه للتحقق من الدعوة والمتابعة إلى إعداد كلمة المرور.
+          </p>
+          {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
+          <button
+            type="button"
+            onClick={() => void verifyInvite()}
+            disabled={checkingInvite}
+            className="w-full max-w-xs py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 disabled:opacity-60"
+          >
+            {checkingInvite ? "جاري التحقق..." : "متابعة وتعيين كلمة المرور"}
+          </button>
         </div>
       </div>
     );
