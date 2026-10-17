@@ -65,6 +65,9 @@ Invitation display names are archive profile data, not email sender branding; co
 - For manually shared one-time auth links, share an app landing URL containing `token_hash` and verification type, then call `verifyOtp` only after an explicit user action; do not expose Supabase's direct GET `/verify` action link.
 **Why:** Supabase Auth logs showed the one-time token being verified successfully and then rejected as “One-time token not found” by rapid repeat GET requests, consistent with link scanners or duplicate opens consuming the token.
 **How to apply:** Have the app route show a deliberate “continue” action before verifying invite/recovery tokens; test that opening or previewing the landing URL alone does not consume the token.
+- Clear any persisted local Supabase session before verifying an invitation token, then validate the resulting user against the pending profile and membership.
+**Why:** Production showed a valid pending invite and membership while the acceptance request was rejected as belonging to no pending invite, indicating the browser session identity could differ from the invitee.
+**How to apply:** On invite acceptance, avoid reusing an already-signed-in manager/employee session; only proceed after the token exchange yields the invited account.
 
 ## Signed session alignment
 

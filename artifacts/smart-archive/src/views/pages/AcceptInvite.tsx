@@ -112,6 +112,12 @@ export default function AcceptInvite() {
     if (!pendingOtp || checkingInvite) return;
     setCheckingInvite(true);
     setErrorMsg("");
+    // This device may already hold the inviter's session. Do not let that
+    // persisted identity be confused with the account in the invite token.
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    // The token is now kept only in component memory; remove it from address
+    // history before verification and before any further page/resource loads.
+    window.history.replaceState({}, document.title, window.location.pathname);
     try {
       const { data, error } = await supabase.auth.verifyOtp({
         token_hash: pendingOtp.tokenHash,
@@ -135,6 +141,7 @@ export default function AcceptInvite() {
       setHasSession(true);
       setStep("form");
     } catch (error) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
       setErrorMsg(error instanceof Error ? error.message : "تعذر التحقق من رابط الدعوة.");
       setInvalidLink(true);
       setStep("error");

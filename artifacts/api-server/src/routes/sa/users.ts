@@ -116,8 +116,15 @@ router.get("/sa/auth/accept-invite", async (req, res): Promise<void> => {
     .select("id,email,status")
     .eq("id", authData.user.id)
     .maybeSingle();
-  if (profileError || !profile || profile.status !== "pending" ||
-      profile.email?.toLowerCase() !== authData.user.email.toLowerCase()) {
+  const emailMatches = profile?.email?.toLowerCase() === authData.user.email.toLowerCase();
+  if (profileError || !profile || profile.status !== "pending" || !emailMatches) {
+    req.log.warn({
+      authUserId: authData.user.id,
+      profileFound: Boolean(profile),
+      profileStatus: profile?.status ?? null,
+      profileEmailMatches: emailMatches,
+      profileLookupFailed: Boolean(profileError),
+    }, "Invite verification session does not match a pending profile");
     res.status(403).json({ error: "هذا الرابط لا يخص دعوة معلّقة. اطلب من المدير إصدار رابط تفعيل جديد." });
     return;
   }
