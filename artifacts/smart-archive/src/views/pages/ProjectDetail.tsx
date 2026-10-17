@@ -2207,6 +2207,14 @@ function AttachmentFolderBrowser({
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const folderDisplayName = folderToDelete?.split("/").filter(Boolean).pop() || "";
+  const getFolderPath = (folder: string) => [currentPath, folder].filter(Boolean).join("/");
+  const canDeleteFolder = (folder: string) => {
+    if (canDelete) return true;
+    if (!currentUserId) return false;
+    const folderPrefix = `${getFolderPath(folder)}/`;
+    const folderFiles = attachments.filter((item) => item.name.startsWith(folderPrefix));
+    return folderFiles.length > 0 && folderFiles.every((item) => item.uploadedBy === currentUserId);
+  };
   const pdfAttachments = attachments.filter((attachment) =>
     attachment.mimeType === "application/pdf" || attachment.name.toLowerCase().endsWith(".pdf"),
   );
@@ -2302,14 +2310,12 @@ function AttachmentFolderBrowser({
             <span className="text-xs text-muted-foreground">{count} ملف</span>
             <span className="text-primary">‹</span>
           </button>
-          {(canDelete || (currentUserId !== null && attachments
-            .filter((item) => item.name.startsWith(`${[currentPath, folder].filter(Boolean).join("/")}/`))
-            .every((item) => item.uploadedBy === currentUserId))) && onDeleteFolder && (
+          {canDeleteFolder(folder) && onDeleteFolder && (
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                setFolderToDelete([currentPath, folder].filter(Boolean).join("/"));
+                setFolderToDelete(getFolderPath(folder));
               }}
               className="text-xs text-destructive hover:underline shrink-0 px-1"
               title="حذف المجلد ومحتوياته"
