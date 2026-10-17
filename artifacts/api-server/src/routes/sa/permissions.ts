@@ -111,7 +111,10 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     req.method === "DELETE" &&
     /^\/sa\/projects\/[^/]+\/attachments\/[^/]+$/.test(req.path) &&
     !req.path.endsWith("/attachments/folder");
-  if (req.method === "DELETE" && role !== "admin" && !(role === "data_entry" && isSingleAttachmentDelete)) {
+  const isAttachmentFolderDelete =
+    req.method === "DELETE" &&
+    /^\/sa\/projects\/[^/]+\/attachments\/folder$/.test(req.path);
+  if (req.method === "DELETE" && role !== "admin" && !(role === "data_entry" && (isSingleAttachmentDelete || isAttachmentFolderDelete))) {
     res.status(403).json({ error: "الحذف النهائي متاح للمدير فقط" });
     return;
   }

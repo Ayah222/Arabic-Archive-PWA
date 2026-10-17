@@ -2302,7 +2302,9 @@ function AttachmentFolderBrowser({
             <span className="text-xs text-muted-foreground">{count} ملف</span>
             <span className="text-primary">‹</span>
           </button>
-          {canDelete && onDeleteFolder && (
+          {(canDelete || (currentUserId !== null && attachments
+            .filter((item) => item.name.startsWith(`${[currentPath, folder].filter(Boolean).join("/")}/`))
+            .every((item) => item.uploadedBy === currentUserId))) && onDeleteFolder && (
             <button
               type="button"
               onClick={(event) => {

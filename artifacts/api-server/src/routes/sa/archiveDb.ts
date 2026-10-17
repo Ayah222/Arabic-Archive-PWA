@@ -982,7 +982,8 @@ export async function deleteAttachment(projectId: string, id: string, allowedUpl
 export async function deleteAttachmentFolder(
   projectId: string,
   input: { entityType: string; entityId: string; folderPath: string },
-): Promise<number> {
+  allowedUploaderId?: string,
+): Promise<number | false> {
   const prefix = `${input.folderPath.replace(/^\/+|\/+$/g, "")}/`;
   const existing = unwrap(
     await supabaseAdmin()
@@ -994,15 +995,21 @@ export async function deleteAttachmentFolder(
   ) as Array<Record<string, unknown>>;
   const matching = existing.filter((item) => String(item.name ?? "").startsWith(prefix));
   if (!matching.length) return 0;
+  if (allowedUploaderId !== undefined && matching.some((item) => item.uploaded_by !== allowedUploaderId)) {
+    return false;
+  }
 
   const ids = matching.map((item) => String(item.id));
-  const { error } = await supabaseAdmin().from("attachments").delete().in("id", ids).eq("project_id", projectId);
+  let query = supabaseAdmin().from("attachments").delete().in("id", ids).eq("project_id", projectId);
+  if (allowedUploaderId !== undefined) query = query.eq("uploaded_by", allowedUploaderId);
+  const { data, error } = await query.select("*");
   if (error) throw new Error(error.message);
-  await Promise.all(matching.flatMap((item) => {
+  const deletedRows = (data ?? []) as Array<Record<string, unknown>>;
+  await Promise.all(deletedRows.flatMap((item) => {
     const objectPath = attachmentObjectPath(item);
     return objectPath ? [deleteStoredObject(objectPath)] : [];
   }));
-  return matching.length;
+  return deletedRows.length;
 }
 
 /* ─────────────── Search helpers (unfiltered lists for global/reports/voice) ── */

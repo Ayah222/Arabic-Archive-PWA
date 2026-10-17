@@ -402,6 +402,11 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
 });
 
 router.delete("/sa/projects/:id/attachments/folder", async (req, res): Promise<void> => {
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.status(401).json({ error: "جلسة المؤسسة غير صالحة. يرجى تسجيل الدخول مجدداً." });
+    return;
+  }
   const { entityType, entityId, folderPath } = req.query as {
     entityType?: string; entityId?: string; folderPath?: string;
   };
@@ -413,7 +418,11 @@ router.delete("/sa/projects/:id/attachments/folder", async (req, res): Promise<v
     entityType,
     entityId,
     folderPath: folderPath.replace(/\\/g, "/"),
-  });
+  }, actor.role === "admin" ? undefined : actor.id);
+  if (deleted === false) {
+    res.status(403).json({ error: "يمكنك حذف المجلد فقط إذا كانت جميع ملفاته من رفعك" });
+    return;
+  }
   res.json({ deleted });
 });
 
