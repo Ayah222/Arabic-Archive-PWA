@@ -8,7 +8,7 @@ import {
   useMeetings,
   useLetters,
 } from "../../controllers/useProjectDetails";
-import { getCurrentUser, useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
+import { getCurrentUser, getUserRequestHeaders, useContacts, useContactActions, useDocumentActions, useProjectPhotos, usePhotoActions, useEntityAttachments, useAttachmentActions, useUpdateProjectExtra, useCategories, useCategoryActions, useFileLimits, useAgencies, downloadAttachmentsZip, type SAPhoto, type SAAttachment, type SACategory } from "../../controllers/useGlobal";
 import ProgressBar from "../components/shared/ProgressBar";
 import StatusBadge from "../components/shared/StatusBadge";
 import Modal from "../components/shared/Modal";
@@ -267,25 +267,61 @@ function getUploadFailureReason(error: unknown) {
 function isBrowserPreviewSupported(attachment: SAAttachment) {
   const extension = attachment.name.split(/[\\/]/).pop()?.split(".").pop()?.toLowerCase() ?? "";
   const mimeType = attachment.mimeType.toLowerCase();
+  if (mimeType === "image/svg+xml" || mimeType === "text/html" || mimeType === "application/xhtml+xml") return false;
   return mimeType.startsWith("image/")
     || mimeType.startsWith("audio/")
     || mimeType.startsWith("video/")
-    || mimeType.startsWith("text/")
+    || ["text/plain", "text/csv", "text/markdown", "application/json"].includes(mimeType)
     || mimeType === "application/pdf"
-    || mimeType.includes("wordprocessingml")
-    || ["pdf", "docx", "txt", "csv", "md", "json", "xml", "log", "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "mp3", "wav", "ogg", "m4a", "aac", "mp4", "webm", "mov", "ogv"].includes(extension);
+    || ["pdf", "txt", "csv", "md", "json", "log", "png", "jpg", "jpeg", "gif", "webp", "bmp", "avif", "mp3", "wav", "ogg", "m4a", "aac", "mp4", "webm", "mov", "ogv"].includes(extension);
 }
 
 function openAttachmentPreview(attachment: SAAttachment) {
-  const query = new URLSearchParams({
-    projectId: attachment.projectId,
-    entityType: attachment.entityType,
-    entityId: attachment.entityId,
-    attachmentId: attachment.id,
-  });
-  const target = new URL(`${import.meta.env.BASE_URL}attachment-preview`, window.location.origin);
-  target.search = query.toString();
-  window.open(target.toString(), "_blank", "noopener,noreferrer");
+  const popup = window.open("about:blank", "_blank");
+  if (!popup) {
+    window.alert("اسمحي بفتح النوافذ المنبثقة لمعاينة الملف في المتصفح.");
+    return;
+  }
+
+  popup.opener = null;
+  popup.document.title = attachment.name.split(/[\\/]/).pop() || "معاينة الملف";
+  popup.document.body.textContent = "جارٍ تحميل الملف لفتحه في المتصفح…";
+  void (async () => {
+    try {
+      const fileUrl = new URL(attachment.dataUrl, window.location.href);
+      const sameOrigin = fileUrl.origin === window.location.origin;
+      const response = await fetch(fileUrl, {
+        credentials: sameOrigin ? "include" : "omit",
+        headers: sameOrigin ? getUserRequestHeaders() : undefined,
+      });
+      if (!response.ok) throw new Error(`تعذر تحميل الملف (${response.status})`);
+      const bytes = await response.arrayBuffer();
+      const extension = attachment.name.split(/[\\/]/).pop()?.split(".").pop()?.toLowerCase() ?? "";
+      const inferredMime = ({
+        avif: "image/avif", bmp: "image/bmp", gif: "image/gif", jpeg: "image/jpeg",
+        jpg: "image/jpeg", png: "image/png", webp: "image/webp",
+        aac: "audio/aac", m4a: "audio/mp4", mp3: "audio/mpeg", ogg: "audio/ogg",
+        wav: "audio/wav", mp4: "video/mp4", mov: "video/quicktime", ogv: "video/ogg", webm: "video/webm",
+        pdf: "application/pdf", csv: "text/csv", json: "application/json", md: "text/markdown", txt: "text/plain",
+      } as Record<string, string>)[extension];
+      const responseMime = response.headers.get("content-type")?.split(";")[0];
+      const mimeType = !responseMime || responseMime === "application/octet-stream"
+        ? inferredMime || attachment.mimeType
+        : responseMime;
+      const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+      popup.location.replace(objectUrl);
+      const cleanup = window.setInterval(() => {
+        if (popup.closed) {
+          window.clearInterval(cleanup);
+          URL.revokeObjectURL(objectUrl);
+        }
+      }, 1000);
+    } catch (error) {
+      if (!popup.closed) {
+        popup.document.body.textContent = error instanceof Error ? error.message : "تعذر فتح الملف في المتصفح.";
+      }
+    }
+  })();
 }
 
 export default function ProjectDetail() {
@@ -2133,7 +2169,7 @@ function AttachmentFileRow({
             type="button"
             onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
             className="block max-w-full truncate text-right font-semibold text-primary hover:underline"
-            aria-label={`معاينة الملف ${fileName} داخل النظام`}
+            aria-label={`فتح الملف ${fileName} في المتصفح`}
           >
             {fileName}
           </button>
@@ -2150,7 +2186,7 @@ function AttachmentFileRow({
           onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
           className="text-xs text-primary hover:underline shrink-0"
         >
-          معاينة داخل النظام
+          فتح في المتصفح
         </button>
       )}
       <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
