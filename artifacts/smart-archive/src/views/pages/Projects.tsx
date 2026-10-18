@@ -288,7 +288,9 @@ export default function Projects() {
          onClose={() => setDeleteIds(null)}
         onConfirm={handleDelete}
          title={deleteIds && deleteIds.length > 1 ? "حذف المشاريع المحددة" : t("deleteProject")}
-         message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} مشاريع نهائياً. هل تريد المتابعة؟` : t("deleteProjectMsg")}
+         message={deleteIds && deleteIds.length > 1
+           ? `سيتم حذف ${deleteIds.length} مشاريع وبياناتها من النظام. ستبقى الملفات المرفوعة محفوظة في السحابة. هل تريد المتابعة؟`
+           : t("deleteProjectMsg")}
         confirmLabel={t("delete")}
         danger
         loading={deleteProject.isPending}

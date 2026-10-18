@@ -336,6 +336,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
   }
 
   const createdIds: string[] = [];
+  const createdObjectPaths: string[] = [];
   const zipBytes = directStoragePath
     ? await downloadSupabaseObject(directStoragePath, MAX_ZIP_ARCHIVE_BYTES)
     : req.file!.buffer;
@@ -381,6 +382,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
           uploadedBy: actor.id,
         }));
         createdIds.push(attachment.id);
+        createdObjectPaths.push(savedPath);
         results.push(attachment);
       } catch (error) {
         if (directStoragePath) await deleteSupabaseObject(savedPath.slice(`supabase://${process.env.SUPABASE_STORAGE_BUCKET || "smart-archive-files"}/`.length));
@@ -396,6 +398,13 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
     res.status(201).json(results);
   } catch (error) {
     for (const id of createdIds) await deleteAttachment(projectId, id).catch(() => undefined);
+    for (const objectPath of createdObjectPaths) {
+      const supabasePath = parseSupabaseObjectPath(objectPath);
+      const driveFileId = parseTenantDriveObjectPath(objectPath);
+      if (supabasePath) await deleteSupabaseObject(supabasePath).catch(() => undefined);
+      else if (driveFileId) await deleteTenantFile(String(res.locals.tenantId), driveFileId).catch(() => undefined);
+      else await deletePrivateObject(objectPath).catch(() => undefined);
+    }
     if (directStoragePath) await deleteSupabaseObject(directStoragePath).catch(() => undefined);
     res.status(400).json({ error: error instanceof Error ? error.message : "Could not extract ZIP folder" });
   }

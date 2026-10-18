@@ -1588,7 +1588,9 @@ function PhotosTab({ projectId, setToast }: TabProps) {
         onClose={() => setDeleteIds(null)}
         onConfirm={() => void handleBulkDelete()}
         title={deleteIds && deleteIds.length > 1 ? "حذف الصور المحددة" : "حذف الصورة"}
-        message={deleteIds && deleteIds.length > 1 ? `سيتم حذف ${deleteIds.length} صور نهائياً. هل تريد المتابعة؟` : "هل أنت متأكد من حذف هذه الصورة؟"}
+        message={deleteIds && deleteIds.length > 1
+          ? `سيتم حذف ${deleteIds.length} صور من النظام فقط، وستبقى محفوظة في السحابة. هل تريد المتابعة؟`
+          : "سيتم حذف الصورة من النظام فقط، وستبقى محفوظة في السحابة. هل تريد المتابعة؟"}
         confirmLabel="حذف"
         danger
         loading={remove.isPending}

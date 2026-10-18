@@ -14,3 +14,9 @@ Data-entry staff may delete attachment files created by their own signed account
 **Why:** The owner wants staff to correct their own mistaken uploads without gaining permission to remove a teammate's files or wait for an administrator.
 
 **How to apply:** Record uploader identity on every attachment creation path, enforce file and whole-folder ownership in the API using the signed session (not browser headers), and show folder deletion only when all descendant files are owned by the current user.
+
+Deleting archive attachments, folders, project photos, categories containing attachments, or projects must remove them from the archive index without deleting their underlying cloud objects. Cleanup of objects from failed/incomplete uploads is still allowed.
+
+**Why:** The owner explicitly requires deleted archive content to remain available in cloud storage.
+
+**How to apply:** Separate archive-record removal from cloud-object cleanup; only delete cloud objects as rollback for failed uploads, never as a consequence of a user's archive deletion.
