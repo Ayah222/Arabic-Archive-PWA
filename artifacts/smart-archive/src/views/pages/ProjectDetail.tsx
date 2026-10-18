@@ -264,17 +264,19 @@ function getUploadFailureReason(error: unknown) {
   return message.slice(0, 180);
 }
 
-function openAttachmentPreview(attachment: SAAttachment) {
-  const driveFileId = attachment.objectPath?.match(/^drive:\/\/([A-Za-z0-9_-]{5,256})$/)?.[1];
-  if (driveFileId) {
-    window.open(
-      `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-    return;
-  }
+function isBrowserPreviewSupported(attachment: SAAttachment) {
+  const extension = attachment.name.split(/[\\/]/).pop()?.split(".").pop()?.toLowerCase() ?? "";
+  const mimeType = attachment.mimeType.toLowerCase();
+  return mimeType.startsWith("image/")
+    || mimeType.startsWith("audio/")
+    || mimeType.startsWith("video/")
+    || mimeType.startsWith("text/")
+    || mimeType === "application/pdf"
+    || mimeType.includes("wordprocessingml")
+    || ["pdf", "docx", "txt", "csv", "md", "json", "xml", "log", "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "mp3", "wav", "ogg", "m4a", "aac", "mp4", "webm", "mov", "ogv"].includes(extension);
+}
 
+function openAttachmentPreview(attachment: SAAttachment) {
   const query = new URLSearchParams({
     projectId: attachment.projectId,
     entityType: attachment.entityType,
@@ -1970,7 +1972,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           {(canDelete || visibleIds.length > 0) && <SelectionToolbar total={visibleIds.length} selected={selectedVisibleIds.length} allSelected={allVisibleSelected}
             onToggleAll={() => setSelectedIds(allVisibleSelected ? new Set() : new Set(visibleIds))}
             onClear={() => setSelectedIds(new Set())} onDelete={() => setDeleteIds(selectedVisibleIds)} deleting={remove.isPending} />}
-          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete || (currentUserId !== null && d.uploadedBy === currentUserId)} onPreview={openAttachmentPreview} mimeIcon={mimeIcon}
+          {filtered.map((d) => <AttachmentFileRow key={d.id} attachment={d} canDelete={canDelete || (currentUserId !== null && d.uploadedBy === currentUserId)} onPreview={isBrowserPreviewSupported(d) ? openAttachmentPreview : undefined} mimeIcon={mimeIcon}
             selected={selectedIds.has(d.id)}
             onToggle={() => setSelectedIds((current) => {
               const next = new Set(current); if (next.has(d.id)) next.delete(d.id); else next.add(d.id); return next;
@@ -2131,7 +2133,7 @@ function AttachmentFileRow({
             type="button"
             onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
             className="block max-w-full truncate text-right font-semibold text-primary hover:underline"
-            aria-label={`فتح الملف ${fileName} في Google Drive`}
+            aria-label={`معاينة الملف ${fileName} داخل النظام`}
           >
             {fileName}
           </button>
@@ -2148,7 +2150,7 @@ function AttachmentFileRow({
           onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
           className="text-xs text-primary hover:underline shrink-0"
         >
-          فتح في Drive
+          معاينة داخل النظام
         </button>
       )}
       <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
@@ -2330,7 +2332,7 @@ function AttachmentFolderBrowser({
       {files.sort((a, b) => a.name.localeCompare(b.name, "ar")).map((attachment) => (
         <AttachmentFileRow key={attachment.id} attachment={attachment}
           canDelete={canDelete || (currentUserId !== null && attachment.uploadedBy === currentUserId)}
-          onDelete={onDelete} onPreview={onPreview} mimeIcon={mimeIcon}
+          onDelete={onDelete} onPreview={isBrowserPreviewSupported(attachment) ? onPreview : undefined} mimeIcon={mimeIcon}
           selected={selectedIds.has(attachment.id)}
           onToggle={() => setSelectedIds((current) => {
             const next = new Set(current); if (next.has(attachment.id)) next.delete(attachment.id); else next.add(attachment.id); return next;

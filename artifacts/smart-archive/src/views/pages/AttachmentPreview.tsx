@@ -4,7 +4,7 @@ import mammoth from "mammoth";
 import { getUserRequestHeaders, type SAAttachment } from "../../controllers/useGlobal";
 
 type PreviewContent =
-  | { kind: "pdf" | "image"; url: string }
+  | { kind: "pdf" | "image" | "audio" | "video"; url: string }
   | { kind: "text"; text: string }
   | { kind: "html"; html: string }
   | null;
@@ -15,6 +15,12 @@ const SAFE_DOCX_TAGS = new Set([
   "ul", "ol", "li", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "a", "img",
 ]);
 const DROP_DOCX_TAGS = new Set(["script", "style", "iframe", "object", "embed", "svg", "math", "form"]);
+const MIME_BY_EXTENSION: Record<string, string> = {
+  avif: "image/avif", bmp: "image/bmp", gif: "image/gif", jpeg: "image/jpeg",
+  jpg: "image/jpeg", png: "image/png", svg: "image/svg+xml", webp: "image/webp",
+  aac: "audio/aac", m4a: "audio/mp4", mp3: "audio/mpeg", ogg: "audio/ogg",
+  wav: "audio/wav", mp4: "video/mp4", mov: "video/quicktime", ogv: "video/ogg", webm: "video/webm",
+};
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -104,21 +110,30 @@ export default function AttachmentPreview() {
         const bytes = await response.arrayBuffer();
         const fileName = attachment.name.split(/[\\/]/).pop() || attachment.name;
         const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+        const mimeType = attachment.mimeType === "application/octet-stream"
+          ? MIME_BY_EXTENSION[extension] || attachment.mimeType
+          : attachment.mimeType;
 
-        if (extension === "docx" || attachment.mimeType.includes("wordprocessingml")) {
+        if (extension === "docx" || mimeType.includes("wordprocessingml")) {
           const result = await mammoth.convertToHtml({ arrayBuffer: bytes });
           const html = sanitizeDocxHtml(result.value);
           if (!html) throw new Error("لا يحتوي ملف Word على محتوى قابل للمعاينة.");
           if (!cancelled) setPreview({ kind: "html", html });
         } else if (extension === "doc" || attachment.mimeType === "application/msword") {
           throw new Error("معاينة ملفات Word القديمة (.doc) غير مدعومة؛ احفظ الملف بصيغة DOCX ثم أعد رفعه.");
-        } else if (extension === "pdf" || attachment.mimeType === "application/pdf") {
+        } else if (extension === "pdf" || mimeType === "application/pdf") {
           objectUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
           if (!cancelled) setPreview({ kind: "pdf", url: objectUrl });
-        } else if (attachment.mimeType.startsWith("image/")) {
-          objectUrl = URL.createObjectURL(new Blob([bytes], { type: attachment.mimeType }));
+        } else if (mimeType.startsWith("image/")) {
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
           if (!cancelled) setPreview({ kind: "image", url: objectUrl });
-        } else if (attachment.mimeType.startsWith("text/") || ["txt", "csv"].includes(extension)) {
+        } else if (mimeType.startsWith("audio/")) {
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+          if (!cancelled) setPreview({ kind: "audio", url: objectUrl });
+        } else if (mimeType.startsWith("video/")) {
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+          if (!cancelled) setPreview({ kind: "video", url: objectUrl });
+        } else if (mimeType.startsWith("text/") || ["txt", "csv", "md", "json", "xml", "log"].includes(extension)) {
           if (!cancelled) setPreview({ kind: "text", text: new TextDecoder().decode(bytes) });
         } else {
           throw new Error("لا تتوفر معاينة داخلية لهذا النوع من الملفات.");
@@ -165,6 +180,12 @@ export default function AttachmentPreview() {
         )}
         {preview?.kind === "image" && (
           <img src={preview.url} alt={filename} className="max-h-[75vh] max-w-full object-contain" />
+        )}
+        {preview?.kind === "audio" && (
+          <audio src={preview.url} controls className="w-full max-w-2xl" />
+        )}
+        {preview?.kind === "video" && (
+          <video src={preview.url} controls className="max-h-[75vh] max-w-full rounded-lg" />
         )}
         {preview?.kind === "text" && (
           <pre dir="auto" className="min-h-[70vh] w-full whitespace-pre-wrap break-words p-5 text-sm leading-8">
