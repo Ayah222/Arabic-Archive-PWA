@@ -560,7 +560,7 @@ export default function ProjectDetail() {
           setToast({ message: `تم حذف فئة "${name}"`, type: "success" });
         }}
         title="حذف الفئة"
-        message={`سيتم حذف فئة "${categoryToDelete?.name || ""}" وجميع ملفاتها نهائياً. هل تريد المتابعة؟`}
+        message={`سيتم حذف فئة "${categoryToDelete?.name || ""}" وملفاتها من النظام فقط، وستبقى الملفات محفوظة في السحابة. هل تريد المتابعة؟`}
         confirmLabel="حذف"
         danger
         loading={removeCat.isPending}
@@ -2352,7 +2352,7 @@ function AttachmentFolderBrowser({
             }
           }}
           title="حذف المجلد"
-          message={`سيتم حذف المجلد "${folderDisplayName}" وكل الملفات والمجلدات الموجودة بداخله نهائياً. هل تريد المتابعة؟`}
+          message={`سيتم حذف المجلد "${folderDisplayName}" ومحتوياته من النظام فقط، وستبقى الملفات محفوظة في السحابة. هل تريد المتابعة؟`}
           confirmLabel="حذف المجلد"
           danger
           loading={deletingFolder}
@@ -2363,7 +2363,7 @@ function AttachmentFolderBrowser({
         onClose={() => setDeleteIds(null)}
         onConfirm={() => void handleBulkDelete()}
         title="حذف المرفقات المحددة"
-        message={`سيتم حذف ${deleteIds?.length ?? 0} مرفقات نهائياً. هل تريد المتابعة؟`}
+        message={`سيتم حذف ${deleteIds?.length ?? 0} مرفقات من النظام فقط، وستبقى الملفات محفوظة في السحابة. هل تريد المتابعة؟`}
         confirmLabel="حذف"
         danger
       />

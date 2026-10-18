@@ -122,13 +122,7 @@ router.delete("/sa/projects/:id/photos/:pid", async (req, res): Promise<void> =>
     res.status(404).json({ error: "not found" });
     return;
   }
-  const supabasePath = parseSupabaseObjectPath(data.object_path);
-  if (supabasePath) await deleteSupabaseObject(supabasePath);
-  else {
-    const driveFileId = parseTenantDriveObjectPath(data.object_path);
-    if (driveFileId) await deleteTenantFile(currentTenantId(), driveFileId);
-    else await deletePrivateObject(data.object_path);
-  }
+  // Remove the photo from the archive index only. Keep its cloud object intact.
   res.json({ ok: true });
 });
 

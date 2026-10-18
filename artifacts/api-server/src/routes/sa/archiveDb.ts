@@ -19,10 +19,8 @@ import type {
   SAAttachment,
   SAAuditLog,
 } from "./store";
-import { deletePrivateObject, storageObjectUrl } from "../../lib/objectStorage";
-import { deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl } from "../../lib/supabaseStorage";
-import { currentTenantId } from "../../lib/tenantContext";
-import { deleteTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { storageObjectUrl } from "../../lib/objectStorage";
+import { parseSupabaseObjectPath, signedSupabaseUrl } from "../../lib/supabaseStorage";
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message);
@@ -180,17 +178,6 @@ function attachmentObjectPath(row: Record<string, unknown>): string | null {
   }
 }
 
-async function deleteStoredObject(objectPath: string) {
-  const driveFileId = parseTenantDriveObjectPath(objectPath);
-  if (driveFileId) {
-    await deleteTenantFile(currentTenantId(), driveFileId);
-    return;
-  }
-  const supabasePath = parseSupabaseObjectPath(objectPath);
-  if (supabasePath) await deleteSupabaseObject(supabasePath);
-  else await deletePrivateObject(objectPath);
-}
-
 async function toAttachment(row: Record<string, unknown>): Promise<SAAttachment> {
   const objectPath = attachmentObjectPath(row);
   const supabasePath = parseSupabaseObjectPath(objectPath);
@@ -296,17 +283,10 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
-  // The attachments row is cascaded by the database, but its storage object is
-  // not. Capture the rows before the cascade so their objects can be removed.
-  const existingAttachments = unwrap(
-    await supabaseAdmin().from("attachments").select("*").eq("project_id", id),
-  ) as Array<Record<string, unknown>>;
+  // Deleting a project removes its archive records, but intentionally retains
+  // the underlying files in cloud storage.
   const { error, count } = await supabaseAdmin().from("projects").delete({ count: "exact" }).eq("id", id);
   if (error) throw new Error(error.message);
-  await Promise.all(existingAttachments.flatMap((item) => {
-    const objectPath = attachmentObjectPath(item);
-    return objectPath ? [deleteStoredObject(objectPath)] : [];
-  }));
   return (count ?? 0) > 0;
 }
 
@@ -942,14 +922,6 @@ export async function createAttachment(
 }
 
 export async function deleteAttachmentsByCategory(projectId: string, categoryId: string): Promise<number> {
-  const existing = unwrap(
-    await supabaseAdmin()
-      .from("attachments")
-      .select("*")
-      .eq("project_id", projectId)
-      .eq("entity_type", "custom_doc")
-      .eq("entity_id", categoryId),
-  ) as Array<Record<string, unknown>>;
   const { error, count } = await supabaseAdmin()
     .from("attachments")
     .delete({ count: "exact" })
@@ -957,10 +929,6 @@ export async function deleteAttachmentsByCategory(projectId: string, categoryId:
     .eq("entity_type", "custom_doc")
     .eq("entity_id", categoryId);
   if (error) throw new Error(error.message);
-  await Promise.all(existing.flatMap((item) => {
-    const objectPath = attachmentObjectPath(item);
-    return objectPath ? [deleteStoredObject(objectPath)] : [];
-  }));
   return count ?? 0;
 }
 
@@ -974,8 +942,6 @@ export async function deleteAttachment(projectId: string, id: string, allowedUpl
   const { data, error } = await query.select("*").maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return false;
-  const objectPath = attachmentObjectPath(data);
-  if (objectPath) await deleteStoredObject(objectPath);
   return true;
 }
 
@@ -1005,10 +971,6 @@ export async function deleteAttachmentFolder(
   const { data, error } = await query.select("*");
   if (error) throw new Error(error.message);
   const deletedRows = (data ?? []) as Array<Record<string, unknown>>;
-  await Promise.all(deletedRows.flatMap((item) => {
-    const objectPath = attachmentObjectPath(item);
-    return objectPath ? [deleteStoredObject(objectPath)] : [];
-  }));
   return deletedRows.length;
 }
 
