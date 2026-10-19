@@ -12,3 +12,4 @@
 - [Tenant context after external uploads](tenant-context-after-upload.md) — re-enter tenant scope for tenant-filtered inserts after external storage awaits.
 - [Private Word previews](private-word-previews.md) — render private DOCX files inside the authenticated archive; never make tenant Drive files public for Office Online.
 - [Bulk deletion permissions](bulk-selection-permissions.md) — preserve each module's existing delete guard when adding selection and bulk confirmation.
+- [AI analysis isolation](ai-analysis-isolation.md) — AI document analysis is explicitly user-triggered and must never affect uploads or sensitive HR files.
