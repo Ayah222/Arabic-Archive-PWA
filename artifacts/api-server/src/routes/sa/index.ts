@@ -33,6 +33,7 @@ import { requireHrAccess } from "./hr/permissions";
 import { requireTenantContext } from "../../middlewares/tenantContext";
 import tenantRouter from "./tenants";
 import tenantStorageRouter from "./tenantStorage";
+import aiRouter from "./ai";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(storageRouter);
 router.use(agenciesRouter);
 router.use(tenantRouter);
 router.use(tenantStorageRouter);
+router.use(aiRouter);
 
 export default router;

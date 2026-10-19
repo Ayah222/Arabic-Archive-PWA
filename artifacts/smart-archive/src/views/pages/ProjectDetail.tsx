@@ -2140,57 +2140,114 @@ function AttachmentFileRow({
   onToggle?: () => void;
   compact?: boolean;
 }) {
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiAnswer, setAiAnswer] = useState("");
+  const [aiError, setAiError] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
   const fileName = attachment.name.split("/").filter(Boolean).pop() || attachment.name;
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const aiSupported = ["pdf", "docx", "txt", "csv", "md", "json"].includes(extension);
+  const runAi = async (task: "extract" | "ask") => {
+    setAiBusy(true);
+    setAiError("");
+    setAiAnswer("");
+    try {
+      const response = await fetch("/api/sa/ai/analyze", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
+        body: JSON.stringify({
+          projectId: attachment.projectId,
+          attachmentId: attachment.id,
+          task,
+          ...(task === "ask" ? { question: aiQuestion } : {}),
+        }),
+      });
+      const payload = await response.json() as { answer?: string; error?: string; truncated?: boolean };
+      if (!response.ok) throw new Error(payload.error || "تعذر تحليل المستند.");
+      setAiAnswer(`${payload.answer || ""}${payload.truncated ? "\n\nتم اختصار النص المرسل بسبب طول المستند." : ""}`);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "تعذر تحليل المستند.");
+    } finally {
+      setAiBusy(false);
+    }
+  };
   return (
-    <div
-      className={`flex items-center gap-3 bg-card border border-border shadow-sm ${compact ? "rounded-lg px-2 py-1.5 text-xs" : "rounded-2xl p-4"} ${onPreview ? "cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors" : ""}`}
-      role={onPreview ? "button" : undefined}
-      tabIndex={onPreview ? 0 : undefined}
-      onClick={() => onPreview?.(attachment)}
-      onKeyDown={(event) => {
-        if (onPreview && (event.key === "Enter" || event.key === " ")) {
-          event.preventDefault();
-          onPreview(attachment);
-        }
-      }}
-    >
-      {canDelete && onToggle && <input
-        type="checkbox"
-        checked={selected}
-        onChange={onToggle}
-        onClick={(event) => event.stopPropagation()}
-        className="accent-primary shrink-0"
-        aria-label={`تحديد ${fileName}`}
-      />}
-      <span className={compact ? "text-base" : "text-3xl"}>{mimeIcon(attachment.mimeType)}</span>
-      <div className="flex-1 min-w-0">
-        {onPreview ? (
+    <div className="space-y-2">
+      <div
+        className={`flex items-center gap-3 bg-card border border-border shadow-sm ${compact ? "rounded-lg px-2 py-1.5 text-xs" : "rounded-2xl p-4"} ${onPreview ? "cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors" : ""}`}
+        role={onPreview ? "button" : undefined}
+        tabIndex={onPreview ? 0 : undefined}
+        onClick={() => onPreview?.(attachment)}
+        onKeyDown={(event) => {
+          if (onPreview && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            onPreview(attachment);
+          }
+        }}
+      >
+        {canDelete && onToggle && <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          onClick={(event) => event.stopPropagation()}
+          className="accent-primary shrink-0"
+          aria-label={`تحديد ${fileName}`}
+        />}
+        <span className={compact ? "text-base" : "text-3xl"}>{mimeIcon(attachment.mimeType)}</span>
+        <div className="flex-1 min-w-0">
+          {onPreview ? (
+            <button
+              type="button"
+              onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
+              className="block max-w-full truncate text-right font-semibold text-primary hover:underline"
+              aria-label={`فتح الملف ${fileName} في المتصفح`}
+            >
+              {fileName}
+            </button>
+          ) : <p className="font-semibold truncate">{fileName}</p>}
+          <span className="text-muted-foreground text-xs">{attachment.customType}</span>
+          {!compact && <p className="text-xs text-muted-foreground mt-0.5">
+            {new Date(attachment.uploadedAt).toLocaleDateString("ar-SA")}
+            {attachment.size ? ` · ${(attachment.size / 1024).toFixed(0)} KB` : ""}
+          </p>}
+        </div>
+        {onPreview && (
           <button
             type="button"
             onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
-            className="block max-w-full truncate text-right font-semibold text-primary hover:underline"
-            aria-label={`فتح الملف ${fileName} في المتصفح`}
+            className="text-xs text-primary hover:underline shrink-0"
           >
-            {fileName}
+            فتح في المتصفح
           </button>
-        ) : <p className="font-semibold truncate">{fileName}</p>}
-        <span className="text-muted-foreground text-xs">{attachment.customType}</span>
-        {!compact && <p className="text-xs text-muted-foreground mt-0.5">
-          {new Date(attachment.uploadedAt).toLocaleDateString("ar-SA")}
-          {attachment.size ? ` · ${(attachment.size / 1024).toFixed(0)} KB` : ""}
-        </p>}
-      </div>
-      {onPreview && (
-        <button
+        )}
+        {aiSupported && <button
           type="button"
-          onClick={(event) => { event.stopPropagation(); onPreview(attachment); }}
-          className="text-xs text-primary hover:underline shrink-0"
+          onClick={(event) => { event.stopPropagation(); setAiOpen((open) => !open); setAiError(""); }}
+          className="text-xs text-violet-600 hover:underline shrink-0"
+          aria-expanded={aiOpen}
         >
-          فتح في المتصفح
-        </button>
-      )}
-      <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
-      {canDelete && <button onClick={(event) => { event.stopPropagation(); void onDelete(attachment); }} className="text-xs text-destructive hover:underline shrink-0">حذف</button>}
+          ✨ ذكاء اصطناعي
+        </button>}
+        <a href={attachment.dataUrl} download={fileName} onClick={(event) => event.stopPropagation()} className="text-xs text-primary hover:underline shrink-0">تنزيل</a>
+        {canDelete && <button onClick={(event) => { event.stopPropagation(); void onDelete(attachment); }} className="text-xs text-destructive hover:underline shrink-0">حذف</button>}
+      </div>
+      {aiOpen && <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3 space-y-3" onClick={(event) => event.stopPropagation()}>
+        <p className="text-xs text-violet-900">سيُرسل نص هذا المستند إلى Google Gemini للتحليل عند بدء الطلب. لا يُحفظ الناتج في الأرشيف.</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={aiBusy} onClick={() => void runAi("extract")} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+            استخراج البيانات
+          </button>
+          <input value={aiQuestion} onChange={(event) => setAiQuestion(event.target.value)} maxLength={1000} placeholder="اسأل عن محتوى الملف..." className="min-w-48 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs" />
+          <button type="button" disabled={aiBusy || !aiQuestion.trim()} onClick={() => void runAi("ask")} className="rounded-lg border border-violet-300 px-3 py-2 text-xs font-bold text-violet-700 disabled:opacity-50">
+            اسأل
+          </button>
+        </div>
+        {aiBusy && <p className="text-xs text-muted-foreground">جارٍ التحليل…</p>}
+        {aiError && <p role="alert" className="text-xs text-destructive">{aiError}</p>}
+        {aiAnswer && <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-3 text-sm leading-7 font-sans">{aiAnswer}</pre>}
+      </div>}
     </div>
   );
 }
