@@ -34,7 +34,7 @@ artifacts/smart-archive/
 │   │   └── types.ts                 ← جميع أنواع TypeScript المشتركة
 │   ├── controllers/
 │   │   ├── useGlobal.ts             ← هوكس API الرئيسية (fetch للـ API Server)
-│   │   ├── useVoice.ts              ← تسجيل صوتي (stub / OpenAI Whisper)
+│   │   ├── useVoice.ts              ← تسجيل صوتي وتفريغ عربي عبر Gemini
 │   │   └── ...
 │   └── views/
 │       ├── layouts/
@@ -149,7 +149,7 @@ artifacts/api-server/
 | الخدمة | الحالة | المتغير |
 |--------|--------|---------|
 | Supabase | ⏸️ جاهز، غير مُفعّل | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
-| OpenAI Whisper | ⏸️ جاهز، غير مُفعّل | `VITE_OPENAI_API_KEY` |
+| Google Gemini | ✅ تحليل الأرشيف والتصنيف والتفريغ الصوتي | `GEMINI_API_KEY` |
 | قاعدة بيانات حقيقية | ⏸️ غير مُفعّل | — |
 
 ---

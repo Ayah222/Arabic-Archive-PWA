@@ -47,29 +47,23 @@ export function useVoice(projectId?: string) {
         stream.getTracks().forEach((t) => t.stop());
         setState("processing");
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-
-        const OPENAI_KEY = (import.meta as { env: Record<string, string> }).env.VITE_OPENAI_API_KEY;
-        if (OPENAI_KEY) {
-          try {
-            const form = new FormData();
-            form.append("file", blob, "recording.webm");
-            form.append("model", "whisper-1");
-            form.append("language", "ar");
-            const transcribeRes = await fetch(
-              "https://api.openai.com/v1/audio/transcriptions",
-              { method: "POST", headers: { Authorization: `Bearer ${OPENAI_KEY}` }, body: form }
-            );
-            const transcribeData = (await transcribeRes.json()) as { text?: string };
-            if (transcribeData.text) {
-              await submitText(transcribeData.text);
-              return;
-            }
-          } catch {
-            /* fall through to stub */
+        try {
+          const form = new FormData();
+          form.append("file", blob, "recording.webm");
+          const transcribeRes = await fetch("/api/sa/voice/transcribe", {
+            method: "POST",
+            credentials: "include",
+            body: form,
+          });
+          const transcribeData = (await transcribeRes.json()) as { text?: string; error?: string };
+          if (!transcribeRes.ok || !transcribeData.text) {
+            throw new Error(transcribeData.error ?? "تعذر تفريغ التسجيل");
           }
+          await submitText(transcribeData.text);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "تعذر تفريغ التسجيل الصوتي");
+          setState("error");
         }
-
-        await submitText("أمر تجريبي - مفتاح OpenAI غير مضبوط");
       };
       mr.start();
       setState("recording");
