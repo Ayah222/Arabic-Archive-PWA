@@ -24,12 +24,12 @@ Supabase Storage can reject object keys containing Arabic or mojibake characters
 
 **How to apply:** Check the app's Supabase environment-variable precedence and confirm the MCP project is the active app project before making changes. Use `mcpSupabase_applyMigration` for DDL, then verify the migration record, expected tables/columns/policies, and API startup. Never use the Replit `DATABASE_URL` for Supabase DDL.
 
-## Development and Production can target different Supabase projects
-The development MCP target is the clean, active `ARCHIVE-AI` project and has the multi-tenant migration. The published deployment still logs `exceed_storage_size_quota`; Replit keeps Production Secrets separate from Development, and edits must be published to affect the live app.
+## Development and Production Supabase target
+The user confirmed on 2026-10-20 that `VITE_SUPABASE_URL` in both Development and Production points to the active `ARCHIVE-AI` project in `eu-west-1`. Its project reference matches the non-secret URL configured in `.replit`.
 
-**Why:** The MCP project and local API runtime were healthy after migration, while production continued reporting the quota error. Secret-presence checks do not reveal whether Development and Production contain matching values.
+**Why:** Supabase URLs are secrets in this workspace and their values must not be inspected. The user verified both environments directly after the visible project name and region were matched against the configured Supabase project.
 
-**How to apply:** Verify Development and Production separately. Never inspect or print secret values. Before claiming production uses the new Supabase project, have the owner confirm Production Secrets target it, publish the updated deployment, then re-check the live runtime.
+**How to apply:** Do not change either environment's Supabase URL unless the user confirms a different target. Continue checking Development and Production separately without reading or printing secret values.
 
 ## The live Supabase schema may lag behind the setup SQL
 Treat additive columns in the setup file as desired schema, not proof that the live Supabase table already has them. For persistent attachments, preserve compatibility with the legacy URL column when the newer object-path column is absent.

@@ -135,12 +135,7 @@ artifacts/api-server/
 
 ## 🗃️ قاعدة البيانات
 
-**حالياً: in-memory store** — البيانات تُخزَّن في الذاكرة وتُمسح عند إعادة تشغيل الخادم.  
-الملف المركزي: `artifacts/api-server/src/routes/sa/store.ts`
-
-**مستقبلاً:** الكود مُعدّ لاستقبال Supabase (PostgreSQL) عبر متغيرات البيئة:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+**حالياً: Supabase PostgreSQL** — يستخدم التطبيق Supabase لتخزين بيانات الأرشيف والحسابات، مع عزل بيانات المؤسسات.
 
 ---
 
@@ -148,9 +143,8 @@ artifacts/api-server/
 
 | الخدمة | الحالة | المتغير |
 |--------|--------|---------|
-| Supabase | ⏸️ جاهز، غير مُفعّل | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
+| Supabase | ✅ مفعّل — مشروع `ARCHIVE-AI` | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
 | Google Gemini | ✅ تحليل الأرشيف والتصنيف والتفريغ الصوتي | `GEMINI_API_KEY` |
-| قاعدة بيانات حقيقية | ⏸️ غير مُفعّل | — |
 
 ---
 
