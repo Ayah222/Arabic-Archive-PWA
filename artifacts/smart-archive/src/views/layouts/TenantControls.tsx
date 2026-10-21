@@ -40,6 +40,7 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     create: "Create",
     driveTitle: "Organization files on Google Drive",
     connectDrive: "Connect Google Drive",
+    reconnectDrive: "Reconnect Google Drive",
     connected: "Connected",
     driveShared: "This Google account is linked to another organization. New uploads are blocked; existing files remain available.",
     driveUnverified: "Google account identity could not be verified. Reconnect the same account.",
@@ -53,6 +54,7 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     create: "إنشاء",
     driveTitle: "ملفات المؤسسة على Google Drive",
     connectDrive: "ربط Google Drive",
+    reconnectDrive: "إعادة ربط Google Drive",
     connected: "متصل",
     driveShared: "حساب Google هذا مربوط بمؤسسة أخرى؛ أُوقف رفع الملفات الجديدة وتبقى الملفات السابقة متاحة.",
     driveUnverified: "تعذر التحقق من حساب Google المرتبط. أعد ربط الحساب نفسه.",
@@ -205,13 +207,23 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
                 {text.driveShared}
               </p>
             ) : drive?.connected && !drive.accountVerified ? (
-              <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
-                {text.driveUnverified}
-              </p>
+              <div className="space-y-1.5">
+                <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
+                  {text.driveUnverified}
+                </p>
+                <button type="button" onClick={() => void connectDrive()} disabled={busy} className="w-full rounded-lg px-2 py-1.5 text-[11px] font-bold disabled:opacity-50" style={{ background: isDark ? "rgba(0,210,230,0.12)" : "rgba(99,102,241,0.10)", color: isDark ? "#6de4ed" : "#5557bb" }}>
+                  {text.reconnectDrive}
+                </button>
+              </div>
             ) : drive?.connected ? (
-              <div className="flex items-center gap-1.5 text-[10px]" style={{ color: isDark ? "#86efac" : "#15803d" }}>
-                <Check className="w-3.5 h-3.5" />
-                <span className="truncate">{drive.connectedEmail || text.connected}</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: isDark ? "#86efac" : "#15803d" }}>
+                  <Check className="w-3.5 h-3.5" />
+                  <span className="truncate">{drive.connectedEmail || text.connected}</span>
+                </div>
+                <button type="button" onClick={() => void connectDrive()} disabled={busy} className="w-full rounded-lg px-2 py-1.5 text-[11px] font-bold disabled:opacity-50" style={{ background: isDark ? "rgba(0,210,230,0.12)" : "rgba(99,102,241,0.10)", color: isDark ? "#6de4ed" : "#5557bb" }}>
+                  {text.reconnectDrive}
+                </button>
               </div>
             ) : (
               <button type="button" onClick={() => void connectDrive()} disabled={busy} className="w-full rounded-lg px-2 py-1.5 text-[11px] font-bold disabled:opacity-50" style={{ background: isDark ? "rgba(0,210,230,0.12)" : "rgba(99,102,241,0.10)", color: isDark ? "#6de4ed" : "#5557bb" }}>
