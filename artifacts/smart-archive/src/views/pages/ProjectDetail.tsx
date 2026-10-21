@@ -233,7 +233,6 @@ async function uploadFilesReliably(
           break;
         } catch (error) {
           lastError = error;
-          if (isDriveConnectionFailure(error)) break;
           if (attempt < 2) {
             await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
           }
@@ -263,16 +262,6 @@ function getUploadFailureReason(error: unknown) {
     return "خطأ من الخادم أثناء حفظ المرفق";
   }
   return message.slice(0, 180);
-}
-
-function isDriveConnectionFailure(error: unknown) {
-  if (!(error instanceof Error)) return false;
-  try {
-    const parsed = JSON.parse(error.message) as { code?: unknown };
-    return typeof parsed.code === "string" && parsed.code.startsWith("GOOGLE_DRIVE_");
-  } catch {
-    return false;
-  }
 }
 
 function isBrowserPreviewSupported(attachment: SAAttachment) {
@@ -1675,25 +1664,6 @@ function AttachmentsPanel({
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
-  const [driveReconnectRequired, setDriveReconnectRequired] = useState(false);
-  const [driveReconnectBusy, setDriveReconnectBusy] = useState(false);
-
-  const reconnectDrive = async () => {
-    if (driveReconnectBusy) return;
-    setDriveReconnectBusy(true);
-    try {
-      const response = await fetch("/api/sa/tenants/storage/google/connect", { credentials: "include" });
-      const result = await response.json() as { url?: string; error?: string };
-      if (!response.ok || !result.url) throw new Error(result.error || "تعذر بدء إعادة ربط Google Drive");
-      window.location.assign(result.url);
-    } catch (error) {
-      setNotice({
-        message: error instanceof Error ? error.message : "تعذر بدء إعادة ربط Google Drive",
-        type: "error",
-      });
-      setDriveReconnectBusy(false);
-    }
-  };
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1722,7 +1692,6 @@ function AttachmentsPanel({
       }, setUploadProgress);
       if (result.failed.length) {
         setRetryableFiles(result.failed.map(({ file }) => file));
-        setDriveReconnectRequired(result.failed.some(({ error }) => isDriveConnectionFailure(error)));
         const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
         const suffix = result.failed.length > 3 ? "…" : "";
         const reason = getUploadFailureReason(result.failed[0]?.error);
@@ -1732,7 +1701,6 @@ function AttachmentsPanel({
         });
         return;
       }
-      setDriveReconnectRequired(false);
       setShowAdd(false);
       setAttName("");
       setAttType("مستند");
@@ -1754,11 +1722,9 @@ function AttachmentsPanel({
       }, setUploadProgress);
       if (result.failed.length) {
         setRetryableFiles(result.failed.map(({ file }) => file));
-        setDriveReconnectRequired(result.failed.some(({ error }) => isDriveConnectionFailure(error)));
         setNotice({ message: `تعذر رفع ${result.failed.length} ملفاً مرة أخرى`, type: "error" });
       } else {
         setRetryableFiles([]);
-        setDriveReconnectRequired(false);
         setNotice({ message: `تمت إعادة رفع ${files.length} ملفاً داخل مساراتها الأصلية`, type: "success" });
       }
     } finally {
@@ -1776,8 +1742,7 @@ function AttachmentsPanel({
       const uploaded = await addFolderZip.mutateAsync({ entityType, entityId, file, customType: attType, targetPath: currentPath });
       setNotice({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً في هذا القسم`, type: "success" });
       setShowAdd(false);
-    } catch (error) {
-      setDriveReconnectRequired(isDriveConnectionFailure(error));
+    } catch {
       setNotice({ message: `تعذر فتح ZIP. تأكد أنه صالح ولا يتجاوز ${fileLimits.maxFolderFiles} ملف أو ${fileLimits.maxFolderBytes / (1024 * 1024 * 1024)}GB بعد فك الضغط`, type: "error" });
     }
   };
@@ -1795,16 +1760,6 @@ function AttachmentsPanel({
   return (
     <div className={compact ? "mt-3 border-t border-border pt-3" : "mt-4"}>
       {notice && <Toast message={notice.message} type={notice.type} onClose={() => setNotice(null)} />}
-      {driveReconnectRequired && (
-        <button
-          type="button"
-          onClick={() => void reconnectDrive()}
-          disabled={driveReconnectBusy}
-          className="mb-2 w-full rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15 disabled:opacity-60"
-        >
-          {driveReconnectBusy ? "جاري إعادة ربط Google Drive..." : "إعادة ربط Google Drive ثم أعد رفع الملف"}
-        </button>
-      )}
       {retryableFiles.length > 0 && !uploadProgress && (
         <button type="button" onClick={() => void retryFailedFiles()} className="mb-2 text-xs text-primary hover:underline">
           🔁 إعادة محاولة الملفات المتعثرة ({retryableFiles.length}) داخل مساراتها الأصلية
@@ -1896,27 +1851,8 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const [currentPath, setCurrentPath] = useState("");
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
-  const [driveReconnectRequired, setDriveReconnectRequired] = useState(false);
-  const [driveReconnectBusy, setDriveReconnectBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
-
-  const reconnectDrive = async () => {
-    if (driveReconnectBusy) return;
-    setDriveReconnectBusy(true);
-    try {
-      const response = await fetch("/api/sa/tenants/storage/google/connect", { credentials: "include" });
-      const result = await response.json() as { url?: string; error?: string };
-      if (!response.ok || !result.url) throw new Error(result.error || "تعذر بدء إعادة ربط Google Drive");
-      window.location.assign(result.url);
-    } catch (error) {
-      _setToast({
-        message: error instanceof Error ? error.message : "تعذر بدء إعادة ربط Google Drive",
-        type: "error",
-      });
-      setDriveReconnectBusy(false);
-    }
-  };
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1945,7 +1881,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       }, setUploadProgress);
       if (result.failed.length) {
         setRetryableFiles(result.failed.map(({ file }) => file));
-        setDriveReconnectRequired(result.failed.some(({ error }) => isDriveConnectionFailure(error)));
         const failedNames = result.failed.slice(0, 3).map(({ file }) => file.name).join(", ");
         const suffix = result.failed.length > 3 ? "…" : "";
         const reason = getUploadFailureReason(result.failed[0]?.error);
@@ -1955,7 +1890,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
         });
         return;
       }
-      setDriveReconnectRequired(false);
       setShowAdd(false);
       setAttName("");
       setAttType("");
@@ -1978,11 +1912,9 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       }, setUploadProgress);
       if (result.failed.length) {
         setRetryableFiles(result.failed.map(({ file }) => file));
-        setDriveReconnectRequired(result.failed.some(({ error }) => isDriveConnectionFailure(error)));
         _setToast({ message: `تعذر رفع ${result.failed.length} ملفاً مرة أخرى`, type: "error" });
       } else {
         setRetryableFiles([]);
-        setDriveReconnectRequired(false);
         _setToast({ message: `تمت إعادة رفع ${files.length} ملفاً داخل مساراتها الأصلية`, type: "success" });
       }
     } finally {
@@ -2006,8 +1938,7 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
       });
       setShowAdd(false);
       _setToast({ message: `تم رفع المجلد وحفظ ${uploaded.length} ملفاً`, type: "success" });
-    } catch (error) {
-      setDriveReconnectRequired(isDriveConnectionFailure(error));
+    } catch {
       _setToast({ message: "تعذر فتح ZIP أو تجاوز المجلد الحدود المسموحة", type: "error" });
     }
   };
@@ -2125,16 +2056,6 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
             {retryableFiles.length > 0 && !uploadProgress && (
               <button type="button" onClick={() => void retryFailedFiles()} className="text-xs text-primary hover:underline text-right">
                 🔁 إعادة محاولة الملفات المتعثرة ({retryableFiles.length}) داخل مساراتها الأصلية
-              </button>
-            )}
-            {driveReconnectRequired && (
-              <button
-                type="button"
-                onClick={() => void reconnectDrive()}
-                disabled={driveReconnectBusy}
-                className="w-full rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary disabled:opacity-60"
-              >
-                {driveReconnectBusy ? "جاري إعادة ربط Google Drive..." : "إعادة ربط Google Drive ثم أعد رفع الملف"}
               </button>
             )}
             {uploadProgress && (

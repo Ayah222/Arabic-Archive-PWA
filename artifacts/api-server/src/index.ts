@@ -1,7 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./routes/sa/scheduler";
-import { startTenantDriveRefreshScheduler } from "./lib/tenantDrive";
 
 const rawPort = process.env["PORT"];
 
@@ -25,5 +24,4 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startScheduler();
-  startTenantDriveRefreshScheduler();
 });
