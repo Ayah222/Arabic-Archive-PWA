@@ -292,25 +292,13 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     .slice(0, -1)
     .filter((part) => part && part !== "." && part !== "..")
     .slice(0, 20);
-  let saved: Awaited<ReturnType<typeof saveTenantFile>>;
-  try {
-    saved = await saveTenantFile({
-      tenantId: String(res.locals.tenantId),
-      filename: uploadedFile.originalname,
-      bytes: uploadedFile.buffer,
-      contentType: uploadedFile.mimetype,
-      folderSegments: ["attachments", projectId, entityType, ...relativeParts],
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (/expired or revoked|invalid_grant/i.test(message)) {
-      res.status(503).json({
-        error: "انتهت صلاحية ربط Google Drive أو أُلغي. أعد ربط الحساب نفسه من إعدادات المؤسسة، ثم أعد رفع الملف.",
-      });
-      return;
-    }
-    throw error;
-  }
+  const saved = await saveTenantFile({
+    tenantId: String(res.locals.tenantId),
+    filename: uploadedFile.originalname,
+    bytes: uploadedFile.buffer,
+    contentType: uploadedFile.mimetype,
+    folderSegments: ["attachments", projectId, entityType, ...relativeParts],
+  });
   try {
     const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
       entityType,

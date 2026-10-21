@@ -9,11 +9,15 @@ import {
 } from "node:crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { FILE_LIMITS } from "./fileLimits";
+import { logger } from "./logger";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const MAX_DRIVE_FILE_BYTES = FILE_LIMITS.maxFileBytes;
+const ACCESS_TOKEN_REFRESH_EARLY_MS = 10 * 60 * 1000;
+const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const DRIVE_REAUTH_REQUIRED_MESSAGE = "تعذر تجديد ربط Google Drive. أعد ربط الحساب نفسه من إعدادات المؤسسة؛ لن تتأثر الملفات الموجودة.";
 
 interface DriveCredentials {
   refreshToken: string;
@@ -45,6 +49,25 @@ interface DriveFile {
 }
 
 const accessTokens = new Map<string, { token: string; expiresAt: number }>();
+const tokenRefreshes = new Map<string, Promise<string>>();
+
+export class DriveReauthorizationRequiredError extends Error {
+  readonly code = "GOOGLE_DRIVE_REAUTH_REQUIRED";
+
+  constructor() {
+    super(DRIVE_REAUTH_REQUIRED_MESSAGE);
+    this.name = "DriveReauthorizationRequiredError";
+  }
+}
+
+export class DriveTokenRefreshUnavailableError extends Error {
+  readonly code = "GOOGLE_DRIVE_REFRESH_UNAVAILABLE";
+
+  constructor() {
+    super("تعذر تحديث اتصال Google Drive مؤقتاً. أعد المحاولة، أو استخدم زر «إعادة ربط Google Drive» إذا استمر العطل.");
+    this.name = "DriveTokenRefreshUnavailableError";
+  }
+}
 
 function oauthClientId() {
   const value = process.env.GOOGLE_DRIVE_CLIENT_ID;
@@ -321,47 +344,95 @@ async function assertDriveAccountIsIsolatedForUpload(connection: DriveConnection
   }
 }
 
-async function getAccessToken(connection: DriveConnection) {
+async function getAccessToken(connection: DriveConnection, forceRefresh = false) {
   const cached = accessTokens.get(connection.tenantId);
-  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
-  if (connection.credentials.accessToken && (connection.credentials.expiresAt ?? 0) > Date.now() + 60_000) {
+  if (!forceRefresh && cached && cached.expiresAt > Date.now() + ACCESS_TOKEN_REFRESH_EARLY_MS) return cached.token;
+  if (!forceRefresh && connection.credentials.accessToken && (connection.credentials.expiresAt ?? 0) > Date.now() + ACCESS_TOKEN_REFRESH_EARLY_MS) {
     accessTokens.set(connection.tenantId, {
       token: connection.credentials.accessToken,
       expiresAt: connection.credentials.expiresAt!,
     });
     return connection.credentials.accessToken;
   }
-  const response = await fetch(OAUTH_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: oauthClientId(),
-      client_secret: oauthClientSecret(),
-      refresh_token: connection.credentials.refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-  const result = await response.json() as { access_token?: string; expires_in?: number; error_description?: string };
-  if (!response.ok || !result.access_token) throw new Error(result.error_description || "Unable to refresh Google Drive access");
-  const expiresAt = Date.now() + Math.max(60, result.expires_in ?? 3600) * 1000;
-  accessTokens.set(connection.tenantId, { token: result.access_token, expiresAt });
-  const credentials = encryptCredentials({
-    ...connection.credentials,
-    accessToken: result.access_token,
-    expiresAt,
-  });
-  await supabaseAdmin().from("tenant_storage_connections")
-    .update({ encrypted_credentials: credentials, updated_at: new Date().toISOString() })
-    .eq("tenant_id", connection.tenantId);
-  return result.access_token;
+  const existingRefresh = tokenRefreshes.get(connection.tenantId);
+  if (existingRefresh) return existingRefresh;
+
+  const refresh = (async () => {
+    let result: {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+      error?: string;
+    };
+    let response: Response;
+    try {
+      response = await fetch(OAUTH_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: oauthClientId(),
+          client_secret: oauthClientSecret(),
+          refresh_token: connection.credentials.refreshToken,
+          grant_type: "refresh_token",
+        }),
+      });
+      result = await response.json() as typeof result;
+    } catch {
+      throw new DriveTokenRefreshUnavailableError();
+    }
+    if (!response.ok || !result.access_token) {
+      accessTokens.delete(connection.tenantId);
+      if (result.error === "invalid_grant") throw new DriveReauthorizationRequiredError();
+      throw new DriveTokenRefreshUnavailableError();
+    }
+
+    const expiresAt = Date.now() + Math.max(60, result.expires_in ?? 3600) * 1000;
+    const credentials = encryptCredentials({
+      ...connection.credentials,
+      refreshToken: result.refresh_token || connection.credentials.refreshToken,
+      accessToken: result.access_token,
+      expiresAt,
+    });
+    const { error } = await supabaseAdmin().from("tenant_storage_connections")
+      .update({ encrypted_credentials: credentials, updated_at: new Date().toISOString() })
+      .eq("tenant_id", connection.tenantId);
+    if (error) {
+      throw new DriveTokenRefreshUnavailableError();
+    }
+    accessTokens.set(connection.tenantId, { token: result.access_token, expiresAt });
+    return result.access_token;
+  })();
+  tokenRefreshes.set(connection.tenantId, refresh);
+  try {
+    return await refresh;
+  } finally {
+    if (tokenRefreshes.get(connection.tenantId) === refresh) {
+      tokenRefreshes.delete(connection.tenantId);
+    }
+  }
 }
 
-async function driveRequest<T>(connection: DriveConnection, url: string, init: RequestInit = {}): Promise<T> {
-  const token = await getAccessToken(connection);
-  const response = await fetch(url, {
+async function driveFetch(connection: DriveConnection, url: string, init: RequestInit = {}) {
+  const send = (token: string) => fetch(url, {
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${token}` },
   });
+  const token = await getAccessToken(connection);
+  let response = await send(token);
+  if (response.status !== 401) return response;
+
+  const cached = accessTokens.get(connection.tenantId);
+  if (cached?.token === token) accessTokens.delete(connection.tenantId);
+  response = await send(await getAccessToken(connection, true));
+  if (response.status === 401) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new DriveReauthorizationRequiredError();
+  }
+  return response;
+}
+
+async function driveRequest<T>(connection: DriveConnection, url: string, init: RequestInit = {}): Promise<T> {
+  const response = await driveFetch(connection, url, init);
   if (!response.ok) {
     const error = await response.text();
     throw new Error(`Google Drive request failed (${response.status}): ${error.slice(0, 400)}`);
@@ -488,13 +559,12 @@ export async function saveTenantFile(input: {
       parents: [parentId],
       appProperties: { smartArchiveTenantId: input.tenantId },
     });
-    const token = await getAccessToken(connection);
-    const sessionResponse = await fetch(
+    const sessionResponse = await driveFetch(
+      connection,
       `${DRIVE_UPLOAD_API}/files?uploadType=resumable&fields=id,name,mimeType,size`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json; charset=UTF-8",
           "X-Upload-Content-Type": uploadContentType,
           "X-Upload-Content-Length": String(input.bytes.length),
@@ -537,16 +607,13 @@ export async function saveTenantFile(input: {
 export async function downloadTenantFile(tenantId: string, fileId: string, maxBytes = MAX_DRIVE_FILE_BYTES) {
   if (!/^[A-Za-z0-9_-]{5,256}$/.test(fileId)) throw new Error("Invalid Google Drive file ID");
   const connection = await getConnection(tenantId);
-  const token = await getAccessToken(connection);
   const metadata = await driveRequest<{ name?: string; mimeType?: string; size?: string; appProperties?: Record<string, string> }>(
     connection,
     `${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=name,mimeType,size,appProperties`,
   );
   if (metadata.appProperties?.smartArchiveTenantId !== tenantId) throw new Error("Google Drive file belongs to a different organization");
   if (Number(metadata.size ?? 0) > maxBytes) throw new Error("File exceeds the allowed download size");
-  const response = await fetch(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await driveFetch(connection, `${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`);
   if (!response.ok) throw new Error(`Google Drive download failed (${response.status})`);
   const length = Number(response.headers.get("content-length") ?? 0);
   if (length > maxBytes) throw new Error("File exceeds the allowed download size");
@@ -615,4 +682,46 @@ export async function getTenantDriveStatus(tenantId: string) {
     sharedAccount,
     accountVerified: typeof data?.connected_email === "string" && data.connected_email.trim().length > 0,
   };
+}
+
+let refreshSchedulerStarted = false;
+
+export function startTenantDriveRefreshScheduler() {
+  if (refreshSchedulerStarted) return;
+  refreshSchedulerStarted = true;
+
+  let scanInProgress = false;
+  const refreshExpiringConnections = async () => {
+    if (scanInProgress) return;
+    scanInProgress = true;
+    try {
+      const { data, error } = await supabaseAdmin()
+        .from("tenant_storage_connections")
+        .select("tenant_id")
+        .eq("provider", "google_drive");
+      if (error) {
+        logger.warn({ err: error }, "Google Drive token refresh scan failed");
+        return;
+      }
+      for (const row of data ?? []) {
+        const tenantId = String(row.tenant_id);
+        try {
+          const connection = await getConnection(tenantId);
+          await getAccessToken(connection);
+        } catch (refreshError) {
+          if (refreshError instanceof DriveReauthorizationRequiredError) {
+            logger.warn({ tenantId }, "Google Drive requires organization reauthorization");
+          } else {
+            logger.warn({ err: refreshError, tenantId }, "Google Drive background token refresh failed");
+          }
+        }
+      }
+    } finally {
+      scanInProgress = false;
+    }
+  };
+
+  void refreshExpiringConnections();
+  const timer = setInterval(() => void refreshExpiringConnections(), BACKGROUND_REFRESH_INTERVAL_MS);
+  timer.unref();
 }
