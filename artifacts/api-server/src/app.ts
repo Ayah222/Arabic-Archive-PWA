@@ -40,7 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", router);
 const driveReauthorizationErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
   if (error instanceof DriveReauthorizationRequiredError || error instanceof DriveTokenRefreshUnavailableError) {
-    req.log.warn({ tenantId: res.locals.tenantId }, "Google Drive reauthorization required");
+    req.log.warn({ tenantId: res.locals.tenantId, code: error.code }, "Google Drive token refresh needs attention");
     res.status(503).json({
       code: error.code,
       error: error.message,

@@ -50,6 +50,7 @@ interface DriveFile {
 
 const accessTokens = new Map<string, { token: string; expiresAt: number }>();
 const tokenRefreshes = new Map<string, Promise<string>>();
+const reauthorizationRequiredTenants = new Set<string>();
 
 export class DriveReauthorizationRequiredError extends Error {
   readonly code = "GOOGLE_DRIVE_REAUTH_REQUIRED";
@@ -304,6 +305,7 @@ export async function completeDriveOAuth(input: {
     }, { onConflict: "tenant_id" });
   if (error) throw new Error(error.message);
   accessTokens.set(input.tenantId, { token: accessToken, expiresAt: Date.now() + Math.max(60, tokenBody.expires_in ?? 3600) * 1000 });
+  reauthorizationRequiredTenants.delete(input.tenantId);
   return { email: connectedEmail };
 }
 
@@ -345,6 +347,9 @@ async function assertDriveAccountIsIsolatedForUpload(connection: DriveConnection
 }
 
 async function getAccessToken(connection: DriveConnection, forceRefresh = false) {
+  if (reauthorizationRequiredTenants.has(connection.tenantId)) {
+    throw new DriveReauthorizationRequiredError();
+  }
   const cached = accessTokens.get(connection.tenantId);
   if (!forceRefresh && cached && cached.expiresAt > Date.now() + ACCESS_TOKEN_REFRESH_EARLY_MS) return cached.token;
   if (!forceRefresh && connection.credentials.accessToken && (connection.credentials.expiresAt ?? 0) > Date.now() + ACCESS_TOKEN_REFRESH_EARLY_MS) {
@@ -382,7 +387,10 @@ async function getAccessToken(connection: DriveConnection, forceRefresh = false)
     }
     if (!response.ok || !result.access_token) {
       accessTokens.delete(connection.tenantId);
-      if (result.error === "invalid_grant") throw new DriveReauthorizationRequiredError();
+      if (result.error === "invalid_grant") {
+        reauthorizationRequiredTenants.add(connection.tenantId);
+        throw new DriveReauthorizationRequiredError();
+      }
       throw new DriveTokenRefreshUnavailableError();
     }
 
@@ -421,6 +429,7 @@ async function driveFetch(connection: DriveConnection, url: string, init: Reques
   let response = await send(token);
   if (response.status !== 401) return response;
 
+  await response.body?.cancel().catch(() => undefined);
   const cached = accessTokens.get(connection.tenantId);
   if (cached?.token === token) accessTokens.delete(connection.tenantId);
   response = await send(await getAccessToken(connection, true));
@@ -705,6 +714,7 @@ export function startTenantDriveRefreshScheduler() {
       }
       for (const row of data ?? []) {
         const tenantId = String(row.tenant_id);
+        if (reauthorizationRequiredTenants.has(tenantId)) continue;
         try {
           const connection = await getConnection(tenantId);
           await getAccessToken(connection);

@@ -5,7 +5,14 @@ import { inflateRawSync } from "node:zlib";
 import { deletePrivateObject, downloadPrivateObject, savePrivateObject } from "../../lib/objectStorage";
 import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
-import { deleteTenantFile, downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
+import {
+  deleteTenantFile,
+  downloadTenantFile,
+  DriveReauthorizationRequiredError,
+  DriveTokenRefreshUnavailableError,
+  parseTenantDriveObjectPath,
+  saveTenantFile,
+} from "../../lib/tenantDrive";
 import { runWithTenant } from "../../lib/tenantContext";
 import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
@@ -406,6 +413,10 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       else await deletePrivateObject(objectPath).catch(() => undefined);
     }
     if (directStoragePath) await deleteSupabaseObject(directStoragePath).catch(() => undefined);
+    if (error instanceof DriveReauthorizationRequiredError || error instanceof DriveTokenRefreshUnavailableError) {
+      res.status(503).json({ code: error.code, error: error.message });
+      return;
+    }
     res.status(400).json({ error: error instanceof Error ? error.message : "Could not extract ZIP folder" });
   }
 });
