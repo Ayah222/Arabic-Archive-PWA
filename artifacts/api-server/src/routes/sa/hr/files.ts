@@ -11,7 +11,8 @@ import multer from "multer";
 import { decodeSupabasePath, signedSupabaseUrl, SUPABASE_STORAGE_DISABLED_MESSAGE } from "../../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../../lib/fileLimits";
 import { currentTenantId } from "../../../lib/tenantContext";
-import { downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../../lib/tenantDrive";
+import { downloadTenantFile } from "../../../lib/tenantDrive";
+import { downloadPrivateObject, getPrivateObjectMetadata, isTenantPrivateObject, saveTenantPrivateObject } from "../../../lib/objectStorage";
 
 const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
   ? path.resolve(process.cwd(), "../..")
@@ -84,17 +85,15 @@ router.post("/sa/hr/upload", (req, res, next) => {
   }
   const tenantId = currentTenantId();
   const uploadFile = req.file;
-  void saveTenantFile({
+  void saveTenantPrivateObject({
     tenantId,
+    namespace: "hr",
     filename: uploadFile.originalname,
     bytes: uploadFile.buffer,
     contentType: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
-    folderSegments: ["hr"],
   }).then((saved) => {
-    const fileId = parseTenantDriveObjectPath(saved.objectName);
-    if (!fileId) throw new Error("Invalid Google Drive upload reference");
     res.json({
-      url: `/api/sa/hr/storage/files/${encodeURIComponent(fileId)}`,
+      url: `/api/sa/hr/storage/files/app_${Buffer.from(saved.objectName, "utf8").toString("base64url")}`,
       filename: uploadFile.originalname,
       size: uploadFile.size,
       mimetype: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
@@ -104,20 +103,39 @@ router.post("/sa/hr/upload", (req, res, next) => {
   });
 });
 
-router.get("/sa/hr/storage/files/:fileId", async (req, res): Promise<void> => {
+router.get("/sa/hr/storage/files/:fileRef", async (req, res): Promise<void> => {
   try {
-    const file = await downloadTenantFile(currentTenantId(), String(req.params.fileId));
-    const extension = path.extname(file.filename).toLowerCase();
+    const fileRef = String(req.params.fileRef);
+    const tenantId = currentTenantId();
+    let filename: string;
+    let bytes: Buffer;
+    if (fileRef.startsWith("app_")) {
+      const objectName = Buffer.from(fileRef.slice(4), "base64url").toString("utf8");
+      if (!isTenantPrivateObject(objectName, tenantId, "hr")) {
+        res.status(404).json({ error: "File not found" });
+        return;
+      }
+      const storedName = path.basename(objectName);
+      filename = storedName.replace(/^[0-9a-f-]{36}-/i, "") || "file";
+      const metadata = await getPrivateObjectMetadata(objectName);
+      filename = String(metadata.metadata?.originalName || filename);
+      bytes = await downloadPrivateObject(objectName, FILE_LIMITS.maxFileBytes);
+    } else {
+      const file = await downloadTenantFile(tenantId, fileRef);
+      filename = file.filename;
+      bytes = file.bytes;
+    }
+    const extension = path.extname(filename).toLowerCase();
     const contentType = SAFE_EXTENSIONS[extension];
     if (!contentType) {
       res.status(404).json({ error: "File not found" });
       return;
     }
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.send(file.bytes);
+    res.send(bytes);
   } catch {
     res.status(404).json({ error: "File not found" });
   }

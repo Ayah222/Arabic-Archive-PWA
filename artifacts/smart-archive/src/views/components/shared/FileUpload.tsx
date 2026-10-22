@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { getAttachmentMimeType, getUserRequestHeaders, useFileLimits } from "../../../controllers/useGlobal";
-import { supabase } from "../../../lib/supabase";
 
 interface FileUploadProps {
   onUpload: (result: { url: string; filename: string; size: number; mimetype: string }) => void;
@@ -40,30 +39,28 @@ export default function FileUpload({
     }
     setUploading(true);
     try {
-      const storageBase = endpoint.includes("/hr/") ? "/api/sa/hr/storage" : "/api/sa/storage";
-      const targetResponse = await fetch(`${storageBase}/upload-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getUserRequestHeaders() },
-        body: JSON.stringify({ filename: file.name, projectId, section }),
-      });
-      if (!targetResponse.ok) {
-        const body = await targetResponse.json().catch(() => null) as { error?: string } | null;
-        throw new Error(body?.error || "تعذر إنشاء رابط الرفع");
-      }
-      const target = (await targetResponse.json()) as { bucket: string; path: string; token: string; fileUrl: string };
       const contentType = getAttachmentMimeType(file);
       const uploadFile = file.type === contentType
         ? file
         : new File([file], file.name, { type: contentType, lastModified: file.lastModified });
-      const { error: uploadError } = await supabase.storage
-        .from(target.bucket)
-        .uploadToSignedUrl(target.path, target.token, uploadFile, { contentType });
-      if (uploadError) throw new Error(uploadError.message);
+      const form = new FormData();
+      form.append("file", uploadFile);
+      form.append("projectId", projectId);
+      form.append("section", section);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: getUserRequestHeaders(),
+        body: form,
+      });
+      const result = await response.json().catch(() => null) as {
+        url?: string; filename?: string; size?: number; mimetype?: string; error?: string;
+      } | null;
+      if (!response.ok || !result?.url) throw new Error(result?.error || "تعذر رفع الملف");
       onUpload({
-        url: target.fileUrl,
-        filename: file.name,
-        size: file.size,
-        mimetype: contentType,
+        url: result.url,
+        filename: result.filename || file.name,
+        size: result.size ?? file.size,
+        mimetype: result.mimetype || contentType,
       });
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "فشل في رفع الملف، يرجى المحاولة مجدداً");

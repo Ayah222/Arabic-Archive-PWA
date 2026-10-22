@@ -35,6 +35,23 @@ export function privateObjectLocation(...segments: string[]) {
   };
 }
 
+export function privateObjectStorageConfigured() {
+  try {
+    privateObjectLocation();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isTenantPrivateObject(objectName: string, tenantId: string, namespace?: string) {
+  const { objectName: prefix } = privateObjectLocation();
+  const tenantPrefix = `${prefix ? `${prefix}/` : ""}tenants/${tenantId}/`;
+  if (!objectName.startsWith(tenantPrefix)) return false;
+  if (!namespace) return true;
+  return objectName.startsWith(`${tenantPrefix}${safeSegment(namespace, "uploads")}/`);
+}
+
 function safeSegment(value: string, fallback: string) {
   const cleaned = value
     .normalize("NFKC")
@@ -85,6 +102,23 @@ export async function savePrivateObject(input: {
   };
 }
 
+export async function saveTenantPrivateObject(input: {
+  tenantId: string;
+  namespace: string;
+  filename: string;
+  bytes: Buffer;
+  contentType?: string;
+  segments?: string[];
+}) {
+  return savePrivateObject({
+    namespace: "tenants",
+    filename: input.filename,
+    bytes: input.bytes,
+    contentType: input.contentType,
+    segments: [input.tenantId, input.namespace, ...(input.segments ?? [])],
+  });
+}
+
 export async function deletePrivateObject(objectName: string) {
   const { bucketName } = privateObjectLocation();
   await objectStorageClient.bucket(bucketName).file(objectName).delete({ ignoreNotFound: true });
@@ -100,4 +134,10 @@ export async function downloadPrivateObject(objectName: string, maxBytes?: numbe
   const [bytes] = await file.download();
   if (maxBytes && bytes.length > maxBytes) throw new Error("حجم الملف يتجاوز الحد المسموح");
   return bytes;
+}
+
+export async function getPrivateObjectMetadata(objectName: string) {
+  const { bucketName } = privateObjectLocation();
+  const [metadata] = await objectStorageClient.bucket(bucketName).file(objectName).getMetadata();
+  return metadata;
 }

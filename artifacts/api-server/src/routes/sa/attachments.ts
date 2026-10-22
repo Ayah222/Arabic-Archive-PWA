@@ -2,14 +2,13 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { basename, extname } from "node:path";
 import { inflateRawSync } from "node:zlib";
-import { deletePrivateObject, downloadPrivateObject, savePrivateObject } from "../../lib/objectStorage";
+import { deletePrivateObject, downloadPrivateObject, saveTenantPrivateObject } from "../../lib/objectStorage";
 import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import {
   deleteTenantFile,
   downloadTenantFile,
   parseTenantDriveObjectPath,
-  saveTenantFile,
 } from "../../lib/tenantDrive";
 import { runWithTenant } from "../../lib/tenantContext";
 import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
@@ -297,12 +296,13 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     .slice(0, -1)
     .filter((part) => part && part !== "." && part !== "..")
     .slice(0, 20);
-  const saved = await saveTenantFile({
+  const saved = await saveTenantPrivateObject({
     tenantId: String(res.locals.tenantId),
+    namespace: "attachments",
     filename: uploadedFile.originalname,
     bytes: uploadedFile.buffer,
     contentType: uploadedFile.mimetype,
-    folderSegments: ["attachments", projectId, entityType, ...relativeParts],
+    segments: [projectId, entityType, ...relativeParts],
   });
   try {
     const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
@@ -368,12 +368,13 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       const mimeType = mimeByExtension[extname(filename).toLowerCase()] || "application/octet-stream";
       const savedPath = directStoragePath
         ? await uploadSupabaseObject({ storagePath: `attachments/${projectId}/${entityType}/${relativePath}`, bytes, contentType: mimeType })
-        : (await saveTenantFile({
+        : (await saveTenantPrivateObject({
             tenantId: String(res.locals.tenantId),
+            namespace: "attachments",
             filename,
             bytes,
             contentType: mimeType,
-            folderSegments: ["attachments", projectId, entityType, ...relativeParts],
+            segments: [projectId, entityType, ...relativeParts],
           })).objectName;
       try {
         const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {

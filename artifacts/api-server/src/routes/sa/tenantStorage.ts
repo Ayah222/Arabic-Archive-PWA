@@ -2,10 +2,9 @@ import { Router } from "express";
 import multer from "multer";
 import {
   downloadTenantFile,
-  getTenantDriveStatus,
 } from "../../lib/tenantDrive";
+import { privateObjectStorageConfigured, saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
-import { saveTenantFile } from "../../lib/tenantDrive";
 import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
 const router = Router();
@@ -21,7 +20,15 @@ router.get("/sa/tenants/storage", async (req, res): Promise<void> => {
     res.status(401).json({ error: "يلزم تسجيل الدخول" });
     return;
   }
-  res.json(await getTenantDriveStatus(actor.tenantId));
+  const configured = privateObjectStorageConfigured();
+  res.json({
+    connected: configured,
+    configured,
+    provider: configured ? "replit_app_storage" : null,
+    connectedEmail: null,
+    sharedAccount: true,
+    accountVerified: configured,
+  });
 });
 
 router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res): Promise<void> => {
@@ -38,14 +45,15 @@ router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res
     res.status(400).json({ error: "يرجى اختيار ملف صالح" });
     return;
   }
-  const saved = await saveTenantFile({
+  const saved = await saveTenantPrivateObject({
     tenantId: String(res.locals.tenantId),
+    namespace: "agencies",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    folderSegments,
+    segments: folderSegments.slice(1),
   });
-  res.status(201).json({ path: saved.objectName });
+  res.status(201).json({ path: saved.objectName, url: storageObjectUrl(saved.objectName) });
 });
 
 router.get("/sa/storage/files/:fileId", async (req, res): Promise<void> => {

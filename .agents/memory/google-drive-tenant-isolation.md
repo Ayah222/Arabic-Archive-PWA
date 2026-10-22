@@ -3,11 +3,11 @@ name: Google Drive tenant isolation
 description: Keep each organization's Google Drive credentials and root folder isolated.
 ---
 
-Use the configured Google service account for Drive access and create each organization's active upload root beneath `GOOGLE_DRIVE_ROOT_FOLDER_ID`, with a tenant marker. Existing file IDs are resolved directly and must not be moved or invalidated when changing the active upload root. The shared service identity does not remove tenant ownership checks.
+Use Replit App Storage for new tenant files, with tenant-scoped object paths and private serving. Keep legacy Google Drive objects readable by their existing file IDs; do not bulk-move them. The configured Google service account may remain for legacy reads, but do not use it to write into My Drive.
 
-**Why:** Drive logs showed that a service-account upload was denied after resumable-upload setup, and an existing per-tenant root in the database could bypass the configured shared folder. Updating the active root preserves file IDs while making new uploads use the explicitly shared location.
+**Why:** Google returned `storageQuotaExceeded` for service-account content uploads, and the owner cannot create a Google Workspace Shared Drive. New files therefore need a storage backend that does not depend on Google Drive service-account quota.
 
-**How to apply:** Read the service-account key and shared archive folder ID only from server-side Secrets. Resolve or provision a distinct tenant root beneath the configured shared folder for every organization, keep legacy files where they are, and verify tenant markers before reads or deletes. Log Google API denial reasons without logging credentials or file content.
+**How to apply:** Save new files under `tenants/<tenant-id>/<module>/...` in private App Storage. Verify tenant ownership on every serving route, retain existing Google Drive reads, and preserve each module's authorization rules—especially HR files.
 
 For multipart uploads to Drive, configure Multer's `defParamCharset` as UTF-8; its default Latin-1 decoding can corrupt Arabic `originalname` before Drive receives the UTF-8 JSON metadata. Never substitute generic project/folder names for missing upload context, and prune only empty app-owned folders after failed uploads or deletions.
 **Why:** The Drive API metadata request can be UTF-8-correct while the filename has already been corrupted by multipart parsing, and failed DB writes can leave empty Drive parents behind.

@@ -5,7 +5,8 @@ import { deleteSupabaseObject, parseSupabaseObjectPath, signedSupabaseUrl, supab
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 import { currentTenantId } from "../../lib/tenantContext";
-import { deleteTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
+import { deleteTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { saveTenantPrivateObject } from "../../lib/objectStorage";
 
 const router = Router();
 const upload = multer({
@@ -81,12 +82,13 @@ router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): 
   }
 
   const projectId = String(req.params.id);
-  const saved = await saveTenantFile({
+  const saved = await saveTenantPrivateObject({
     tenantId: currentTenantId(),
+    namespace: "project-photos",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    folderSegments: ["project-photos", projectId],
+    segments: [projectId],
   });
   const { data, error } = await supabaseAdmin()
     .from("project_photos")

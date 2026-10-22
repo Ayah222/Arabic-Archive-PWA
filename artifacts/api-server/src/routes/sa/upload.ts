@@ -7,7 +7,7 @@ import {
 } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { DEFAULT_TENANT_ID } from "../../lib/tenantContext";
-import { saveTenantFile } from "../../lib/tenantDrive";
+import { saveTenantPrivateObject } from "../../lib/objectStorage";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -30,12 +30,13 @@ router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void>
     res.status(400).json({ error: "يلزم تحديد مشروع وقسم صالحين قبل رفع الملف" });
     return;
   }
-  const saved = await saveTenantFile({
+  const saved = await saveTenantPrivateObject({
     tenantId: String(res.locals.tenantId),
+    namespace: "uploads",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
-    folderSegments: ["uploads", projectId, section],
+    segments: [projectId, section],
   });
 
   res.json({
@@ -62,7 +63,7 @@ router.get("/sa/files/:objectRef", async (req, res): Promise<void> => {
       return;
     }
     const scopedName = isTenantPath ? relativeName.slice(`tenants/${tenantId}/`.length) : relativeName;
-    if (!["uploads/", "project-photos/", "attachments/"].some((prefix) => scopedName.startsWith(prefix))) {
+    if (!["uploads/", "project-photos/", "attachments/", "agencies/"].some((prefix) => scopedName.startsWith(prefix))) {
       res.status(404).json({ error: "File not found" });
       return;
     }

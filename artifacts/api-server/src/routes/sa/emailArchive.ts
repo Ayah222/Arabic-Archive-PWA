@@ -1,11 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { ReplitConnectors } from "@replit/connectors-sdk";
-import { objectStorageClient, privateObjectLocation } from "../../lib/objectStorage";
+import { downloadPrivateObject, isTenantPrivateObject, objectStorageClient, privateObjectLocation, saveTenantPrivateObject } from "../../lib/objectStorage";
 import { hasAdminAccess, verifyEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
 import { addAuditLog } from "./archiveDb";
 import { currentTenantId, DEFAULT_TENANT_ID } from "../../lib/tenantContext";
-import { downloadTenantFile, parseTenantDriveObjectPath, saveTenantFile } from "../../lib/tenantDrive";
+import { downloadTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
 
 const router: IRouter = Router();
 const gmail = new ReplitConnectors();
@@ -206,12 +206,13 @@ async function saveAttachment(
   );
   const bytes = payload.data ? base64UrlToBuffer(payload.data) : Buffer.alloc(0);
   const safeName = attachment.filename.replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 160) || "attachment";
-  const saved = await saveTenantFile({
+  const saved = await saveTenantPrivateObject({
     tenantId: currentTenantId(),
+    namespace: "email-archive",
     filename: `${randomUUID().slice(0, 8)}-${safeName}`,
     bytes,
     contentType: attachment.mimeType,
-    folderSegments: ["email-archive", messageId],
+    segments: [messageId],
   });
 
   return {
@@ -475,8 +476,19 @@ router.get("/sa/email-archive/:id/attachments/:attachmentId/download", async (re
       res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
     }
   } else {
-    if (currentTenantId() !== DEFAULT_TENANT_ID) {
+    const tenantId = currentTenantId();
+    const isNewTenantPath = isTenantPrivateObject(attachment.objectName, tenantId, "email-archive");
+    const isLegacyDefaultPath = tenantId === DEFAULT_TENANT_ID;
+    if (!isNewTenantPath && !isLegacyDefaultPath) {
       res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
+      return;
+    }
+    if (isNewTenantPath) {
+      try {
+        res.send(await downloadPrivateObject(attachment.objectName));
+      } catch {
+        res.status(404).json({ error: "تعذر العثور على ملف المرفق" });
+      }
       return;
     }
     const { bucketName } = privateObjectLocation();
