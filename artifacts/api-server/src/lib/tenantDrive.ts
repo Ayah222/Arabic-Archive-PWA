@@ -1,6 +1,7 @@
 import { createSign } from "node:crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { FILE_LIMITS } from "./fileLimits";
+import { logger } from "./logger";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
@@ -27,6 +28,45 @@ interface ServiceAccountCredentials {
   type?: string;
   client_email: string;
   private_key: string;
+}
+
+interface GoogleErrorResponse {
+  error?: {
+    status?: string;
+    errors?: Array<{ reason?: string }>;
+  };
+}
+
+export class GoogleDriveAccessDeniedError extends Error {
+  readonly httpStatus = 502;
+  readonly code = "GOOGLE_DRIVE_ACCESS_DENIED";
+  readonly publicMessage: string;
+
+  constructor(readonly reason: string) {
+    const messages: Record<string, string> = {
+      storageQuotaExceeded: "رفض Google Drive حفظ الملف بسبب سعة التخزين. حساب الخدمة لا يملك مساحة My Drive خاصة؛ استخدم Shared Drive وأضف حساب الخدمة إليه بصلاحية Contributor أو أعلى.",
+      insufficientFilePermissions: "رفض Google Drive حفظ الملف بسبب الصلاحيات. امنح حساب الخدمة صلاحية Contributor أو أعلى على مجلد الأرشيف المشترك.",
+      teamDriveMembershipRequired: "يجب إضافة حساب الخدمة كعضو في Shared Drive الذي يحتوي على مجلد الأرشيف.",
+    };
+    const publicMessage = messages[reason]
+      || "رفض Google Drive إكمال رفع الملف. تحقق من صلاحية حساب الخدمة على مجلد الأرشيف المشترك.";
+    super(publicMessage);
+    this.name = "GoogleDriveAccessDeniedError";
+    this.publicMessage = publicMessage;
+  }
+}
+
+function getGoogleErrorReason(responseText: string): { reason: string; status: string | null } {
+  try {
+    const result = JSON.parse(responseText) as GoogleErrorResponse;
+    const rawReason = result.error?.errors?.[0]?.reason || result.error?.status || "";
+    return {
+      reason: /^[A-Za-z0-9_]{1,80}$/.test(rawReason) ? rawReason : "unknown",
+      status: result.error?.status || null,
+    };
+  } catch {
+    return { reason: "unknown", status: null };
+  }
 }
 
 let parsedServiceAccount: ServiceAccountCredentials | null = null;
@@ -157,44 +197,23 @@ async function getConnection(tenantId: string): Promise<DriveConnection> {
     .maybeSingle();
   if (error) throw new Error("تعذر قراءة إعداد تخزين المؤسسة");
 
-  let rootFolderId = data?.provider === "google_drive" ? String(data.root_folder_id ?? "") : "";
-  if (rootFolderId) {
-    const connection = { tenantId, rootFolderId };
-    const root = await driveRequest<DriveFile & { trashed?: boolean }>(
-      connection,
-      `${DRIVE_API}/files/${encodeURIComponent(rootFolderId)}?fields=id,mimeType,trashed,appProperties`,
-    );
-    if (
-      root.mimeType !== "application/vnd.google-apps.folder"
-      || root.trashed
-      || root.appProperties?.smartArchiveTenantId !== tenantId
-    ) {
-      throw new Error("مجلد المؤسسة الحالي غير متاح لحساب الخدمة أو لا يطابق بيانات المؤسسة. لم يتم نقل الملفات.");
-    }
-  } else {
-    const connection = { tenantId, rootFolderId: sharedRootId };
-    const folderName = `Smart Archive - ${tenantId}`;
-    const query = new URLSearchParams({
-      q: `name = '${folderName}' and '${sharedRootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and appProperties has { key='smartArchiveTenantId' and value='${tenantId}' } and trashed = false`,
-      fields: "files(id,name,appProperties)",
-      pageSize: "100",
-    });
-    const folders = await driveRequest<{ files?: DriveFile[] }>(connection, `${DRIVE_API}/files?${query}`);
-    let folder = folders.files?.[0];
-    if (!folder) {
-      folder = await driveRequest<DriveFile>(connection, `${DRIVE_API}/files?fields=id,name,appProperties`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: folderName,
-          mimeType: "application/vnd.google-apps.folder",
-          parents: [sharedRootId],
-          appProperties: { smartArchiveTenantId: tenantId },
-        }),
-      });
-    }
-    if (!folder.id) throw new Error("تعذر إنشاء مجلد المؤسسة داخل مجلد الأرشيف المشترك");
-    rootFolderId = folder.id;
+  // Keep every tenant's active upload root beneath the configured shared archive folder.
+  // Existing file IDs remain unchanged and are still resolved directly by ID.
+  const sharedRootConnection = { tenantId, rootFolderId: sharedRootId };
+  const tenantFolder = await ensureFolder(
+    sharedRootConnection,
+    sharedRootId,
+    `Smart Archive - ${tenantId}`,
+  );
+  const rootFolderId = tenantFolder.id;
+  const previousRootReplaced = Boolean(data?.root_folder_id && String(data.root_folder_id) !== rootFolderId);
+  if (tenantFolder.created || previousRootReplaced) {
+    logger.info({
+      tenantId,
+      rootSource: "GOOGLE_DRIVE_ROOT_FOLDER_ID",
+      tenantRootCreated: tenantFolder.created,
+      previousRootReplaced,
+    }, "Resolved tenant upload folder under configured Google Drive root");
   }
 
   const { error: saveError } = await supabaseAdmin()
@@ -242,9 +261,14 @@ async function driveRequest<T>(connection: DriveConnection, url: string, init: R
   const response = await driveFetch(connection, url, init);
   if (!response.ok) {
     const error = await response.text();
+    if (response.status === 403) {
+      const { reason, status } = getGoogleErrorReason(error);
+      logger.error({ tenantId: connection.tenantId, status: response.status, reason, googleStatus: status }, "Google Drive denied an API request");
+      throw new GoogleDriveAccessDeniedError(reason);
+    }
     const safeError = error.trimStart().startsWith("<")
       ? "استجاب Google Drive بصفحة HTML بدلاً من بيانات API."
-      : error.slice(0, 400);
+      : `Google Drive returned an error (${response.status}).`;
     throw new Error(`Google Drive request failed (${response.status}): ${safeError}`);
   }
   if (response.status === 204) return undefined as T;
@@ -393,8 +417,24 @@ export async function saveTenantFile(input: {
       headers: { "Content-Type": uploadContentType, "Content-Length": String(input.bytes.length) },
       body: input.bytes,
     });
-    const uploaded = await uploadResponse.json() as DriveFile;
-    if (!uploadResponse.ok) throw new Error(`Google Drive upload failed (${uploadResponse.status})`);
+    const uploadResponseText = await uploadResponse.text();
+    let uploadResult: DriveFile & GoogleErrorResponse;
+    try {
+      uploadResult = JSON.parse(uploadResponseText) as DriveFile & GoogleErrorResponse;
+    } catch {
+      uploadResult = {} as DriveFile & GoogleErrorResponse;
+    }
+    if (!uploadResponse.ok) {
+      const { reason, status } = getGoogleErrorReason(uploadResponseText);
+      logger.error({
+        tenantId: input.tenantId,
+        status: uploadResponse.status,
+        reason,
+        googleStatus: status,
+      }, "Google Drive rejected uploaded file content");
+      throw new GoogleDriveAccessDeniedError(reason);
+    }
+    const uploaded = uploadResult;
     if (!uploaded.id) throw new Error("Google Drive did not return the uploaded file ID");
     if (uploaded.size !== undefined && Number(uploaded.size) !== input.bytes.length) {
       await driveRequest<void>(connection, `${DRIVE_API}/files/${encodeURIComponent(uploaded.id)}`, { method: "DELETE" });

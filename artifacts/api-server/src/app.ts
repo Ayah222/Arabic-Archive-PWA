@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { GoogleDriveAccessDeniedError } from "./lib/tenantDrive";
 
 const app: Express = express();
 
@@ -42,14 +43,19 @@ const apiErrorHandler: ErrorRequestHandler = (error, _req, res, next) => {
     next(error);
     return;
   }
-  const status = typeof error?.status === "number" && error.status >= 400 && error.status < 600
-    ? error.status
-    : 500;
+  const status = error instanceof GoogleDriveAccessDeniedError
+    ? error.httpStatus
+    : typeof error?.status === "number" && error.status >= 400 && error.status < 600
+      ? error.status
+      : 500;
   logger.error({ err: error, status }, "API request failed");
   res.status(status).json({
-    error: status < 500 && error instanceof Error
-      ? error.message
-      : "تعذر إكمال الطلب. تحقق من إعدادات الخادم وحاول مجدداً.",
+    code: error instanceof GoogleDriveAccessDeniedError ? error.code : undefined,
+    error: error instanceof GoogleDriveAccessDeniedError
+      ? error.publicMessage
+      : status < 500 && error instanceof Error
+        ? error.message
+        : "تعذر إكمال الطلب. تحقق من إعدادات الخادم وحاول مجدداً.",
   });
 };
 app.use("/api", apiErrorHandler);
