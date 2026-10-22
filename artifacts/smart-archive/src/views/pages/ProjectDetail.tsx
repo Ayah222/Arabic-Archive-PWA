@@ -2353,7 +2353,7 @@ function AttachmentFolderBrowser({
           })}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {canEdit && onAddFile && (
+          {currentPath && canEdit && onAddFile && (
             <>
               <button
                 type="button"
