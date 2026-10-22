@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import type { ErrorRequestHandler } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -32,5 +33,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "مسار API غير موجود" });
+});
+
+const apiErrorHandler: ErrorRequestHandler = (error, _req, res, next) => {
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+  const status = typeof error?.status === "number" && error.status >= 400 && error.status < 600
+    ? error.status
+    : 500;
+  logger.error({ err: error, status }, "API request failed");
+  res.status(status).json({
+    error: status < 500 && error instanceof Error
+      ? error.message
+      : "تعذر إكمال الطلب. تحقق من إعدادات الخادم وحاول مجدداً.",
+  });
+};
+app.use("/api", apiErrorHandler);
 
 export default app;

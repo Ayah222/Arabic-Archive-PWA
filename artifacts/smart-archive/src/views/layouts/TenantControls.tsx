@@ -23,6 +23,19 @@ interface TenantControlsProps {
   lang: string;
 }
 
+async function readApiJson<T>(response: Response): Promise<T> {
+  const body = await response.text();
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throw new Error(
+      body.trimStart().startsWith("<") || response.headers.get("content-type")?.includes("text/html")
+        ? "أعاد الخادم صفحة ويب بدلاً من بيانات النظام. أعد تحميل الصفحة وحاول مجدداً."
+        : "تعذر قراءة استجابة الخادم.",
+    );
+  }
+}
+
 export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }: TenantControlsProps) {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [drive, setDrive] = useState<DriveStatus | null>(null);
@@ -67,11 +80,11 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
       isAdmin ? fetch("/api/sa/tenants/storage", { credentials: "include" }) : Promise.resolve(null),
     ]).then(async ([tenantResponse, driveResponse]) => {
       if (!tenantResponse.ok) throw new Error(text.loadOrganizations);
-      const nextTenants = await tenantResponse.json() as Tenant[];
+      const nextTenants = await readApiJson<Tenant[]>(tenantResponse);
       let nextDrive: DriveStatus | null = null;
       if (driveResponse) {
         if (!driveResponse.ok) throw new Error(text.loadStorage);
-        nextDrive = await driveResponse.json() as DriveStatus;
+        nextDrive = await readApiJson<DriveStatus>(driveResponse);
       }
       if (mounted) {
         setTenants(nextTenants);
@@ -95,7 +108,7 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await readApiJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "تعذر تبديل المؤسسة");
       window.location.reload();
     } catch (switchError) {
@@ -117,7 +130,7 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await readApiJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "تعذر إنشاء المؤسسة");
       window.location.reload();
     } catch (createError) {

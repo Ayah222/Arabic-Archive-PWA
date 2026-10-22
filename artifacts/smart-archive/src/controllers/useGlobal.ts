@@ -5,6 +5,32 @@ const API = "/api/sa";
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
 
+async function readApiJson<T>(response: Response): Promise<T> {
+  const body = await response.text();
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    if (body.trimStart().startsWith("<") || response.headers.get("content-type")?.includes("text/html")) {
+      throw new Error("أعاد الخادم صفحة ويب بدلاً من بيانات API. أعد تحميل النظام وحاول مجدداً.");
+    }
+    throw new Error("تعذر قراءة استجابة الخادم بصيغة JSON.");
+  }
+}
+
+async function readApiError(response: Response): Promise<string> {
+  const body = await response.text();
+  try {
+    const result = JSON.parse(body) as { error?: unknown };
+    if (typeof result.error === "string" && result.error.trim()) return result.error;
+  } catch {
+    // Return a useful API error instead of exposing an HTML document or JSON parser exception.
+  }
+  if (body.trimStart().startsWith("<") || response.headers.get("content-type")?.includes("text/html")) {
+    return "أعاد الخادم صفحة ويب بدلاً من بيانات API. أعد تحميل النظام وحاول مجدداً.";
+  }
+  return body.slice(0, 300) || "تعذر إكمال الطلب";
+}
+
 export interface SAFileLimits {
   maxFileBytes: number;
   maxFolderFiles: number;
@@ -39,8 +65,8 @@ export function getAttachmentMimeType(file: Pick<File, "name" | "type">) {
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { headers: getUserRequestHeaders(), credentials: "include" });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  if (!r.ok) throw new Error(await readApiError(r));
+  return readApiJson<T>(r);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -53,8 +79,8 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  if (!r.ok) throw new Error(await readApiError(r));
+  return readApiJson<T>(r);
 }
 
 export async function downloadAttachmentsZip(projectId: string, attachmentIds: string[]) {
@@ -89,8 +115,8 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
     },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  if (!r.ok) throw new Error(await readApiError(r));
+  return readApiJson<T>(r);
 }
 
 async function put<T>(path: string, body: unknown): Promise<T> {
@@ -103,8 +129,8 @@ async function put<T>(path: string, body: unknown): Promise<T> {
     },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  if (!r.ok) throw new Error(await readApiError(r));
+  return readApiJson<T>(r);
 }
 
 async function del(path: string): Promise<void> {

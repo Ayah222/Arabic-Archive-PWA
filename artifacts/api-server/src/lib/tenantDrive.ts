@@ -38,19 +38,41 @@ function getServiceAccountCredentials(): ServiceAccountCredentials {
   const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error(SERVICE_ACCOUNT_SETUP_MESSAGE);
   try {
-    const credentials = JSON.parse(raw) as Partial<ServiceAccountCredentials>;
+    let decoded: unknown = raw;
+    for (let attempt = 0; attempt < 3 && typeof decoded === "string"; attempt++) {
+      const text = decoded.trim().replace(/^\uFEFF/, "");
+      if (!text) throw new Error("Empty service account key");
+      const withoutFence = text
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "");
+      decoded = JSON.parse(withoutFence);
+    }
+    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+      throw new Error("Invalid service account key");
+    }
+    const credentials = decoded as Partial<ServiceAccountCredentials>;
     if (
-      credentials.type !== undefined && credentials.type !== "service_account"
+      (credentials.type !== undefined && credentials.type !== "service_account")
       || typeof credentials.client_email !== "string"
       || typeof credentials.private_key !== "string"
     ) throw new Error("Invalid service account key");
     parsedServiceAccount = {
       client_email: credentials.client_email,
-      private_key: credentials.private_key,
+      private_key: credentials.private_key.replace(/\\n/g, "\n"),
     };
     return parsedServiceAccount;
   } catch {
     throw new Error(SERVICE_ACCOUNT_SETUP_MESSAGE);
+  }
+}
+
+async function readJsonResponse<T>(response: Response, failureMessage: string): Promise<T> {
+  let text: string;
+  try {
+    text = await response.text();
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(failureMessage);
   }
 }
 
@@ -92,15 +114,23 @@ async function getAccessToken(forceRefresh = false): Promise<string> {
     signer.update(unsignedToken);
     signer.end();
     const assertion = `${unsignedToken}.${signer.sign(credentials.private_key).toString("base64url")}`;
-    const response = await fetch(SERVICE_ACCOUNT_TOKEN_URL, {
+    let response: Response;
+    try {
+      response = await fetch(SERVICE_ACCOUNT_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
         assertion,
       }),
-    });
-    const result = await response.json() as { access_token?: string; expires_in?: number };
+      });
+    } catch {
+      throw new Error("تعذر الاتصال بخدمة Google للتحقق من حساب الخدمة.");
+    }
+    const result = await readJsonResponse<{ access_token?: string; expires_in?: number }>(
+      response,
+      "أعادت خدمة Google استجابة غير صالحة لحساب الخدمة؛ تحقق من إعدادات الخادم وحاول مجدداً.",
+    );
     if (!response.ok || !result.access_token) {
       cachedServiceToken = null;
       throw new Error("تعذر الحصول على رمز وصول لحساب خدمة Google Drive. تحقق من المفتاح وصلاحية حساب الخدمة.");
@@ -212,10 +242,13 @@ async function driveRequest<T>(connection: DriveConnection, url: string, init: R
   const response = await driveFetch(connection, url, init);
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Google Drive request failed (${response.status}): ${error.slice(0, 400)}`);
+    const safeError = error.trimStart().startsWith("<")
+      ? "استجاب Google Drive بصفحة HTML بدلاً من بيانات API."
+      : error.slice(0, 400);
+    throw new Error(`Google Drive request failed (${response.status}): ${safeError}`);
   }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  return readJsonResponse<T>(response, "أعاد Google Drive استجابة غير صالحة؛ تحقق من الوصول إلى مجلد الأرشيف.");
 }
 
 async function ensureFolder(connection: DriveConnection, parentId: string, name: string): Promise<{ id: string; created: boolean }> {
