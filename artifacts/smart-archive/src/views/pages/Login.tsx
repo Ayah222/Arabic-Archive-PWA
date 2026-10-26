@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthActions, setCurrentUser } from "../../controllers/useGlobal";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { supabase } from "../../lib/supabase";
-import { Eye, EyeOff, FolderOpen } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 const Aurora = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
@@ -154,10 +154,12 @@ export default function LoginPage() {
       <div className="w-full max-w-sm relative z-10 space-y-5">
         {/* Brand */}
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center"
-            style={{ background:"linear-gradient(135deg,#00f0ff 0%,#7000ff 100%)", boxShadow:"0 0 40px rgba(0,240,255,0.45), inset 0 1px 1px rgba(255,255,255,0.25)", border:"1px solid rgba(0,240,255,0.35)" }}>
-            <FolderOpen className="w-8 h-8 text-white" />
-          </div>
+          <img
+            src="/arch-hive-logo.jpg"
+            alt="ArcHive"
+            className="w-24 h-24 mx-auto rounded-2xl object-contain"
+            style={{ boxShadow:"0 0 40px rgba(0,240,255,0.24)", border:"1px solid rgba(255,255,255,0.12)" }}
+          />
           <div>
             <h1 className="text-2xl font-black text-white">{t("welcome")}</h1>
             <p className="text-sm mt-0.5" style={{ color:"rgba(0,240,255,0.65)" }}>{t("smartSystem")}</p>

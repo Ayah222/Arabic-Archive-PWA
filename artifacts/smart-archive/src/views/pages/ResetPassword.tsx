@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, FolderOpen } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 export default function ResetPassword() {
@@ -105,10 +105,12 @@ export default function ResetPassword() {
       style={{ background:"radial-gradient(ellipse at 50% 0%, rgba(18,10,40,1) 0%, rgba(5,4,18,1) 60%)" }}>
       <div className="w-full max-w-sm space-y-5">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center"
-            style={{ background:"linear-gradient(135deg,#00f0ff 0%,#7000ff 100%)", boxShadow:"0 0 40px rgba(0,240,255,0.35)" }}>
-            <FolderOpen className="w-8 h-8 text-white" />
-          </div>
+          <img
+            src="/arch-hive-logo.jpg"
+            alt="ArcHive"
+            className="w-24 h-24 mx-auto rounded-2xl object-contain"
+            style={{ boxShadow:"0 0 40px rgba(0,240,255,0.24)", border:"1px solid rgba(255,255,255,0.12)" }}
+          />
           <h1 className="text-2xl font-black text-white">تعيين كلمة مرور جديدة</h1>
         </div>
 
