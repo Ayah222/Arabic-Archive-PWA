@@ -1,10 +1,10 @@
 ---
-name: Tenant context after external uploads
-description: Preserve tenant-scoped database access when an upload handler awaits external storage first.
+name: Tenant context across async boundaries
+description: Preserve tenant-scoped database access across external awaits and response lifecycle callbacks.
 ---
 
-After a route awaits an external storage operation and then inserts tenant-scoped rows, explicitly re-enter the tenant AsyncLocalStorage scope around the database helper. Do not assume the request middleware's scope is still present across the full external upload lifecycle.
+Explicitly re-enter the tenant AsyncLocalStorage scope for database work after external storage awaits and inside callbacks triggered after the HTTP response, such as `res.on("finish")`. Capture the tenant ID before the callback and wrap the database helper with `runWithTenant`. Catch and log callback failures so audit or other secondary work cannot crash the server after the response has been committed.
 
-**Why:** A folder attachment request intermittently reached its database insert without a tenant context after saving the file to Google Drive, producing a 500 and relying on a retry.
+**Why:** External-storage awaits can lose request scope, and response-finish callbacks run outside the original request context. Missing scope can fail tenant-filtered inserts or crash the server during audit logging.
 
-**How to apply:** In multi-file upload routes, wrap the post-storage tenant-filtered insert with `runWithTenant(res.locals.tenantId, ...)`, and keep cleanup operations scoped to the same tenant.
+**How to apply:** In upload routes, wrap post-storage tenant-filtered inserts with `runWithTenant(res.locals.tenantId, ...)` and keep cleanup scoped to that tenant. For response-finish work, capture `res.locals.tenantId`, re-enter it with `runWithTenant`, and handle any rejected promise without throwing from the event callback.

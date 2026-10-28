@@ -141,7 +141,7 @@ async function del(path: string): Promise<void> {
       ...getUserRequestHeaders(),
     },
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error(await readApiError(r));
 }
 
 async function postForm<T>(path: string, form: FormData): Promise<T> {
@@ -689,9 +689,7 @@ export function useAttachmentActions(projectId: string) {
       if (data.relativePath) form.append("relativePath", data.relativePath);
       return postForm<SAAttachment>(`${API}/projects/${projectId}/attachments`, form);
     },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
-    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] }),
   });
   const addFolderZip = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; file: File; customType: string; targetPath?: string }) => {
@@ -704,16 +702,12 @@ export function useAttachmentActions(projectId: string) {
       if (data.targetPath) form.append("targetPath", data.targetPath);
       return postForm<SAAttachment[]>(`${API}/projects/${projectId}/attachments/folder-zip`, form);
     },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
-    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] }),
   });
   const remove = useMutation({
     mutationFn: ({ aid, entityType, entityId }: { aid: string; entityType: string; entityId: string }) =>
       del(`${API}/projects/${projectId}/attachments/${aid}`).then(() => ({ aid, entityType, entityId })),
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
-    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] }),
   });
   const removeFolder = useMutation({
     mutationFn: (data: { entityType: string; entityId: string; folderPath: string }) =>
@@ -725,9 +719,7 @@ export function useAttachmentActions(projectId: string) {
         if (!response.ok) throw new Error(await response.text());
         return response.json() as Promise<{ deleted: number }>;
       }),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] });
-    },
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ["attachments", projectId, vars.entityType, vars.entityId] }),
   });
   return { add, addFolderZip, remove, removeFolder };
 }

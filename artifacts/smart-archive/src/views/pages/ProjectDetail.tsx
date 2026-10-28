@@ -1743,6 +1743,28 @@ function AttachmentsPanel({
     }
   };
 
+  const deleteAttachment = async (attachment: SAAttachment) => {
+    try {
+      await remove.mutateAsync({ aid: attachment.id, entityType, entityId });
+    } catch (error) {
+      setNotice({
+        message: error instanceof Error && error.message ? error.message : "تعذر حذف الملف. أعد المحاولة.",
+        type: "error",
+      });
+    }
+  };
+
+  const deleteAttachmentFolder = async (folderPath: string) => {
+    try {
+      await removeFolder.mutateAsync({ entityType, entityId, folderPath });
+    } catch (error) {
+      setNotice({
+        message: error instanceof Error && error.message ? error.message : "تعذر حذف المجلد. أعد المحاولة.",
+        type: "error",
+      });
+    }
+  };
+
   const uploadFolderZip = async (file: File | undefined) => {
     if (!file) return;
     if (file.size > fileLimits.maxZipArchiveBytes) {
@@ -1864,8 +1886,8 @@ function AttachmentsPanel({
         uploading={Boolean(uploadProgress)}
         onAddFile={(file) => void uploadFiles([file])}
         canDelete={canDelete}
-        onDelete={(att) => remove.mutateAsync({ aid: att.id, entityType, entityId })}
-        onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType, entityId, folderPath })}
+        onDelete={deleteAttachment}
+        onDeleteFolder={deleteAttachmentFolder}
         onPreview={openAttachmentPreview}
         mimeIcon={mimeIcon}
         compact
@@ -1993,12 +2015,26 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
   const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
   const handleBulkDelete = async () => {
     if (!deleteIds?.length) return;
-    for (const id of deleteIds) {
-      await remove.mutateAsync({ aid: id, entityType: "custom_doc", entityId: projectId });
+    const ids = deleteIds;
+    let deletedCount = 0;
+    try {
+      for (const id of ids) {
+        await remove.mutateAsync({ aid: id, entityType: "custom_doc", entityId: projectId });
+        deletedCount++;
+      }
+    } catch (error) {
+      setDeleteIds(null);
+      setSelectedIds(new Set());
+      const reason = error instanceof Error && error.message ? error.message : "تعذر حذف المستندات.";
+      _setToast({
+        message: deletedCount ? `تم حذف ${deletedCount} مستندات، ثم تعذر إكمال البقية: ${reason}` : reason,
+        type: "error",
+      });
+      return;
     }
     setDeleteIds(null);
     setSelectedIds(new Set());
-    _setToast({ message: deleteIds.length > 1 ? `تم حذف ${deleteIds.length} مستندات` : "تم حذف المستند", type: "success" });
+    _setToast({ message: ids.length > 1 ? `تم حذف ${ids.length} مستندات` : "تم حذف المستند", type: "success" });
   };
 
   const mimeIcon = (mime: string) => {
@@ -2061,10 +2097,20 @@ function CustomDocsTab({ projectId, setToast: _setToast }: TabProps) {
           onAddFile={(file) => void uploadFiles([file])}
           canDelete={canDelete}
             onPreview={openAttachmentPreview}
-           onDeleteFolder={(folderPath) => removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath })}
+            onDeleteFolder={async (folderPath) => {
+              try {
+                await removeFolder.mutateAsync({ entityType: "custom_doc", entityId: projectId, folderPath });
+              } catch (error) {
+                _setToast({ message: error instanceof Error && error.message ? error.message : "تعذر حذف المجلد.", type: "error" });
+              }
+            }}
           onDelete={async (att) => {
-            await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
-            _setToast({ message: "تم حذف المستند", type: "success" });
+             try {
+               await remove.mutateAsync({ aid: att.id, entityType: "custom_doc", entityId: projectId });
+               _setToast({ message: "تم حذف المستند", type: "success" });
+             } catch (error) {
+               _setToast({ message: error instanceof Error && error.message ? error.message : "تعذر حذف المستند.", type: "error" });
+             }
           }}
           mimeIcon={mimeIcon}
         />

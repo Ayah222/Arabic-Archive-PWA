@@ -1,6 +1,16 @@
 import type { NextFunction, Request, Response } from "express";
 import { addAuditLog } from "./archiveDb";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import { runWithTenant } from "../../lib/tenantContext";
+
+function writeAuditLog(req: Request, tenantId: string, actorId: string, actorName: string, action: "create" | "update" | "delete", entity: string, entityId: string, description: string) {
+  if (!tenantId) {
+    req.log.error("Skipping audit log because tenant context is missing");
+    return;
+  }
+  void runWithTenant(tenantId, () => addAuditLog(actorId, actorName, action, entity, entityId, description))
+    .catch((error) => req.log.error({ err: error }, "Failed to write audit log"));
+}
 
 function entityForPath(path: string) {
   if (path.includes("/contracts")) return "عقد";
@@ -48,13 +58,14 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
       return;
     }
     if (isMutating) {
+      const tenantId = String(res.locals.tenantId ?? "");
       res.on("finish", () => {
         if (res.statusCode < 200 || res.statusCode >= 300 || hasDetailedAudit(req.path)) return;
         const action = req.method === "POST" ? "create" : req.method === "DELETE" ? "delete" : "update";
         const entity = entityForPath(req.path);
         const actionLabel = action === "create" ? "إضافة" : action === "update" ? "تعديل" : "حذف نهائي";
         const entityId = String(req.params.uid ?? req.params.id ?? "new");
-        void addAuditLog(actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
+        writeAuditLog(req, tenantId, actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
       });
     }
     next();
@@ -101,6 +112,7 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
     return;
   }
   const role = actor.role;
+  const tenantId = String(res.locals.tenantId ?? "");
 
   if (role === "viewer") {
     res.status(403).json({ error: "حساب المراقب مخصص للمشاهدة والطباعة فقط" });
@@ -136,7 +148,7 @@ export function enforcePermissions(req: Request, res: Response, next: NextFuncti
       "new",
     );
 
-    void addAuditLog(actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
+    writeAuditLog(req, tenantId, actor.id, actor.name, action, entity, entityId, `${actionLabel} ${entity}`);
   });
 
   next();
