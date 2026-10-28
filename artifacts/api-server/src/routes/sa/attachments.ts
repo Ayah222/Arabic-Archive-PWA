@@ -1,7 +1,11 @@
 import { Router, type IRouter } from "express";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import multer from "multer";
-import { basename, extname } from "node:path";
+import { basename, extname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { inflateRawSync } from "node:zlib";
+import { promisify } from "node:util";
 import { deletePrivateObject, downloadPrivateObject, saveTenantPrivateObject } from "../../lib/objectStorage";
 import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, supabaseObjectPath, uploadSupabaseObject } from "../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
@@ -15,7 +19,9 @@ import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
 
 const router: IRouter = Router();
+const execFileAsync = promisify(execFile);
 const MAX_UPLOAD_BYTES = FILE_LIMITS.maxFileBytes;
+const MAX_OFFICE_PREVIEW_BYTES = 100 * 1024 * 1024;
 const MAX_FOLDER_FILES = FILE_LIMITS.maxFolderFiles;
 const MAX_FOLDER_TOTAL_BYTES = FILE_LIMITS.maxFolderBytes;
 const MAX_ZIP_ARCHIVE_BYTES = FILE_LIMITS.maxZipArchiveBytes;
@@ -165,6 +171,79 @@ router.get("/sa/projects/:id/attachments", async (req, res): Promise<void> => {
   const { id } = req.params;
   const { entityType, entityId } = req.query as { entityType?: string; entityId?: string };
   res.json(await listAttachments(String(id), { entityType, entityId }));
+});
+
+router.get("/sa/projects/:id/attachments/:aid/preview.pdf", async (req, res): Promise<void> => {
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor) {
+    res.status(401).json({ error: "جلسة المؤسسة غير صالحة. يرجى تسجيل الدخول مجدداً." });
+    return;
+  }
+
+  const projectId = String(req.params.id);
+  const attachmentId = String(req.params.aid);
+  const tenantId = String(res.locals.tenantId ?? "");
+  const [attachment] = await runWithTenant(
+    tenantId,
+    () => listAttachmentStorageByIds(projectId, [attachmentId]),
+  );
+  if (!attachment?.objectPath) {
+    res.status(404).json({ error: "المرفق غير موجود في هذا المشروع." });
+    return;
+  }
+
+  const extension = extname(basename(attachment.name)).toLowerCase();
+  if (extension !== ".docx" && extension !== ".pptx") {
+    res.status(415).json({ error: "معاينة PDF التحويل متاحة لملفات DOCX وPPTX فقط." });
+    return;
+  }
+
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "smart-archive-office-preview-"));
+  try {
+    const sourcePath = join(temporaryDirectory, `source${extension}`);
+    const outputPath = join(temporaryDirectory, "source.pdf");
+    const supabasePath = parseSupabaseObjectPath(attachment.objectPath);
+    const driveFileId = parseTenantDriveObjectPath(attachment.objectPath);
+    const sourceBytes = supabasePath
+      ? await downloadSupabaseObject(supabasePath, MAX_OFFICE_PREVIEW_BYTES)
+      : driveFileId
+        ? (await downloadTenantFile(tenantId, driveFileId, MAX_OFFICE_PREVIEW_BYTES)).bytes
+        : await downloadPrivateObject(attachment.objectPath, MAX_OFFICE_PREVIEW_BYTES);
+    if (sourceBytes.length > MAX_OFFICE_PREVIEW_BYTES) {
+      res.status(413).json({ error: "الحد الأقصى لمعاينة ملفات Word وPowerPoint هو 100 ميغابايت." });
+      return;
+    }
+
+    await writeFile(sourcePath, sourceBytes, { flag: "wx", mode: 0o600 });
+    await execFileAsync("libreoffice", [
+      `-env:UserInstallation=file://${temporaryDirectory}/profile`,
+      "--headless",
+      "--nologo",
+      "--nodefault",
+      "--nofirststartwizard",
+      "--convert-to",
+      "pdf",
+      "--outdir",
+      temporaryDirectory,
+      sourcePath,
+    ], { timeout: 60_000, maxBuffer: 1024 * 1024, killSignal: "SIGKILL" });
+    const pdfBytes = await readFile(outputPath);
+    res.status(200);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="preview.pdf"; filename*=UTF-8''${encodeURIComponent(attachment.name)}`);
+    res.setHeader("Content-Length", String(pdfBytes.length));
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(pdfBytes);
+  } catch (error) {
+    req.log.error({ err: error, attachmentId }, "Office attachment preview conversion failed");
+    if (!res.headersSent) {
+      res.status(422).json({ error: "تعذر إنشاء معاينة لهذا الملف. يمكنك تنزيله وفتحه في برنامج Office." });
+    }
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true }).catch((error) => {
+      req.log.warn({ err: error }, "Could not remove temporary Office preview files");
+    });
+  }
 });
 
 router.post("/sa/projects/:id/attachments/download-zip", async (req, res): Promise<void> => {

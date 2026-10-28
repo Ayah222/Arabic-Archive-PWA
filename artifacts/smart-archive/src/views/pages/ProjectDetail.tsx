@@ -280,130 +280,6 @@ function isBrowserPreviewSupported(attachment: SAAttachment) {
     || ["pdf", "txt", "csv", "md", "json", "log", "png", "jpg", "jpeg", "gif", "webp", "bmp", "avif", "mp3", "wav", "ogg", "m4a", "aac", "mp4", "webm", "mov", "ogv", "docx", "pptx"].includes(extension);
 }
 
-type OfficePreviewSection = {
-  title: string;
-  paragraphs: string[];
-};
-
-function renderOfficeTextPreview(popup: Window, fileName: string, sections: OfficePreviewSection[]) {
-  const doc = popup.document;
-  doc.title = fileName;
-  doc.documentElement.lang = "ar";
-  doc.documentElement.dir = "rtl";
-  doc.body.replaceChildren();
-
-  const style = doc.createElement("style");
-  style.textContent = `
-    :root { color-scheme: light; font-family: system-ui, sans-serif; background: #f3f4f8; color: #172033; }
-    body { margin: 0; padding: 28px 16px; }
-    main { max-width: 900px; margin: 0 auto; }
-    h1 { font-size: 1.25rem; margin: 0 0 20px; overflow-wrap: anywhere; }
-    article { background: white; border: 1px solid #dfe3ec; border-radius: 14px; padding: 24px; margin: 0 0 18px; box-shadow: 0 4px 14px #18233a0b; }
-    h2 { font-size: 1rem; color: #6840c6; margin: 0 0 16px; }
-    p { white-space: pre-wrap; line-height: 1.9; margin: 0 0 10px; }
-    .note { color: #596579; font-size: .9rem; }
-  `;
-  doc.head.append(style);
-
-  const main = doc.createElement("main");
-  const heading = doc.createElement("h1");
-  heading.textContent = fileName;
-  main.append(heading);
-  const note = doc.createElement("p");
-  note.className = "note";
-  note.textContent = "هذه معاينة نصية للمحتوى، وقد لا تُظهر التنسيق الأصلي أو الصور والانتقالات.";
-  main.append(note);
-  for (const section of sections) {
-    const article = doc.createElement("article");
-    const sectionHeading = doc.createElement("h2");
-    sectionHeading.textContent = section.title;
-    article.append(sectionHeading);
-    const paragraphs = section.paragraphs.length ? section.paragraphs : ["لا يوجد نص قابل للعرض في هذا الجزء."];
-    for (const text of paragraphs) {
-      const paragraph = doc.createElement("p");
-      paragraph.textContent = text;
-      article.append(paragraph);
-    }
-    main.append(article);
-  }
-  doc.body.append(main);
-}
-
-async function extractPptxSlides(buffer: ArrayBuffer): Promise<string[][]> {
-  const view = new DataView(buffer);
-  const minOffset = Math.max(0, view.byteLength - 22 - 0xffff);
-  let endRecord = -1;
-  for (let offset = view.byteLength - 22; offset >= minOffset; offset--) {
-    if (view.getUint32(offset, true) === 0x06054b50) {
-      endRecord = offset;
-      break;
-    }
-  }
-  if (endRecord < 0) throw new Error("تعذر قراءة ملف PowerPoint.");
-
-  const entryCount = view.getUint16(endRecord + 10, true);
-  let entryOffset = view.getUint32(endRecord + 16, true);
-  const decoder = new TextDecoder("utf-8");
-  const slideEntries: Array<{ name: string; method: number; compressedSize: number; localOffset: number }> = [];
-
-  for (let index = 0; index < entryCount; index++) {
-    if (view.getUint32(entryOffset, true) !== 0x02014b50) {
-      throw new Error("بنية ملف PowerPoint غير صالحة.");
-    }
-    const method = view.getUint16(entryOffset + 10, true);
-    const compressedSize = view.getUint32(entryOffset + 20, true);
-    const fileNameLength = view.getUint16(entryOffset + 28, true);
-    const extraLength = view.getUint16(entryOffset + 30, true);
-    const commentLength = view.getUint16(entryOffset + 32, true);
-    const localOffset = view.getUint32(entryOffset + 42, true);
-    const name = decoder.decode(new Uint8Array(buffer, entryOffset + 46, fileNameLength));
-    if (/^ppt\/slides\/slide\d+\.xml$/i.test(name)) {
-      slideEntries.push({ name, method, compressedSize, localOffset });
-    }
-    entryOffset += 46 + fileNameLength + extraLength + commentLength;
-  }
-
-  slideEntries.sort((left, right) => {
-    const leftNumber = Number(left.name.match(/slide(\d+)\.xml$/i)?.[1] ?? 0);
-    const rightNumber = Number(right.name.match(/slide(\d+)\.xml$/i)?.[1] ?? 0);
-    return leftNumber - rightNumber;
-  });
-  if (!slideEntries.length) throw new Error("لم يتم العثور على شرائح قابلة للمعاينة.");
-
-  const slides: string[][] = [];
-  for (const entry of slideEntries) {
-    const localOffset = entry.localOffset;
-    if (view.getUint32(localOffset, true) !== 0x04034b50) {
-      throw new Error("تعذر قراءة إحدى شرائح العرض.");
-    }
-    const localNameLength = view.getUint16(localOffset + 26, true);
-    const localExtraLength = view.getUint16(localOffset + 28, true);
-    const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
-    const compressed = new Uint8Array(buffer, dataOffset, entry.compressedSize);
-    let xmlBytes: Uint8Array;
-    if (entry.method === 0) {
-      xmlBytes = compressed;
-    } else if (entry.method === 8) {
-      const stream = new Blob([compressed]).stream().pipeThrough(
-        new DecompressionStream("deflate-raw" as CompressionFormat),
-      );
-      xmlBytes = new Uint8Array(await new Response(stream).arrayBuffer());
-    } else {
-      throw new Error("طريقة ضغط ملف PowerPoint غير مدعومة للمعاينة.");
-    }
-
-    const xml = new DOMParser().parseFromString(decoder.decode(xmlBytes), "application/xml");
-    if (xml.querySelector("parsererror")) throw new Error("تعذر قراءة محتوى إحدى الشرائح.");
-    const textParagraphs = Array.from(
-      xml.getElementsByTagNameNS("http://schemas.openxmlformats.org/drawingml/2006/main", "p"),
-    ).map((paragraph) => Array.from(
-      paragraph.getElementsByTagNameNS("http://schemas.openxmlformats.org/drawingml/2006/main", "t"),
-    ).map((text) => text.textContent ?? "").join("")).filter(Boolean);
-    slides.push(textParagraphs);
-  }
-  return slides;
-}
-
 function openAttachmentPreview(attachment: SAAttachment) {
   const popup = window.open("about:blank", "_blank");
   if (!popup) {
@@ -420,6 +296,12 @@ function openAttachmentPreview(attachment: SAAttachment) {
       if (["docx", "pptx"].includes(extension) && attachment.size > 100 * 1024 * 1024) {
         throw new Error("معاينة ملفات Word وPowerPoint متاحة للملفات حتى 100 ميغابايت؛ يمكنك تنزيل الملف لفتحه.");
       }
+      if (extension === "docx" || extension === "pptx") {
+        popup.location.replace(
+          `/api/sa/projects/${encodeURIComponent(attachment.projectId)}/attachments/${encodeURIComponent(attachment.id)}/preview.pdf`,
+        );
+        return;
+      }
       const fileUrl = new URL(attachment.dataUrl, window.location.href);
       const sameOrigin = fileUrl.origin === window.location.origin;
       const response = await fetch(fileUrl, {
@@ -429,22 +311,6 @@ function openAttachmentPreview(attachment: SAAttachment) {
       if (!response.ok) throw new Error(`تعذر تحميل الملف (${response.status})`);
       const bytes = await response.arrayBuffer();
       const fileName = attachment.name.split(/[\\/]/).pop() || "معاينة الملف";
-      if (extension === "docx") {
-        const mammoth = await import("mammoth");
-        const result = await mammoth.extractRawText({ arrayBuffer: bytes });
-        const paragraphs = result.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-        renderOfficeTextPreview(popup, fileName, [{ title: "محتوى مستند Word", paragraphs }]);
-        return;
-      }
-      if (extension === "pptx") {
-        const slides = await extractPptxSlides(bytes);
-        renderOfficeTextPreview(
-          popup,
-          fileName,
-          slides.map((paragraphs, index) => ({ title: `الشريحة ${index + 1}`, paragraphs })),
-        );
-        return;
-      }
       const inferredMime = ({
         avif: "image/avif", bmp: "image/bmp", gif: "image/gif", jpeg: "image/jpeg",
         jpg: "image/jpeg", png: "image/png", webp: "image/webp",
