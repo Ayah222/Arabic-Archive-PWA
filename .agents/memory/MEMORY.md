@@ -9,7 +9,7 @@
 - [Large PDF downloads](bulk-downloads.md) — deliver large attachment batches as one server-side ZIP, not hundreds of browser-triggered downloads.
 - [Large folder uploads](large-folder-uploads.md) — one transient file failure must not abort a mixed PDF/Excel folder upload.
 - [Tenant context across async boundaries](tenant-context-after-upload.md) — re-enter tenant scope after external awaits and in response-finish callbacks.
-- [Private Word previews](private-word-previews.md) — render private DOCX files inside the authenticated archive; never make tenant Drive files public for Office Online.
+- [Private Office previews](private-word-previews.md) — render DOCX/PPTX text inside the authenticated archive; never expose tenant files to Office Online.
 - [Bulk deletion permissions](bulk-selection-permissions.md) — preserve each module's existing delete guard when adding selection and bulk confirmation.
 - [AI analysis isolation](ai-analysis-isolation.md) — AI document analysis is explicitly user-triggered and must never affect uploads or sensitive HR files.
 - [ArcHive brand asset](arch-hive-brand.md) — use the user-provided ArcHive wordmark for app and authentication icons, not a generic folder mark.
