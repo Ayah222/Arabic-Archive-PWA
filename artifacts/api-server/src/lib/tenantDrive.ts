@@ -406,6 +406,15 @@ export async function saveTenantFile(input: {
       },
     );
     if (!sessionResponse.ok) {
+      const responseText = await sessionResponse.text();
+      const { reason, status } = getGoogleErrorReason(responseText);
+      logger.error({
+        tenantId: input.tenantId,
+        status: sessionResponse.status,
+        reason,
+        googleStatus: status,
+      }, "Google Drive rejected resumable upload setup");
+      if (sessionResponse.status === 403) throw new GoogleDriveAccessDeniedError(reason);
       throw new Error(`Google Drive upload setup failed (${sessionResponse.status})`);
     }
     const sessionUrl = sessionResponse.headers.get("location");

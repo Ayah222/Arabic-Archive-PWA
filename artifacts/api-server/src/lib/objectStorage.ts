@@ -1,6 +1,7 @@
 import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { saveTenantFile } from "./tenantDrive";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
@@ -110,12 +111,12 @@ export async function saveTenantPrivateObject(input: {
   contentType?: string;
   segments?: string[];
 }) {
-  return savePrivateObject({
-    namespace: "tenants",
+  return saveTenantFile({
     filename: input.filename,
     bytes: input.bytes,
     contentType: input.contentType,
-    segments: [input.tenantId, input.namespace, ...(input.segments ?? [])],
+    tenantId: input.tenantId,
+    folderSegments: [input.namespace, ...(input.segments ?? [])],
   });
 }
 

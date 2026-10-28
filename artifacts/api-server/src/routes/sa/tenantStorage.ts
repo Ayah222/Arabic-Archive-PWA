@@ -2,8 +2,9 @@ import { Router } from "express";
 import multer from "multer";
 import {
   downloadTenantFile,
+  getTenantDriveStatus,
 } from "../../lib/tenantDrive";
-import { privateObjectStorageConfigured, saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStorage";
+import { saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 
@@ -20,15 +21,7 @@ router.get("/sa/tenants/storage", async (req, res): Promise<void> => {
     res.status(401).json({ error: "يلزم تسجيل الدخول" });
     return;
   }
-  const configured = privateObjectStorageConfigured();
-  res.json({
-    connected: configured,
-    configured,
-    provider: configured ? "replit_app_storage" : null,
-    connectedEmail: null,
-    sharedAccount: true,
-    accountVerified: configured,
-  });
+  res.json(await getTenantDriveStatus(String(res.locals.tenantId)));
 });
 
 router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res): Promise<void> => {

@@ -92,8 +92,11 @@ router.post("/sa/hr/upload", (req, res, next) => {
     bytes: uploadFile.buffer,
     contentType: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
   }).then((saved) => {
+    const driveFileId = saved.objectName.startsWith("drive://") ? saved.objectName.slice("drive://".length) : "";
     res.json({
-      url: `/api/sa/hr/storage/files/app_${Buffer.from(saved.objectName, "utf8").toString("base64url")}`,
+      url: driveFileId
+        ? `/api/sa/hr/storage/files/drive_${encodeURIComponent(driveFileId)}`
+        : `/api/sa/hr/storage/files/app_${Buffer.from(saved.objectName, "utf8").toString("base64url")}`,
       filename: uploadFile.originalname,
       size: uploadFile.size,
       mimetype: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
@@ -109,7 +112,11 @@ router.get("/sa/hr/storage/files/:fileRef", async (req, res): Promise<void> => {
     const tenantId = currentTenantId();
     let filename: string;
     let bytes: Buffer;
-    if (fileRef.startsWith("app_")) {
+    if (fileRef.startsWith("drive_")) {
+      const file = await downloadTenantFile(tenantId, decodeURIComponent(fileRef.slice("drive_".length)), FILE_LIMITS.maxFileBytes);
+      filename = file.filename;
+      bytes = file.bytes;
+    } else if (fileRef.startsWith("app_")) {
       const objectName = Buffer.from(fileRef.slice(4), "base64url").toString("utf8");
       if (!isTenantPrivateObject(objectName, tenantId, "hr")) {
         res.status(404).json({ error: "File not found" });

@@ -2,12 +2,15 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import {
   decodeStorageObjectRef,
+  downloadPrivateObject,
+  getPrivateObjectMetadata,
   objectStorageClient,
   privateObjectLocation,
 } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { DEFAULT_TENANT_ID } from "../../lib/tenantContext";
 import { saveTenantPrivateObject } from "../../lib/objectStorage";
+import { downloadTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -51,6 +54,16 @@ router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void>
 router.get("/sa/files/:objectRef", async (req, res): Promise<void> => {
   try {
     const objectName = decodeStorageObjectRef(req.params.objectRef);
+    const driveFileId = parseTenantDriveObjectPath(objectName);
+    if (driveFileId) {
+      const file = await downloadTenantFile(String(res.locals.tenantId), driveFileId);
+      res.setHeader("Content-Type", file.contentType);
+      res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.send(file.bytes);
+      return;
+    }
     const { bucketName, objectName: privatePrefix } = privateObjectLocation();
     const allowedRoot = privatePrefix ? `${privatePrefix}/` : "";
     const relativeName = objectName.startsWith(allowedRoot) ? objectName.slice(allowedRoot.length) : "";
@@ -68,24 +81,14 @@ router.get("/sa/files/:objectRef", async (req, res): Promise<void> => {
       return;
     }
 
-    const file = objectStorageClient.bucket(bucketName).file(objectName);
-    const [exists] = await file.exists();
-    if (!exists) {
-      res.status(404).json({ error: "File not found" });
-      return;
-    }
-    const [metadata] = await file.getMetadata();
+    const bytes = await downloadPrivateObject(objectName, FILE_LIMITS.maxFileBytes);
+    const metadata = await getPrivateObjectMetadata(objectName);
     const filename = String(metadata.metadata?.originalName || objectName.split("/").at(-1) || "file");
     res.setHeader("Content-Type", metadata.contentType || "application/octet-stream");
     res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    file.createReadStream()
-      .on("error", () => {
-        if (!res.headersSent) res.status(500).json({ error: "تعذر قراءة الملف" });
-        else res.end();
-      })
-      .pipe(res);
+    res.send(bytes);
   } catch {
     res.status(404).json({ error: "File not found" });
   }
