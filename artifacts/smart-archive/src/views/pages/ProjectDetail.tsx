@@ -133,7 +133,11 @@ function FolderPicker({
         accept={accept}
         className="hidden"
         {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-        onChange={(event) => onFiles(event.target.files ? Array.from(event.target.files) : null)}
+        onChange={(event) => {
+          const selectedFiles = event.target.files ? Array.from(event.target.files) : null;
+          event.currentTarget.value = "";
+          onFiles(selectedFiles);
+        }}
       />
       {files?.length ? <span className="block text-[10px] text-primary mt-1">{files.length} ملف</span> : null}
     </label>
@@ -1664,6 +1668,12 @@ function AttachmentsPanel({
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<FolderUploadProgress | null>(null);
   const [retryableFiles, setRetryableFiles] = useState<File[]>([]);
+  const [pendingFolderFiles, setPendingFolderFiles] = useState<File[]>([]);
+
+  const addFoldersToQueue = (files: File[] | null) => {
+    if (!files?.length) return;
+    setPendingFolderFiles((current) => [...current, ...files]);
+  };
 
   const uploadFiles = async (files: File[] | null, preserveFolders = false) => {
     if (!files?.length) return;
@@ -1704,6 +1714,7 @@ function AttachmentsPanel({
       setShowAdd(false);
       setAttName("");
       setAttType("مستند");
+      if (preserveFolders && files === pendingFolderFiles) setPendingFolderFiles([]);
     } catch {
       setNotice({ message: "تعذر رفع بعض ملفات المجلد", type: "error" });
     } finally {
@@ -1805,8 +1816,8 @@ function AttachmentsPanel({
               <input type="file" multiple className="hidden" onChange={(e) => void uploadFiles(e.target.files ? Array.from(e.target.files) : null)} />
             </label>
             <FolderPicker
-              label="📂 اختر مجلداً كاملاً"
-              onFiles={(files) => void uploadFiles(files, true)}
+              label="📂 أضف مجلداً للاختيار"
+              onFiles={addFoldersToQueue}
               className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors"
             />
             <label className="block w-full px-3 py-2.5 rounded-lg border border-dashed border-primary/40 text-xs text-center cursor-pointer hover:bg-primary/5 transition-colors">
@@ -1814,7 +1825,33 @@ function AttachmentsPanel({
               <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void uploadFolderZip(e.target.files?.[0])} />
             </label>
           </div>
-          <p className="text-[11px] text-muted-foreground">مكان الحفظ: {currentPath || "جذر قسم المرفقات الحالي"} — مع الاحتفاظ بجميع المجلدات الفرعية.</p>
+          {pendingFolderFiles.length > 0 && (
+            <div className="rounded-lg border border-border bg-background p-2 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span>المجلدات المختارة: {new Set(pendingFolderFiles.map((file) => {
+                  const path = folderPathByFile.get(file) || file.webkitRelativePath || file.name;
+                  return path.split("/")[0];
+                })).size} — الملفات: {pendingFolderFiles.length}</span>
+                <button
+                  type="button"
+                  disabled={Boolean(uploadProgress)}
+                  onClick={() => setPendingFolderFiles([])}
+                  className="text-destructive hover:underline disabled:opacity-50"
+                >
+                  إفراغ الاختيار
+                </button>
+              </div>
+              <button
+                type="button"
+                disabled={Boolean(uploadProgress)}
+                onClick={() => void uploadFiles(pendingFolderFiles, true)}
+                className="w-full rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"
+              >
+                رفع المجلدات المحددة دفعة واحدة
+              </button>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">أضف المجلدات واحداً تلو الآخر، ثم ارفعها دفعة واحدة. مكان الحفظ: {currentPath || "جذر قسم المرفقات الحالي"} — مع الاحتفاظ بجميع المجلدات الفرعية.</p>
         </div>
       )}
 
