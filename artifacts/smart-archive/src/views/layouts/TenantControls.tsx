@@ -43,6 +43,7 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [driveNotice, setDriveNotice] = useState("");
 
   const surface = isDark ? "rgba(255,255,255,0.035)" : "rgba(99,102,241,0.045)";
   const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(99,102,241,0.12)";
@@ -55,6 +56,10 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     driveTitle: "Private app file storage",
     serviceAccountTitle: "Replit App Storage",
     serviceAccountMissing: "Private app storage is not configured on the server.",
+    connectDrive: "Connect office Google Drive",
+    driveConnected: "Google Drive connected.",
+    driveCancelled: "Google Drive connection was cancelled.",
+    driveFailed: "Could not connect Google Drive. Check OAuth settings and try again.",
     connected: "Configured",
     chooseOrganization: "Choose organization",
     loadOrganizations: "Unable to load organizations",
@@ -67,6 +72,10 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     driveTitle: "تخزين ملفات التطبيق الخاص",
     serviceAccountTitle: "تخزين Replit الخاص",
     serviceAccountMissing: "لم يتم إعداد تخزين الملفات الخاص على الخادم.",
+    connectDrive: "ربط Google Drive الخاص بالمكتب",
+    driveConnected: "تم ربط Google Drive بنجاح.",
+    driveCancelled: "تم إلغاء ربط Google Drive.",
+    driveFailed: "تعذر ربط Google Drive. تحقق من إعدادات OAuth وحاول مجدداً.",
     connected: "مُعدّ",
     chooseOrganization: "اختيار المؤسسة",
     loadOrganizations: "تعذر تحميل المؤسسات",
@@ -96,6 +105,17 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     });
     return () => { mounted = false; };
   }, [isAdmin, text.loadOrganizations, text.loadStorage]);
+
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get("driveOAuth");
+    if (!result) return;
+    if (result === "connected") setDriveNotice(text.driveConnected);
+    else if (result === "cancelled") setDriveNotice(text.driveCancelled);
+    else setDriveNotice(text.driveFailed);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("driveOAuth");
+    window.history.replaceState({}, "", url);
+  }, [text.driveConnected, text.driveCancelled, text.driveFailed]);
 
   async function switchTenant(tenantId: string) {
     if (!tenantId || tenants.find((tenant) => tenant.id === tenantId)?.active) return;
@@ -204,10 +224,16 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
                 <span className="truncate">{drive.connectedEmail || text.serviceAccountTitle}</span>
               </div>
             ) : (
-              <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
-                {text.serviceAccountMissing}
-              </p>
+              <button
+                type="button"
+                onClick={() => { window.location.href = "/api/sa/tenants/storage/oauth/start"; }}
+                className="w-full rounded-lg px-2 py-1.5 text-start text-[10px] font-semibold"
+                style={{ background: isDark ? "rgba(0,210,230,0.12)" : "rgba(99,102,241,0.1)", color: isDark ? "#6de4ed" : "#4f46b5" }}
+              >
+                {text.connectDrive}
+              </button>
             )}
+            {driveNotice && <p role="status" className="mt-1 text-[10px] leading-relaxed" style={{ color: isDark ? "#86efac" : "#15803d" }}>{driveNotice}</p>}
           </div>
         </>
       )}

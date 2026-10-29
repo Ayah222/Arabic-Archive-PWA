@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { FILE_LIMITS } from "./fileLimits";
 import { logger } from "./logger";
@@ -6,9 +6,9 @@ import { logger } from "./logger";
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 const MAX_DRIVE_FILE_BYTES = FILE_LIMITS.maxFileBytes;
-const SERVICE_ACCOUNT_SCOPE = "https://www.googleapis.com/auth/drive";
-const SERVICE_ACCOUNT_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const SERVICE_ACCOUNT_SETUP_MESSAGE = "إعداد حساب خدمة Google Drive غير مكتمل. يرجى التحقق من أسرار الخادم ومجلد الأرشيف المشترك.";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const DRIVE_SETUP_MESSAGE = "إعداد Google Drive غير مكتمل. تحقق من ربط حساب المكتب ومجلد الأرشيف.";
 
 interface DriveConnection {
   tenantId: string;
@@ -22,12 +22,6 @@ interface DriveFile {
   size?: string;
   parents?: string[];
   appProperties?: Record<string, string>;
-}
-
-interface ServiceAccountCredentials {
-  type?: string;
-  client_email: string;
-  private_key: string;
 }
 
 interface GoogleErrorResponse {
@@ -44,12 +38,12 @@ export class GoogleDriveAccessDeniedError extends Error {
 
   constructor(readonly reason: string) {
     const messages: Record<string, string> = {
-      storageQuotaExceeded: "رفض Google Drive حفظ الملف بسبب سعة التخزين. حساب الخدمة لا يملك مساحة My Drive خاصة؛ استخدم Shared Drive وأضف حساب الخدمة إليه بصلاحية Contributor أو أعلى.",
-      insufficientFilePermissions: "رفض Google Drive حفظ الملف بسبب الصلاحيات. امنح حساب الخدمة صلاحية Contributor أو أعلى على مجلد الأرشيف المشترك.",
-      teamDriveMembershipRequired: "يجب إضافة حساب الخدمة كعضو في Shared Drive الذي يحتوي على مجلد الأرشيف.",
+      storageQuotaExceeded: "رفض Google Drive حفظ الملف بسبب سعة التخزين في حساب المكتب.",
+      insufficientFilePermissions: "حساب المكتب لا يملك صلاحية الكتابة في مجلد الأرشيف.",
+      teamDriveMembershipRequired: "حساب المكتب غير مخول للوصول إلى Shared Drive.",
     };
     const publicMessage = messages[reason]
-      || "رفض Google Drive إكمال رفع الملف. تحقق من صلاحية حساب الخدمة على مجلد الأرشيف المشترك.";
+      || "رفض Google Drive إكمال العملية. تحقق من صلاحيات حساب المكتب على مجلد الأرشيف.";
     super(publicMessage);
     this.name = "GoogleDriveAccessDeniedError";
     this.publicMessage = publicMessage;
@@ -69,41 +63,114 @@ function getGoogleErrorReason(responseText: string): { reason: string; status: s
   }
 }
 
-let parsedServiceAccount: ServiceAccountCredentials | null = null;
-let cachedServiceToken: { token: string; expiresAt: number } | null = null;
-let serviceTokenRefresh: Promise<string> | null = null;
+type OAuthDriveCredentials = { mode: "oauth"; iv: string; tag: string; ciphertext: string };
+const accessTokens = new Map<string, { token: string; expiresAt: number }>();
 
-function getServiceAccountCredentials(): ServiceAccountCredentials {
-  if (parsedServiceAccount) return parsedServiceAccount;
-  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error(SERVICE_ACCOUNT_SETUP_MESSAGE);
-  try {
-    let decoded: unknown = raw;
-    for (let attempt = 0; attempt < 3 && typeof decoded === "string"; attempt++) {
-      const text = decoded.trim().replace(/^\uFEFF/, "");
-      if (!text) throw new Error("Empty service account key");
-      const withoutFence = text
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/, "");
-      decoded = JSON.parse(withoutFence);
-    }
-    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
-      throw new Error("Invalid service account key");
-    }
-    const credentials = decoded as Partial<ServiceAccountCredentials>;
-    if (
-      (credentials.type !== undefined && credentials.type !== "service_account")
-      || typeof credentials.client_email !== "string"
-      || typeof credentials.private_key !== "string"
-    ) throw new Error("Invalid service account key");
-    parsedServiceAccount = {
-      client_email: credentials.client_email,
-      private_key: credentials.private_key.replace(/\\n/g, "\n"),
-    };
-    return parsedServiceAccount;
-  } catch {
-    throw new Error(SERVICE_ACCOUNT_SETUP_MESSAGE);
+function oauthClientId() {
+  const value = process.env.GOOGLE_DRIVE_CLIENT_ID?.trim();
+  if (!value) throw new Error("لم يتم إعداد OAuth لـ Google Drive على الخادم.");
+  return value;
+}
+
+function oauthClientSecret() {
+  const value = process.env.GOOGLE_DRIVE_CLIENT_SECRET?.trim();
+  if (!value) throw new Error("لم يتم إعداد OAuth لـ Google Drive على الخادم.");
+  return value;
+}
+
+function encryptionKey() {
+  const value = process.env.STORAGE_ENCRYPTION_KEY;
+  if (!value) throw new Error("مفتاح تشفير بيانات Drive غير مُعدّ.");
+  return createHash("sha256").update(value).digest();
+}
+
+function encryptRefreshToken(token: string): OAuthDriveCredentials {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+  return { mode: "oauth", iv: iv.toString("base64url"), tag: cipher.getAuthTag().toString("base64url"), ciphertext: ciphertext.toString("base64url") };
+}
+
+function decryptRefreshToken(value: unknown): string {
+  if (!value || typeof value !== "object") throw new Error("يلزم ربط Google Drive بحساب المكتب.");
+  const credentials = value as Partial<OAuthDriveCredentials>;
+  if (credentials.mode !== "oauth" || !credentials.iv || !credentials.tag || !credentials.ciphertext) {
+    throw new Error("يلزم ربط Google Drive بحساب المكتب.");
   }
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(credentials.iv, "base64url"));
+  decipher.setAuthTag(Buffer.from(credentials.tag, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(credentials.ciphertext, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+export function getDriveOAuthRedirectUri() {
+  const value = process.env.GOOGLE_DRIVE_OAUTH_REDIRECT_URI?.trim();
+  if (!value || !value.startsWith("https://")) throw new Error("يجب إعداد عنوان رجوع OAuth الخاص بالمعاينة.");
+  return value;
+}
+
+export function getDriveOAuthAuthorizationUrl(state: string, redirectUri: string) {
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.search = new URLSearchParams({
+    client_id: oauthClientId(),
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: DRIVE_SCOPE,
+    access_type: "offline",
+    prompt: "consent",
+    include_granted_scopes: "true",
+    state,
+  }).toString();
+  return url.toString();
+}
+
+export async function finishDriveOAuth(tenantId: string, code: string, redirectUri: string) {
+  const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: oauthClientId(),
+      client_secret: oauthClientSecret(),
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+  const tokens = await tokenResponse.json() as { access_token?: string; refresh_token?: string };
+  if (!tokenResponse.ok || !tokens.access_token || !tokens.refresh_token) {
+    throw new Error("تعذر إكمال ربط Google Drive. تأكد من إعداد OAuth وأعد الموافقة.");
+  }
+  const aboutResponse = await fetch(`${DRIVE_API}/about?fields=user(emailAddress)`, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  });
+  const about = await aboutResponse.json() as { user?: { emailAddress?: string } };
+  const connectedEmail = about.user?.emailAddress?.trim().toLowerCase();
+  if (!aboutResponse.ok || !connectedEmail) throw new Error("تعذر التحقق من حساب Google الذي تمت الموافقة عليه.");
+  const rootFolderId = sharedRootFolderId();
+  const folderResponse = await fetch(`${DRIVE_API}/files/${encodeURIComponent(rootFolderId)}?fields=id,mimeType,owners(emailAddress),trashed`, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  });
+  const folder = await folderResponse.json() as { id?: string; mimeType?: string; owners?: Array<{ emailAddress?: string }>; trashed?: boolean };
+  if (!folderResponse.ok || folder.mimeType !== "application/vnd.google-apps.folder" || folder.trashed) {
+    throw new Error("حساب المكتب لا يستطيع الوصول إلى مجلد GOOGLE_DRIVE_ROOT_FOLDER_ID.");
+  }
+  if (folder.owners?.length && !folder.owners.some((owner) => owner.emailAddress?.toLowerCase() === connectedEmail)) {
+    throw new Error("الحساب الذي تمت الموافقة عليه ليس مالك مجلد الأرشيف المحدد.");
+  }
+  const { error } = await supabaseAdmin().from("tenant_storage_connections").upsert({
+    tenant_id: tenantId,
+    provider: "google_drive",
+    encrypted_credentials: encryptRefreshToken(tokens.refresh_token),
+    root_folder_id: rootFolderId,
+    connected_email: connectedEmail,
+    connected_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "tenant_id" });
+  if (error) throw new Error("تعذر حفظ ربط Google Drive المشفر.");
+  accessTokens.set(tenantId, { token: tokens.access_token, expiresAt: Date.now() + 50 * 60 * 1000 });
+  return connectedEmail;
 }
 
 async function readJsonResponse<T>(response: Response, failureMessage: string): Promise<T> {
@@ -116,13 +183,9 @@ async function readJsonResponse<T>(response: Response, failureMessage: string): 
   }
 }
 
-function serviceAccountEmail() {
-  return getServiceAccountCredentials().client_email.trim().toLowerCase();
-}
-
 function sharedRootFolderId() {
   const id = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim();
-  if (!id || !/^[A-Za-z0-9_-]{5,256}$/.test(id)) throw new Error(SERVICE_ACCOUNT_SETUP_MESSAGE);
+  if (!id || !/^[A-Za-z0-9_-]{5,256}$/.test(id)) throw new Error(DRIVE_SETUP_MESSAGE);
   return id;
 }
 
@@ -132,73 +195,60 @@ export function parseTenantDriveObjectPath(value: string | null | undefined) {
   return /^[A-Za-z0-9_-]{5,256}$/.test(fileId) ? fileId : null;
 }
 
-async function getAccessToken(forceRefresh = false): Promise<string> {
-  const credentials = getServiceAccountCredentials();
-  if (!forceRefresh && cachedServiceToken && cachedServiceToken.expiresAt > Date.now() + 60_000) {
-    return cachedServiceToken.token;
-  }
-  if (serviceTokenRefresh) return serviceTokenRefresh;
-
+const tokenRefreshes = new Map<string, Promise<string>>();
+async function getAccessToken(tenantId: string, forceRefresh = false): Promise<string> {
+  const cached = accessTokens.get(tenantId);
+  if (!forceRefresh && cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
+  const pending = tokenRefreshes.get(tenantId);
+  if (pending) return pending;
   const refresh = (async () => {
-    const now = Math.floor(Date.now() / 1000);
-    const jwtHeader = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-    const jwtClaims = Buffer.from(JSON.stringify({
-      iss: credentials.client_email,
-      scope: SERVICE_ACCOUNT_SCOPE,
-      aud: SERVICE_ACCOUNT_TOKEN_URL,
-      iat: now,
-      exp: now + 3600,
-    })).toString("base64url");
-    const unsignedToken = `${jwtHeader}.${jwtClaims}`;
-    const signer = createSign("RSA-SHA256");
-    signer.update(unsignedToken);
-    signer.end();
-    const assertion = `${unsignedToken}.${signer.sign(credentials.private_key).toString("base64url")}`;
-    let response: Response;
-    try {
-      response = await fetch(SERVICE_ACCOUNT_TOKEN_URL, {
+    const { data, error } = await supabaseAdmin()
+      .from("tenant_storage_connections")
+      .select("encrypted_credentials,provider")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error || data?.provider !== "google_drive") throw new Error("يلزم ربط Google Drive بحساب المكتب.");
+    const refreshToken = decryptRefreshToken(data.encrypted_credentials);
+    const response = await fetch(GOOGLE_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion,
+        client_id: oauthClientId(),
+        client_secret: oauthClientSecret(),
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
       }),
-      });
-    } catch {
-      throw new Error("تعذر الاتصال بخدمة Google للتحقق من حساب الخدمة.");
-    }
-    const result = await readJsonResponse<{ access_token?: string; expires_in?: number }>(
-      response,
-      "أعادت خدمة Google استجابة غير صالحة لحساب الخدمة؛ تحقق من إعدادات الخادم وحاول مجدداً.",
-    );
+    });
+    const result = await response.json() as { access_token?: string; expires_in?: number };
     if (!response.ok || !result.access_token) {
-      cachedServiceToken = null;
-      throw new Error("تعذر الحصول على رمز وصول لحساب خدمة Google Drive. تحقق من المفتاح وصلاحية حساب الخدمة.");
+      accessTokens.delete(tenantId);
+      throw new Error("انتهت صلاحية ربط Google Drive. أعد ربط حساب المكتب.");
     }
-    const expiresAt = Date.now() + Math.max(60, result.expires_in ?? 3600) * 1000;
-    cachedServiceToken = { token: result.access_token, expiresAt };
+    accessTokens.set(tenantId, {
+      token: result.access_token,
+      expiresAt: Date.now() + Math.max(60, result.expires_in ?? 3600) * 1000,
+    });
     return result.access_token;
   })();
-  serviceTokenRefresh = refresh;
+  tokenRefreshes.set(tenantId, refresh);
   try {
     return await refresh;
   } finally {
-    if (serviceTokenRefresh === refresh) serviceTokenRefresh = null;
+    if (tokenRefreshes.get(tenantId) === refresh) tokenRefreshes.delete(tenantId);
   }
 }
 
 async function getConnection(tenantId: string): Promise<DriveConnection> {
-  getServiceAccountCredentials();
   const sharedRootId = sharedRootFolderId();
   const { data, error } = await supabaseAdmin()
     .from("tenant_storage_connections")
-    .select("tenant_id,provider,root_folder_id,connected_at")
+    .select("tenant_id,provider,encrypted_credentials,root_folder_id")
     .eq("tenant_id", tenantId)
     .maybeSingle();
   if (error) throw new Error("تعذر قراءة إعداد تخزين المؤسسة");
+  if (data?.provider !== "google_drive") throw new Error("يلزم ربط Google Drive بحساب المكتب.");
+  decryptRefreshToken(data.encrypted_credentials);
 
-  // Keep every tenant's active upload root beneath the configured shared archive folder.
-  // Existing file IDs remain unchanged and are still resolved directly by ID.
   const sharedRootConnection = { tenantId, rootFolderId: sharedRootId };
   const tenantFolder = await ensureFolder(
     sharedRootConnection,
@@ -221,12 +271,10 @@ async function getConnection(tenantId: string): Promise<DriveConnection> {
     .upsert({
       tenant_id: tenantId,
       provider: "google_drive",
-      encrypted_credentials: { mode: "service_account" },
       root_folder_id: rootFolderId,
-      connected_email: null,
-      connected_at: data?.connected_at ?? new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }, { onConflict: "tenant_id" });
+    })
+    .eq("tenant_id", tenantId);
   if (saveError) throw new Error("تعذر حفظ إعداد مجلد تخزين المؤسسة");
   return { tenantId, rootFolderId };
 }
@@ -243,16 +291,16 @@ async function driveFetch(connection: DriveConnection, url: string, init: Reques
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${token}` },
   });
-  const token = await getAccessToken();
+  const token = await getAccessToken(connection.tenantId);
   let response = await send(token);
   if (response.status !== 401) return response;
 
   await response.body?.cancel().catch(() => undefined);
-  if (cachedServiceToken?.token === token) cachedServiceToken = null;
-  response = await send(await getAccessToken(true));
+  accessTokens.delete(connection.tenantId);
+  response = await send(await getAccessToken(connection.tenantId, true));
   if (response.status === 401) {
     await response.body?.cancel().catch(() => undefined);
-    throw new Error("حساب خدمة Google Drive غير مخول للوصول إلى مجلد الأرشيف المشترك.");
+    throw new Error("تعذر دخول حساب المكتب إلى Google Drive.");
   }
   return response;
 }
@@ -515,24 +563,28 @@ export async function deleteTenantFile(tenantId: string, fileId: string) {
 export async function getTenantDriveStatus(tenantId: string) {
   const { data, error } = await supabaseAdmin()
     .from("tenant_storage_connections")
-    .select("tenant_id,provider,connected_at")
+    .select("tenant_id,provider,connected_email,connected_at,encrypted_credentials")
     .eq("tenant_id", tenantId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  let connectedEmail: string | null = null;
   let configured = false;
   try {
-    connectedEmail = serviceAccountEmail();
+    oauthClientId();
+    oauthClientSecret();
+    encryptionKey();
     sharedRootFolderId();
-    configured = true;
+    if (data?.provider === "google_drive") {
+      decryptRefreshToken(data.encrypted_credentials);
+      configured = true;
+    }
   } catch {
-    // Report a missing server-side setup without exposing credential details to the browser.
+    // Report missing or incomplete setup without exposing credential details.
   }
   return {
     connected: configured,
     configured,
     provider: configured ? "google_drive" : null,
-    connectedEmail,
+    connectedEmail: configured ? data?.connected_email ?? null : null,
     connectedAt: data?.connected_at ?? null,
     sharedAccount: false,
     accountVerified: configured,

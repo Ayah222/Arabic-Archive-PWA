@@ -40,6 +40,9 @@ externalPort = 3000
 [userenv.shared]
 SUPABASE_URL = "https://tomdzpzocbchtkivblap.supabase.co"
 
+[userenv.development]
+GOOGLE_DRIVE_OAUTH_REDIRECT_URI = "https://b9e537f3-8a28-45c1-8514-434634117edb-00-2st39dz1n1i47.pike.replit.dev/api/sa/tenants/storage/oauth/callback"
+
 [nix]
 channel = "stable-25_05"
 packages = ["libreoffice"]
