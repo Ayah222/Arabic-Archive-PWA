@@ -1,7 +1,6 @@
 import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { saveTenantFile } from "./tenantDrive";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
@@ -82,25 +81,10 @@ export async function savePrivateObject(input: {
   contentType?: string;
   segments?: string[];
 }) {
-  const filename = safeSegment(path.basename(input.filename), "file");
-  const namespace = safeSegment(input.namespace, "uploads");
-  const objectId = `${randomUUID()}-${filename}`;
-  const { bucketName, objectName } = privateObjectLocation(
-    namespace,
+  return saveObjectAt(input, [
+    safeSegment(input.namespace, "uploads"),
     ...(input.segments ?? []).map((segment) => safeSegment(segment, "item")),
-    objectId,
-  );
-  await objectStorageClient.bucket(bucketName).file(objectName).save(input.bytes, {
-    resumable: false,
-    metadata: {
-      contentType: input.contentType || "application/octet-stream",
-      metadata: { originalName: input.filename },
-    },
-  });
-  return {
-    objectName,
-    url: storageObjectUrl(objectName),
-  };
+  ]);
 }
 
 export async function saveTenantPrivateObject(input: {
@@ -111,13 +95,29 @@ export async function saveTenantPrivateObject(input: {
   contentType?: string;
   segments?: string[];
 }) {
-  return saveTenantFile({
-    filename: input.filename,
-    bytes: input.bytes,
-    contentType: input.contentType,
-    tenantId: input.tenantId,
-    folderSegments: [input.namespace, ...(input.segments ?? [])],
+  return saveObjectAt(input, [
+    "tenants",
+    safeSegment(input.tenantId, "tenant"),
+    safeSegment(input.namespace, "uploads"),
+    ...(input.segments ?? []).map((segment) => safeSegment(segment, "item")),
+  ]);
+}
+
+async function saveObjectAt(
+  input: { filename: string; bytes: Buffer; contentType?: string },
+  segments: string[],
+) {
+  const filename = safeSegment(path.basename(input.filename), "file");
+  const objectId = `${randomUUID()}-${filename}`;
+  const { bucketName, objectName } = privateObjectLocation(...segments, objectId);
+  await objectStorageClient.bucket(bucketName).file(objectName).save(input.bytes, {
+    resumable: false,
+    metadata: {
+      contentType: input.contentType || "application/octet-stream",
+      metadata: { originalName: input.filename },
+    },
   });
+  return { objectName, url: storageObjectUrl(objectName) };
 }
 
 export async function deletePrivateObject(objectName: string) {

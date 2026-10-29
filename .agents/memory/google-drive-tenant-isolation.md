@@ -12,3 +12,7 @@ The user approved OAuth for the office's personal Google account after the servi
 For multipart uploads to Drive, configure Multer's `defParamCharset` as UTF-8; its default Latin-1 decoding can corrupt Arabic `originalname` before Drive receives the UTF-8 JSON metadata. Never substitute generic project/folder names for missing upload context, and prune only empty app-owned folders after failed uploads or deletions.
 **Why:** The Drive API metadata request can be UTF-8-correct while the filename has already been corrupted by multipart parsing, and failed DB writes can leave empty Drive parents behind.
 **How to apply:** Preserve Arabic combining marks during filename sanitization, require real project/section context where needed, and check that an app-marked folder is empty before removing it.
+
+Temporary exception: while the office Google OAuth setup is incomplete, the user explicitly authorizes new uploads to Replit private App Storage so work can continue. Keep existing Replit and Drive object references unchanged and readable; do not migrate, overwrite, or delete them. Resume Drive uploads only after final OAuth setup and a successful upload/download verification.
+**Why:** The user asked to avoid blocking new work during Google Cloud's extra verification step while preserving all 826 Replit and 811 Drive legacy files.
+**How to apply:** Route newly saved tenant objects to tenant-scoped Replit App Storage until the user confirms Drive setup is complete; this temporary fallback is not permission to alter legacy objects or start migration.
