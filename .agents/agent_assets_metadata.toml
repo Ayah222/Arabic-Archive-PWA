@@ -6,9 +6,25 @@ id = "Eq3X6PAJrDUTRUPdJRbt5"
 uri = "file://testing-guide.md"
 type = "text"
 title = "دليل الاختبار والنقل إلى الإنتاج"
+logical_id = "07f0cf22-a5ce-464a-82ee-c142efd559d6"
 
 [[outputs]]
 id = "v4vPFhSGOD3JCG8-GDqbL"
 uri = "file://%D8%AF%D9%84%D9%8A%D9%84_%D8%A7%D9%84%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1_%D8%A7%D9%84%D8%B4%D8%A7%D9%85%D9%84.md"
 type = "text"
 title = "دليل الاختبار الشامل — الميزات الجديدة"
+logical_id = "81d76dd5-bb79-4434-8cba-a397f0b8eaec"
+
+[[outputs]]
+id = "hwFKhc7_vehOUcbCYdlKY"
+uri = "file://attached_assets/archhive-local-commit-review.zip"
+type = "unspecified"
+title = "حزمة مراجعة التزامات ArchHive"
+description = "ملفا patch وتقرير عربي لمراجعة تغييرات التخزين المحلية؛ معرّف بناء النشر محجوب."
+logical_id = "88815e98-4699-49f6-8c39-80b6a3f456ce"
+content_hash = "sha256:68ab9598770193383b22f2bca3a37bff0668107f34c8e6c03a4c2233ff4e3aa7"
+size = 4335
+mtime_ms = 1793606612733
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:b9e537f3-8a28-45c1-8514-434634117edb/88815e98-4699-49f6-8c39-80b6a3f456ce/15abb180-c10b-416b-ab7b-fc41001d95ec"
+storage_version_token = "1793606622717970"
+content_type = "application/octet-stream"

@@ -46,3 +46,6 @@ GOOGLE_DRIVE_OAUTH_REDIRECT_URI = "https://b9e537f3-8a28-45c1-8514-434634117edb-
 [nix]
 channel = "stable-25_05"
 packages = ["libreoffice"]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-35d5d3eb-3206-4236-9a99-42461a87a2d6"
