@@ -28,3 +28,31 @@ mtime_ms = 1793606612733
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:b9e537f3-8a28-45c1-8514-434634117edb/88815e98-4699-49f6-8c39-80b6a3f456ce/15abb180-c10b-416b-ab7b-fc41001d95ec"
 storage_version_token = "1793606622717970"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "b3DZx8lPAVTamZoeORlK3"
+uri = "file://attached_assets/archhive-domain-login.png"
+type = "image"
+title = "لقطة archiva.cloud"
+description = "واجهة تسجيل الدخول التي ظهرت عند فتح النطاق الرسمي عبر HTTPS."
+logical_id = "b826a9a0-7281-4b0c-9867-38dceb07d409"
+content_hash = "sha256:a1626dc503633c0e40b4367f8c25afeca9a316ed0181a4ac5bf482523f71c825"
+size = 516693
+mtime_ms = 1793885224657
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:b9e537f3-8a28-45c1-8514-434634117edb/b826a9a0-7281-4b0c-9867-38dceb07d409/9b15c65c-0550-4832-865f-1025861c26b5"
+storage_version_token = "1793885249806544"
+content_type = "image/png"
+
+[[outputs]]
+id = "ENvOz2_aLBLNIpJW8h6cd"
+uri = "file://attached_assets/archhive-original-replit-login.png"
+type = "image"
+title = "لقطة نطاق Replit الأصلي"
+description = "واجهة تسجيل الدخول على arabic-archive.replit.app للمقارنة."
+logical_id = "1e0d0c4c-5c4a-4916-abb2-7e158fb40268"
+content_hash = "sha256:a1626dc503633c0e40b4367f8c25afeca9a316ed0181a4ac5bf482523f71c825"
+size = 516693
+mtime_ms = 1793885174957
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:b9e537f3-8a28-45c1-8514-434634117edb/1e0d0c4c-5c4a-4916-abb2-7e158fb40268/489860ab-d864-4c97-b2ee-6283f1736081"
+storage_version_token = "1793885251097994"
+content_type = "image/png"
