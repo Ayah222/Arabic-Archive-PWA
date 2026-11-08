@@ -13,3 +13,4 @@
 - [Bulk deletion permissions](bulk-selection-permissions.md) — preserve each module's existing delete guard when adding selection and bulk confirmation.
 - [AI analysis isolation](ai-analysis-isolation.md) — AI document analysis is explicitly user-triggered and must never affect uploads or sensitive HR files.
 - [ArcHive brand asset](arch-hive-brand.md) — use the user-provided ArcHive wordmark for app and authentication icons, not a generic folder mark.
+- [Phase 17 source archives](phase17-source-archives.md) — `.tar` snapshots are plain POSIX tar streams; validate inventories and source hashes before packaging.
