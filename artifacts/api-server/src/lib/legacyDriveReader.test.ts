@@ -6,6 +6,8 @@
 // nothing on this path writes.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   isLegacyServiceAccountCredentials,
   LEGACY_CREDENTIAL_MODE,
@@ -16,6 +18,7 @@ import {
   type LegacyReference,
 } from "./legacyDriveReader";
 
+const currentDir = dirname(fileURLToPath(import.meta.url));
 const FILE_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz01234";
 const OTHER_ID = "9ZyXwVuTsRqPoNmLkJiHgFeDcBa98765";
 
@@ -270,9 +273,8 @@ test("an unreferenced id is refused on the content path too", async () => {
 
 test("the module writes nothing and touches neither OAuth nor Replit storage", async () => {
   const { readFileSync } = await import("node:fs");
-  const { dirname, join } = await import("node:path");
   let source = "";
-  let dir = __dirname;
+  let dir = currentDir;
   for (let up = 0; up < 8 && !source; up += 1) {
     for (const segments of [["legacyDriveReader.ts"], ["src", "lib", "legacyDriveReader.ts"],
       ["artifacts", "api-server", "src", "lib", "legacyDriveReader.ts"]]) {
@@ -314,8 +316,7 @@ test("the module writes nothing and touches neither OAuth nor Replit storage", a
 /** Reads a sibling source file without importing it (it pulls in the database). */
 async function siblingSource(name: string): Promise<string> {
   const { readFileSync } = await import("node:fs");
-  const { dirname, join } = await import("node:path");
-  let dir = __dirname;
+  let dir = currentDir;
   for (let up = 0; up < 8; up += 1) {
     for (const segments of [[name], ["src", "lib", name], ["artifacts", "api-server", "src", "lib", name]]) {
       try { return readFileSync(join(dir, ...segments), "utf8"); } catch { /* keep looking */ }
