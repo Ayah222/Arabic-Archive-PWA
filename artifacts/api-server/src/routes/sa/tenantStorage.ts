@@ -11,6 +11,8 @@ import {
 import { saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
+import { LegacyDriveError, readLegacyDriveContent } from "../../lib/legacyDriveReader";
+import { legacyDriveDepsFor, tenantUsesLegacyDriveConnection } from "../../lib/legacyDriveAccess";
 
 const router = Router();
 const upload = multer({
@@ -128,8 +130,47 @@ router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res
   res.status(201).json({ path: saved.objectName, url: storageObjectUrl(saved.objectName) });
 });
 
+/** HTTP status for a historical-path refusal. Unknown reasons fail closed. */
+function legacyStatus(code: LegacyDriveError["code"]): number {
+  switch (code) {
+    case "not-referenced":
+    case "not-found":
+      return 404;
+    case "forbidden":
+      return 403;
+    case "invalid-id":
+      return 400;
+    case "too-large":
+      return 413;
+    default:
+      // not-configured, auth-failed, denied, incomplete, transient, not-legacy
+      // are all "the archive cannot serve this right now", not "your request
+      // was wrong".
+      return 503;
+  }
+}
+
 router.get("/sa/storage/files/:fileId", async (req, res): Promise<void> => {
   try {
+    // The historical attachments were written by a service-account uploader
+    // that no longer exists in this codebase. Their connection record carries
+    // no OAuth credential, so the normal reader rejects them before it ever
+    // reaches Google -- which is the 400 those downloads have been returning.
+    // Tenants still on that marker read through the legacy path; everyone else
+    // takes the OAuth path below, unchanged.
+    if (await tenantUsesLegacyDriveConnection(String(res.locals.tenantId))) {
+      const legacy = await readLegacyDriveContent(
+        String(req.params.fileId),
+        legacyDriveDepsFor(String(res.locals.tenantId)),
+        FILE_LIMITS.maxFileBytes,
+      );
+      res.setHeader("Content-Type", legacy.contentType);
+      res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(legacy.filename)}`);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.send(legacy.bytes);
+      return;
+    }
     const file = await downloadTenantFile(String(res.locals.tenantId), String(req.params.fileId));
     res.setHeader("Content-Type", file.contentType);
     res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
@@ -137,6 +178,10 @@ router.get("/sa/storage/files/:fileId", async (req, res): Promise<void> => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.send(file.bytes);
   } catch (error) {
+    if (error instanceof LegacyDriveError) {
+      res.status(legacyStatus(error.code)).json({ error: error.message });
+      return;
+    }
     const message = error instanceof Error ? error.message : "تعذر تنزيل الملف";
     const status = message.includes("not connected")
       ? 503
