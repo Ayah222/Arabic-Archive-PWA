@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArchHive Migration</title>
+<style>
+:root { color-scheme: light dark; --fg:#1a1a1a; --muted:#5a5f66; --bg:#fcfcfa;
+        --rule:#e0ddd6; --mark:#8a5a00; --markbg:#fdf3e0; --link:#1f5f8b; }
+@media (prefers-color-scheme: dark) {
+  :root { --fg:#e8e6e3; --muted:#a0a6ad; --bg:#17191c; --rule:#30343a;
+          --mark:#e8b765; --markbg:#2a2318; --link:#7fb6dd; } }
+* { box-sizing: border-box; }
+body { margin:0; padding:2.5rem 1.25rem 4rem; background:var(--bg); color:var(--fg);
+       font:16px/1.75 "Segoe UI", system-ui, -apple-system, sans-serif; }
+main { max-width: 48rem; margin: 0 auto; }
+h1 { font-size:1.75rem; line-height:1.3; margin:0 0 .5rem; }
+h2 { font-size:1.3rem; margin:2.75rem 0 .75rem; padding-top:1.25rem;
+     border-top:1px solid var(--rule); }
+h3 { font-size:1.05rem; margin:1.75rem 0 .5rem; }
+p, li { margin:.6rem 0; }
+ul, ol { padding-inline-start:1.5rem; }
+a { color:var(--link); }
+code { background:var(--markbg); padding:.1rem .35rem; border-radius:3px;
+       font:.9em/1 ui-monospace, Consolas, monospace; word-break:break-all; }
+blockquote { margin:1.25rem 0; padding:.75rem 1rem; border-inline-start:3px solid var(--mark);
+             background:var(--markbg); color:var(--fg); }
+hr { border:0; border-top:1px solid var(--rule); margin:2.5rem 0; }
+em { color:var(--muted); }
+.draft { background:var(--markbg); color:var(--mark); border:1px dashed var(--mark);
+         padding:.75rem 1rem; border-radius:4px; font-weight:600; margin-bottom:2rem; }
+</style>
+</head>
+<body>
+<main>
+<div class="draft" dir="auto">DRAFT - not published. Every &#10214; &#10215; marker must be replaced before publication.</div>
+<h1 dir="auto">ArchHive Migration — أداة ترحيل الأرشيف</h1>
+<hr>
+<h2 dir="auto">عربي</h2>
+<h3 dir="auto">ما هي هذه الأداة</h3>
+<p dir="auto"><strong>ArchHive Migration</strong> أداة إدارية داخلية تخصّ شركة عبدالله نغيمش الأحمدي، وتُستخدم لنسخ مرفقات الأرشيف المحفوظة حالياً في تخزين <strong>ArchHive</strong> إلى مساحة Google Drive تملكها المؤسسة وتُديرها.</p>
+<p dir="auto">ليست خدمة عامة، ولا تملك تسجيل اشتراك، ولا واجهة للمستخدمين. لا يستطيع تشغيلها أو الإذن لها إلا مسؤول النظام المُخوَّل في المؤسسة، من جهاز يُديره بنفسه.</p>
+<h3 dir="auto">وجهة التخزين</h3>
+<p dir="auto">الملفات المنسوخة تُحفظ في حساب Google Drive تابع للمؤسسة، داخل مجلد <strong>تُنشئه الأداة بنفسها</strong>. تبقى ملكية الملفات للمؤسسة، ولا تُشارك مع أي جهة خارجية، ولا تُنشر روابط عامة لها.</p>
+<h3 dir="auto">صلاحية الوصول المطلوبة</h3>
+<p dir="auto">تطلب الأداة صلاحية واحدة فقط: <code>https://www.googleapis.com/auth/drive.file</code></p>
+<p dir="auto">وهي صلاحية <strong>محدودة بالملفات التي تُنشئها الأداة نفسها</strong>. لا تستطيع الأداة رؤية أو فتح أو تعديل أو حذف أي ملف موجود مسبقاً في حساب Drive.</p>
+<h3 dir="auto">طريقة العمل: نسخ ثم تحقّق</h3>
+<ol dir="auto">
+<li>تقرأ الأداة الملف من تخزين ArchHive الحالي.</li>
+<li>تحسب بصمة SHA-256 للبايتات أثناء تدفّقها.</li>
+<li>تُنشئ الملف في مجلد الوجهة، بمعرّف محجوز مسبقاً يمنع التكرار عند إعادة</li>
+</ol>
+<p dir="auto">المحاولة.</p>
+<ol dir="auto">
+<li>تقرأ بصمة النسخة في Drive وتُقارنها بالبصمة المحسوبة.</li>
+<li>عند أي اختلاف يُعلَّق الملف ويُسجَّل، <strong>ويبقى الأصل كما هو دون مساس</strong>.</li>
+</ol>
+<p dir="auto">لا تحذف الأداة أي ملف من المصدر في أي مرحلة.</p>
+<h3 dir="auto">حماية مرفقات العملاء</h3>
+<ul dir="auto">
+<li>الأصول في ArchHive تبقى موجودة ولا تُحذف ولا تُعدَّل.</li>
+<li>لا تُغيَّر مراجع الملفات في قاعدة البيانات ضمن عمل هذه الأداة.</li>
+<li>لا يُعدّ أي ملف منقولاً إلا بعد نجاح التحقّق من سلامته.</li>
+<li>عزل المستأجرين محفوظ: يحتفظ كل ملف منسوخ بوسم المستأجر نفسه المستخدم حالياً.</li>
+<li>السجلات تحتوي بصمات وأحجاماً وحالات فقط — لا أسماء ملفات ولا محتوى.</li>
+</ul>
+<h3 dir="auto">علاقتها بخدمة ArchHive</h3>
+<p dir="auto">أداة مستقلة ومنفصلة. لا تُعدّل تطبيق ArchHive المنشور، ولا إعداداته، ولا اعتماداته. اعتماد الدخول الخاص بها منفصل تماماً عن اعتماد الخدمة الذي يستخدمه التطبيق، ولا يعتمد مستخدمو ArchHive العاديون عليه إطلاقاً.</p>
+<blockquote dir="auto"><strong>الحالة الراهنة:</strong> هذه الصفحة تعريفية. لم يبدأ أي ترحيل، ولم يُنسخ أي ملف.</blockquote>
+<h3 dir="auto">سياسة الخصوصية</h3>
+<p dir="auto"><a href="./migration-privacy.html">سياسة خصوصية أداة الترحيل</a></p>
+<h3 dir="auto">التواصل</h3>
+<p dir="auto">mnba6196@gmail.com</p>
+<hr>
+<h2 dir="auto">English</h2>
+<h3 dir="auto">What this is</h3>
+<p dir="auto"><strong>ArchHive Migration</strong> is an internal administrative utility belonging to شركة عبدالله نغيمش الأحمدي. It copies archive attachments currently held in <strong>ArchHive</strong> storage into a Google Drive space owned and controlled by the institution.</p>
+<p dir="auto">It is not a public service. It has no sign-up, no end-user interface, and no public users. Only the institution's authorised administrator can operate or authorise it, from a machine that administrator controls.</p>
+<h3 dir="auto">Storage destination</h3>
+<p dir="auto">Copied files are placed in an institution-owned Google Drive account, inside a folder <strong>the utility creates itself</strong>. The institution retains ownership. Files are not shared with third parties and no public links are created.</p>
+<h3 dir="auto">Access requested</h3>
+<p dir="auto">A single scope: <code>https://www.googleapis.com/auth/drive.file</code> — per-file access <strong>limited to files the utility itself creates</strong>. The utility cannot see, open, modify or delete any pre-existing file in the Drive account.</p>
+<h3 dir="auto">How it works: copy, then verify</h3>
+<ol dir="auto">
+<li>Read the file from existing ArchHive storage.</li>
+<li>Compute a SHA-256 digest over the bytes as they stream.</li>
+<li>Create the file in the destination folder, using a pre-reserved file ID so a</li>
+</ol>
+<p dir="auto">retry cannot produce a duplicate.</p>
+<ol dir="auto">
+<li>Read the destination checksum back from Drive and compare.</li>
+<li>On any mismatch the file is parked and recorded, and **the original is left</li>
+</ol>
+<p dir="auto">untouched**.</p>
+<p dir="auto">The utility never deletes anything from the source, at any stage.</p>
+<h3 dir="auto">Protection of customer attachments</h3>
+<ul dir="auto">
+<li>Originals in ArchHive remain present, unmodified and undeleted.</li>
+<li>Database file references are not altered by this utility.</li>
+<li>No file counts as migrated until its integrity check passes.</li>
+<li>Tenant isolation is preserved: each copied file keeps the same tenant tag.</li>
+<li>Logs contain digests, sizes and states only — never file names or content.</li>
+</ul>
+<h3 dir="auto">Relationship to the ArchHive service</h3>
+<p dir="auto">Separate and independent. It does not modify the published ArchHive application, its configuration or its credentials. Its sign-in credential is entirely separate from the service credential the application uses, and ordinary ArchHive users never depend on it.</p>
+<blockquote dir="auto"><strong>Current status:</strong> this page is informational. No migration has begun and no file has been copied.</blockquote>
+<h3 dir="auto">Privacy policy</h3>
+<p dir="auto"><a href="./migration-privacy.html">ArchHive Migration privacy policy</a></p>
+<h3 dir="auto">Contact</h3>
+<p dir="auto">mnba6196@gmail.com</p>
+<hr>
+<p dir="auto"><a href="./migration-privacy.html">سياسة الخصوصية</a> · <a href="./migration-terms.html">شروط الاستخدام</a></p>
+<p dir="auto"><a href="./migration-privacy.html">Privacy policy</a> · <a href="./migration-terms.html">Terms of service</a></p>
+<p dir="auto"><em>__PUBLICATION_DATE__</em></p>
+</main>
+</body>
+</html>
