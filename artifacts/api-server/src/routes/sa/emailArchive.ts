@@ -5,7 +5,10 @@ import { downloadPrivateObject, isTenantPrivateObject, objectStorageClient, priv
 import { hasAdminAccess, verifyEmailArchiveSession, type EmailArchiveActor } from "../../lib/emailArchiveAuth";
 import { addAuditLog } from "./archiveDb";
 import { currentTenantId, DEFAULT_TENANT_ID } from "../../lib/tenantContext";
-import { downloadTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { FILE_LIMITS } from "../../lib/fileLimits";
+import { readTenantDriveFile } from "../../lib/driveRead";
+import { driveReadDepsFor } from "../../lib/driveReadAccess";
 
 const router: IRouter = Router();
 const gmail = new ReplitConnectors();
@@ -470,7 +473,12 @@ router.get("/sa/email-archive/:id/attachments/:attachmentId/download", async (re
   const driveFileId = parseTenantDriveObjectPath(attachment.objectName);
   if (driveFileId) {
     try {
-      const file = await downloadTenantFile(currentTenantId(), driveFileId);
+      const tenantForDrive = currentTenantId();
+      const file = await readTenantDriveFile(
+        driveFileId,
+        driveReadDepsFor(tenantForDrive),
+        FILE_LIMITS.maxFileBytes,
+      );
       res.send(file.bytes);
     } catch {
       res.status(404).json({ error: "تعذر العثور على ملف المرفق" });

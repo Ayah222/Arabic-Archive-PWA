@@ -3,7 +3,9 @@ import { basename, extname } from "node:path";
 import mammoth from "mammoth";
 import { downloadPrivateObject } from "../../lib/objectStorage";
 import { parseSupabaseObjectPath, downloadSupabaseObject } from "../../lib/supabaseStorage";
-import { downloadTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { readTenantDriveFile } from "../../lib/driveRead";
+import { driveReadDepsFor } from "../../lib/driveReadAccess";
 import { extractPdfText } from "../../lib/pdfText";
 import { runWithTenant } from "../../lib/tenantContext";
 import { runArchiveAi, type ArchiveAiTask } from "../../lib/archiveAi";
@@ -29,7 +31,9 @@ function checkRateLimit(userId: string, tenantId: string) {
 
 async function loadAttachmentBytes(tenantId: string, objectPath: string) {
   const driveId = parseTenantDriveObjectPath(objectPath);
-  if (driveId) return (await downloadTenantFile(tenantId, driveId, MAX_AI_FILE_BYTES)).bytes;
+  if (driveId) {
+    return (await readTenantDriveFile(driveId, driveReadDepsFor(tenantId), MAX_AI_FILE_BYTES)).bytes;
+  }
   const supabasePath = parseSupabaseObjectPath(objectPath);
   if (supabasePath) return downloadSupabaseObject(supabasePath, MAX_AI_FILE_BYTES);
   return downloadPrivateObject(objectPath, MAX_AI_FILE_BYTES);

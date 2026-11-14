@@ -10,7 +10,9 @@ import {
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { DEFAULT_TENANT_ID } from "../../lib/tenantContext";
 import { saveTenantPrivateObject } from "../../lib/objectStorage";
-import { downloadTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { parseTenantDriveObjectPath } from "../../lib/tenantDrive";
+import { readTenantDriveFile } from "../../lib/driveRead";
+import { driveReadDepsFor } from "../../lib/driveReadAccess";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -56,7 +58,11 @@ router.get("/sa/files/:objectRef", async (req, res): Promise<void> => {
     const objectName = decodeStorageObjectRef(req.params.objectRef);
     const driveFileId = parseTenantDriveObjectPath(objectName);
     if (driveFileId) {
-      const file = await downloadTenantFile(String(res.locals.tenantId), driveFileId);
+      const file = await readTenantDriveFile(
+        driveFileId,
+        driveReadDepsFor(String(res.locals.tenantId)),
+        FILE_LIMITS.maxFileBytes,
+      );
       res.setHeader("Content-Type", file.contentType);
       res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
       res.setHeader("Cache-Control", "private, no-store");

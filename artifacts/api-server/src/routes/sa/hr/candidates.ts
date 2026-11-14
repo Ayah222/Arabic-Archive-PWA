@@ -10,7 +10,9 @@ import { addAuditLog } from "../archiveDb";
 import { extractCvSkills } from "../../../lib/ai";
 import { extractPdfText } from "../../../lib/pdfText";
 import { currentTenantId } from "../../../lib/tenantContext";
-import { downloadTenantFile } from "../../../lib/tenantDrive";
+import { FILE_LIMITS } from "../../../lib/fileLimits";
+import { readTenantDriveFile } from "../../../lib/driveRead";
+import { driveReadDepsFor } from "../../../lib/driveReadAccess";
 import { hrActorFrom } from "./permissions";
 import { resolveHrFilePath } from "./files";
 
@@ -99,7 +101,15 @@ router.post("/sa/hr/candidates/:id/extract-skills", async (req, res): Promise<vo
   let pdfInput: string | Buffer = resolveHrFilePath(filename);
   if (driveFileMatch) {
     try {
-      const driveFile = await downloadTenantFile(currentTenantId(), decodeURIComponent(driveFileMatch[1]));
+      const tenantForDrive = currentTenantId();
+      const driveFile = await readTenantDriveFile(
+        // hr/files.ts publishes these as /files/drive_<id> and strips the
+        // prefix on read; this route did not, so every Drive-stored CV
+        // failed here and was swallowed by the catch below as 'no skills'.
+        decodeURIComponent(driveFileMatch[1]).replace(/^drive_/, ""),
+        driveReadDepsFor(tenantForDrive),
+        FILE_LIMITS.maxFileBytes,
+      );
       if (!driveFile.filename.toLowerCase().endsWith(".pdf")) {
         res.json({ skills: [], extracted: false });
         return;

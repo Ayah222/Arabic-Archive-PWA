@@ -11,7 +11,8 @@ import multer from "multer";
 import { decodeSupabasePath, signedSupabaseUrl, SUPABASE_STORAGE_DISABLED_MESSAGE } from "../../../lib/supabaseStorage";
 import { FILE_LIMITS } from "../../../lib/fileLimits";
 import { currentTenantId } from "../../../lib/tenantContext";
-import { downloadTenantFile } from "../../../lib/tenantDrive";
+import { readTenantDriveFile } from "../../../lib/driveRead";
+import { driveReadDepsFor } from "../../../lib/driveReadAccess";
 import { downloadPrivateObject, getPrivateObjectMetadata, isTenantPrivateObject, saveTenantPrivateObject } from "../../../lib/objectStorage";
 
 const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
@@ -113,7 +114,11 @@ router.get("/sa/hr/storage/files/:fileRef", async (req, res): Promise<void> => {
     let filename: string;
     let bytes: Buffer;
     if (fileRef.startsWith("drive_")) {
-      const file = await downloadTenantFile(tenantId, decodeURIComponent(fileRef.slice("drive_".length)), FILE_LIMITS.maxFileBytes);
+      const file = await readTenantDriveFile(
+        decodeURIComponent(fileRef.slice("drive_".length)),
+        driveReadDepsFor(tenantId),
+        FILE_LIMITS.maxFileBytes,
+      );
       filename = file.filename;
       bytes = file.bytes;
     } else if (fileRef.startsWith("app_")) {
@@ -128,7 +133,11 @@ router.get("/sa/hr/storage/files/:fileRef", async (req, res): Promise<void> => {
       filename = String(metadata.metadata?.originalName || filename);
       bytes = await downloadPrivateObject(objectName, FILE_LIMITS.maxFileBytes);
     } else {
-      const file = await downloadTenantFile(tenantId, fileRef);
+      const file = await readTenantDriveFile(
+        fileRef,
+        driveReadDepsFor(tenantId),
+        FILE_LIMITS.maxFileBytes,
+      );
       filename = file.filename;
       bytes = file.bytes;
     }

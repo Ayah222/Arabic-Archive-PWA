@@ -11,9 +11,10 @@ import { deleteSupabaseObject, downloadSupabaseObject, parseSupabaseObjectPath, 
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import {
   deleteTenantFile,
-  downloadTenantFile,
   parseTenantDriveObjectPath,
 } from "../../lib/tenantDrive";
+import { readTenantDriveFile } from "../../lib/driveRead";
+import { driveReadDepsFor } from "../../lib/driveReadAccess";
 import { runWithTenant } from "../../lib/tenantContext";
 import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
@@ -207,7 +208,7 @@ router.get("/sa/projects/:id/attachments/:aid/preview.pdf", async (req, res): Pr
     const sourceBytes = supabasePath
       ? await downloadSupabaseObject(supabasePath, MAX_OFFICE_PREVIEW_BYTES)
       : driveFileId
-        ? (await downloadTenantFile(tenantId, driveFileId, MAX_OFFICE_PREVIEW_BYTES)).bytes
+        ? (await readTenantDriveFile(driveFileId, driveReadDepsFor(tenantId), MAX_OFFICE_PREVIEW_BYTES)).bytes
         : await downloadPrivateObject(attachment.objectPath, MAX_OFFICE_PREVIEW_BYTES);
     if (sourceBytes.length > MAX_OFFICE_PREVIEW_BYTES) {
       res.status(413).json({ error: "الحد الأقصى لمعاينة ملفات Word وPowerPoint هو 100 ميغابايت." });
@@ -282,7 +283,11 @@ router.post("/sa/projects/:id/attachments/download-zip", async (req, res): Promi
       const bytes = supabasePath
         ? await downloadSupabaseObject(supabasePath, MAX_UPLOAD_BYTES)
         : driveFileId
-          ? (await downloadTenantFile(String(res.locals.tenantId), driveFileId, MAX_UPLOAD_BYTES)).bytes
+          ? (await readTenantDriveFile(
+              driveFileId,
+              driveReadDepsFor(String(res.locals.tenantId)),
+              MAX_UPLOAD_BYTES,
+            )).bytes
           : attachment.objectPath
           ? await downloadPrivateObject(attachment.objectPath, MAX_UPLOAD_BYTES)
           : null;
