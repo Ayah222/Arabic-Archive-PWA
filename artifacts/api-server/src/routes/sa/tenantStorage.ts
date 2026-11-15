@@ -11,6 +11,7 @@ import { saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStora
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { LegacyDriveError } from "../../lib/legacyDriveReader";
+import { connectionDiagnostics } from "../../lib/driveMonitorAccess";
 import { readTenantDriveFile, driveReadStatus } from "../../lib/driveRead";
 import { driveReadDepsFor } from "../../lib/driveReadAccess";
 
@@ -52,6 +53,27 @@ function validOAuthState(value: unknown, expectedTenantId: string) {
     return false;
   }
 }
+
+/**
+ * Phase 18BY. Connection diagnostics for the institution administrator.
+ *
+ * Read-only: it refreshes the access token if needed and makes ONE /about
+ * call. It never uploads, deletes, shares, lists a folder or reads a
+ * customer document.
+ *
+ * SAFE TO PASTE INTO A SUPPORT THREAD. No token, no client secret, no
+ * encrypted credential, no file name and no file id appears in the
+ * response - which is the point of having it at all.
+ */
+router.get("/sa/tenants/storage/diagnostics", async (req, res): Promise<void> => {
+  const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
+  if (!actor || !hasAdminAccess(actor)) {
+    res.status(403).json({ error: "يلزم حساب مدير لعرض تشخيص الربط" });
+    return;
+  }
+  // The tenant comes from the verified session, never from the request.
+  res.json(await connectionDiagnostics(actor.tenantId));
+});
 
 router.get("/sa/tenants/storage/oauth/start", (req, res): void => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
