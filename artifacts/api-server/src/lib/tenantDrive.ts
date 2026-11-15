@@ -6,7 +6,14 @@ import { logger } from "./logger";
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 const MAX_DRIVE_FILE_BYTES = FILE_LIMITS.maxFileBytes;
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+// Phase 18BW. NARROWED from the restricted .../auth/drive. An External app
+// requesting that scope needs Google verification and an annual CASA
+// assessment, and users see the unverified-app screen until it completes.
+// drive.file is NON-SENSITIVE, is sufficient because ArchHive creates every
+// file it later reads and resolves them by id, and is ALREADY the only
+// scope declared on the In-production ArchHive Migration consent screen -
+// so code and console agree for the first time.
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const DRIVE_SETUP_MESSAGE = "إعداد Google Drive غير مكتمل. تحقق من ربط حساب المكتب ومجلد الأرشيف.";
 
@@ -64,6 +71,41 @@ function getGoogleErrorReason(responseText: string): { reason: string; status: s
 }
 
 type OAuthDriveCredentials = { mode: "oauth"; iv: string; tag: string; ciphertext: string };
+/**
+ * Phase 18BW. A refresh failure that a human must fix, told apart from one
+ * that will clear by itself.
+ *
+ * Google answers invalid_grant when the refresh token is gone - revoked,
+ * expired under a Testing-mode consent screen, or superseded. No amount of
+ * retrying brings it back; only a new consent does. Treating that the same
+ * as a 503 is how a dead connection stays dead for weeks while the logs
+ * fill with retries and nobody is told.
+ */
+export class DriveAuthError extends Error {
+  readonly terminal: boolean;
+  readonly reason: string;
+  constructor(terminal: boolean, reason: string, message: string) {
+    super(message);
+    this.terminal = terminal;
+    this.reason = reason;
+    this.name = "DriveAuthError";
+  }
+}
+
+/** Classifies a token-endpoint rejection. Unknown failures are transient. */
+export function classifyTokenFailure(status: number, body: unknown): DriveAuthError {
+  const error = typeof (body as { error?: unknown })?.error === "string"
+    ? String((body as { error: string }).error)
+    : "";
+  const terminalReasons = ["invalid_grant", "unauthorized_client", "invalid_client"];
+  if (terminalReasons.includes(error) || status === 400 || status === 401) {
+    return new DriveAuthError(true, error || `http_${status}`,
+      "انتهت صلاحية ربط Google Drive أو تم إلغاؤه. يلزم إعادة الربط من حساب المؤسسة.");
+  }
+  return new DriveAuthError(false, error || `http_${status}`,
+    "تعذر تجديد الاتصال بـ Google Drive مؤقتاً. ستتم إعادة المحاولة.");
+}
+
 const accessTokens = new Map<string, { token: string; expiresAt: number }>();
 
 function oauthClientId() {
@@ -219,10 +261,14 @@ async function getAccessToken(tenantId: string, forceRefresh = false): Promise<s
         grant_type: "refresh_token",
       }),
     });
-    const result = await response.json() as { access_token?: string; expires_in?: number };
+    const result = await response.json() as {
+      access_token?: string; expires_in?: number; error?: string;
+    };
     if (!response.ok || !result.access_token) {
       accessTokens.delete(tenantId);
-      throw new Error("انتهت صلاحية ربط Google Drive. أعد ربط حساب المكتب.");
+      // A transient 5xx must not be reported as a revoked connection,
+      // and a revoked connection must not be retried as a blip.
+      throw classifyTokenFailure(response.status, result);
     }
     accessTokens.set(tenantId, {
       token: result.access_token,
@@ -580,13 +626,38 @@ export async function getTenantDriveStatus(tenantId: string) {
   } catch {
     // Report missing or incomplete setup without exposing credential details.
   }
+  // Phase 18BW. `configured` means a credential is present and decrypts.
+  // `connected` now means Google ACCEPTED it moments ago. Those are not the
+  // same thing, and conflating them is how a revoked token reads as healthy:
+  // decryption is a local operation and succeeds happily for a token Google
+  // has already thrown away.
+  let verified = false;
+  let state: "healthy" | "reauth_required" | "degraded" | "misconfigured" | "disconnected" =
+    configured ? "degraded" : "disconnected";
+  if (configured) {
+    try {
+      const token = await getAccessToken(tenantId);
+      const probe = await fetch(`${DRIVE_API}/about?fields=user(emailAddress)`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      verified = probe.ok;
+      state = probe.ok ? "healthy" : "degraded";
+    } catch (error) {
+      verified = false;
+      state = error instanceof DriveAuthError && error.terminal
+        ? "reauth_required"
+        : "degraded";
+    }
+  }
   return {
-    connected: configured,
+    connected: verified,
+    verified,
+    state,
     configured,
     provider: configured ? "google_drive" : null,
     connectedEmail: configured ? data?.connected_email ?? null : null,
     connectedAt: data?.connected_at ?? null,
     sharedAccount: false,
-    accountVerified: configured,
+    accountVerified: verified,
   };
 }
