@@ -130,8 +130,6 @@ router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res
   res.status(201).json({ path: saved.objectName, url: storageObjectUrl(saved.objectName) });
 });
 
-/** HTTP status for a historical-path refusal. Unknown reasons fail closed. */
-
 router.get("/sa/storage/files/:fileId", async (req, res): Promise<void> => {
   try {
     // Phase 18BN. The provider choice used to live here, inline, and ONLY

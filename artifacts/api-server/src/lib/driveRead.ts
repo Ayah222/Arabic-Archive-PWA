@@ -72,6 +72,10 @@ export function classifyOAuthError(error: unknown): LegacyDriveFailure {
   if (/Invalid Google Drive file ID/i.test(message)) return "invalid-id";
   if (/allowed download size/i.test(message)) return "too-large";
   if (/incomplete file/i.test(message)) return "incomplete";
+  // Phase 18BO finding 1. The Word-specific message contains "Google Drive",
+  // so it must be classified BEFORE the generic rule below - otherwise one
+  // corrupt .docx is reported as a broken Drive connection.
+  if (/Word/i.test(message) || /ورد/.test(message)) return "incomplete";
   if (/\(404\)/.test(message)) return "not-found";
   if (/\(401\)/.test(message)) return "auth-failed";
   if (/\(403\)/.test(message)) return "denied";
