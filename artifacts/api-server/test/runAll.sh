@@ -25,6 +25,11 @@ node test/buildRouteTests.mjs > /dev/null || exit 1
 node --test test/.routes.test.mjs 2>&1 | grep -E '^. (tests|pass|fail)|^✖'
 rm -f test/.routes.test.mjs
 
+echo "=== release safety ==="
+# Reads the real merge hook, the real package scripts and the real guard.
+# No build step: it must see the files as they actually are on disk.
+node --test test/releaseSafety.test.mjs 2>&1 | grep -E '^. (tests|pass|fail)|^✖'
+
 echo "=== real postgres ==="
 bash test/runPgClaim.sh
 
