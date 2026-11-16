@@ -36,8 +36,7 @@ cd "$HOME/workspace/.local/archhive-mon/artifacts/api-server" || exit 1
 PGCLAIM_DSN="postgresql://runner@localhost/claimtest?host=$SOCK" \
 PGCLAIM_MIGRATION="$PWD/migrations/2026-11-16-drive-connection-health.sql" \
 PGCLAIM_PG="/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/index.js" \
-node --test test/pgClaim.test.mjs 2>&1 | grep -E 'AssertionError|actual:|expected:|^. (tests|pass|fail)' | head -24
-
+node --test test/pgClaim.test.mjs 2>&1 | grep -A6 -E "^.{0,4}not ok|^â |^. (tests|pass|fail)" | head -40
 pg_ctl -D "$PGDATA" stop > /dev/null 2>&1
 rm -rf "$ROOT"
 echo "(cluster destroyed)"

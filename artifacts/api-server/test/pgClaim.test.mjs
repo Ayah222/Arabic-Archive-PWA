@@ -33,6 +33,14 @@ before(async () => {
       provider  text not null
     );
   `);
+  // Supabase always has these three roles. Creating them here means the
+  // migration's grant block is actually exercised rather than skipped.
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    await pool.query(`do $$ begin
+      if not exists (select 1 from pg_roles where rolname = '${role}') then
+        create role ${role} nologin;
+      end if; end $$;`);
+  }
   // the real migration, verbatim - not a hand-copied subset
   await pool.query(readFileSync(MIGRATION, "utf8"));
 });
@@ -56,6 +64,12 @@ async function reset(tenants, provider = "google_drive") {
   const { rows } = await pool.query("select (now() + interval '1 second') as t");
   return rows[0].t;
 }
+
+/** Every time in these tests comes from the database clock, never from JS.
+ *  next_due_at is written by now() inside the server, so a JS Date races
+ *  with it whenever the two land in the same millisecond. */
+const dbNow = async () =>
+  (await pool.query("select now() as t")).rows[0].t;
 
 const T1 = "11111111-1111-4111-8111-111111111111";
 const T2 = "22222222-2222-4222-8222-222222222222";
@@ -131,8 +145,7 @@ test("the row becomes claimable again after the lease expires", async () => {
 });
 
 test("every claim mints a NEW fence token", async () => {
-  await reset([T1]);
-  const t0 = new Date();
+  const t0 = new Date(await reset([T1]));
   const a = await claim(t0.toISOString(), 1, 10, "w1");
   const b = await claim(new Date(t0.getTime() + 5000).toISOString(), 900, 10, "w2");
   assert.notEqual(a.rows[0].lease_token, b.rows[0].lease_token);
@@ -173,8 +186,7 @@ test("the holder of the fence can write", async () => {
 test("A STALE WORKER CANNOT OVERWRITE A NEWER RESULT", async () => {
   // the scenario the fence exists for: a worker is paused past its lease,
   // a newer worker takes the row and finishes, then the old one wakes up
-  await reset([T1]);
-  const t0 = new Date();
+  const t0 = new Date(await reset([T1]));
   const slow = await claim(t0.toISOString(), 1, 10, "slow");
   const slowToken = slow.rows[0].lease_token;
 
@@ -198,8 +210,7 @@ test("a forged or absent token writes nothing", async () => {
 });
 
 test("a worker that crashes before writing loses only its own result", async () => {
-  await reset([T1]);
-  const t0 = new Date();
+  const t0 = new Date(await reset([T1]));
   await claim(t0.toISOString(), 1, 10, "crashed");          // never writes
   const next = await claim(new Date(t0.getTime() + 5000).toISOString(), 900, 10, "w2");
   assert.equal(next.rows.length, 1, "the row is recovered by the next worker");
@@ -212,7 +223,7 @@ test("the limit is respected and the oldest due rows go first", async () => {
   await pool.query("update public.drive_connection_health set next_due_at = now() - interval '10 minutes' where tenant_id=$1", [T1]);
   await pool.query("update public.drive_connection_health set next_due_at = now() - interval '5 minutes' where tenant_id=$1", [T2]);
   await pool.query("update public.drive_connection_health set next_due_at = now() - interval '1 minute' where tenant_id=$1", [T3]);
-  const { rows } = await claim(new Date().toISOString(), 900, 2, "w1");
+  const { rows } = await claim(await dbNow(), 900, 2, "w1");
   assert.equal(rows.length, 2);
   assert.deepEqual(rows.map((r) => r.tenant_id).sort(), [T1, T2].sort());
 });
@@ -237,4 +248,35 @@ test("concurrent claim and write do not deadlock under load", async () => {
   const counts = await Promise.all(workers);
   assert.equal(counts.reduce((a, b) => a + b, 0), many.length,
     "every row claimed exactly once across six concurrent workers");
+});
+
+test("anon and authenticated cannot execute the monitor functions", async () => {
+  // RLS already makes them useless, but PostgREST publishes every public
+  // function, so the endpoint should not exist for them at all.
+  const fns = [
+    "public.claim_drive_health_rows(timestamptz, integer, integer, text)",
+    "public.save_drive_health_row(uuid, uuid, text, text, integer, timestamptz,"
+      + " timestamptz, timestamptz, text, text, timestamptz, text, text, jsonb)",
+    "public.ensure_drive_health_rows()",
+  ];
+  for (const fn of fns) {
+    const { rows } = await pool.query(
+      `select has_function_privilege('anon', $1, 'execute') as anon,
+              has_function_privilege('authenticated', $1, 'execute') as auth,
+              has_function_privilege('service_role', $1, 'execute') as svc`, [fn]);
+    assert.equal(rows[0].anon, false, `anon must not execute ${fn}`);
+    assert.equal(rows[0].auth, false, `authenticated must not execute ${fn}`);
+    assert.equal(rows[0].svc, true, `the service role must execute ${fn}`);
+  }
+});
+
+test("RLS is on and no permissive policy exists", async () => {
+  const { rows } = await pool.query(`
+    select c.relrowsecurity,
+           (select count(*)::int from pg_policies
+             where schemaname='public' and tablename='drive_connection_health') as policies
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname='public' and c.relname='drive_connection_health'`);
+  assert.equal(rows[0].relrowsecurity, true, "row level security must be enabled");
+  assert.equal(rows[0].policies, 0, "only the service role, which bypasses RLS, may read this table");
 });

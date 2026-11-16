@@ -192,6 +192,37 @@ as $$
   select coalesce(count(*), 0)::integer from inserted;
 $$;
 
+-- Execute is granted to PUBLIC by default, and PostgREST publishes every
+-- function in the public schema. Security invoker plus RLS already means an
+-- anonymous caller would get nothing back, but an unauthenticated endpoint
+-- that exists at all is surface that does not need to exist. Only the
+-- service role runs the monitor.
+--
+-- Guarded by role existence so the same file applies verbatim to a bare
+-- PostgreSQL in the test harness, where the Supabase roles do not exist.
+do $grants$
+declare
+  fn text;
+begin
+  foreach fn in array array[
+    'public.claim_drive_health_rows(timestamptz, integer, integer, text)',
+    'public.save_drive_health_row(uuid, uuid, text, text, integer, timestamptz, timestamptz, timestamptz, text, text, timestamptz, text, text, jsonb)',
+    'public.ensure_drive_health_rows()'
+  ] loop
+    execute format('revoke execute on function %s from public', fn);
+    if exists (select 1 from pg_roles where rolname = 'anon') then
+      execute format('revoke execute on function %s from anon', fn);
+    end if;
+    if exists (select 1 from pg_roles where rolname = 'authenticated') then
+      execute format('revoke execute on function %s from authenticated', fn);
+    end if;
+    if exists (select 1 from pg_roles where rolname = 'service_role') then
+      execute format('grant execute on function %s to service_role', fn);
+    end if;
+  end loop;
+end
+$grants$;
+
 -- ROLLBACK
 --   drop function if exists public.ensure_drive_health_rows();
 --   drop function if exists public.save_drive_health_row(uuid, uuid, text, text,
