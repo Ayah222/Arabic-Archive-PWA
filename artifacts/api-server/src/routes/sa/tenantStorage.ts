@@ -12,6 +12,8 @@ import { FILE_LIMITS } from "../../lib/fileLimits";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { LegacyDriveError } from "../../lib/legacyDriveReader";
 import { connectionDiagnostics } from "../../lib/driveMonitorAccess";
+import { runMonitorCycle, schedulerSecretMatches } from "../../lib/monitorRunner";
+import { monitorCycleDeps } from "../../lib/monitorRunnerAccess";
 import { readTenantDriveFile, driveReadStatus } from "../../lib/driveRead";
 import { driveReadDepsFor } from "../../lib/driveReadAccess";
 
@@ -65,6 +67,49 @@ function validOAuthState(value: unknown, expectedTenantId: string) {
  * encrypted credential, no file name and no file id appears in the
  * response - which is the point of having it at all.
  */
+/**
+ * Phase 18CA. The monitoring cycle, driven by an EXTERNAL scheduler.
+ *
+ * Not a background timer: an Autoscale instance can be stopped between
+ * any two ticks, so a setInterval is a hope rather than a schedule. An
+ * external scheduler calling this route is the only arrangement that
+ * actually holds.
+ *
+ * Several instances may be called at once. Each claims only tenants whose
+ * lease has expired, and the claim moves the lease forward in the same
+ * step, so exactly one instance checks a given tenant in a given interval.
+ *
+ * AUTHENTICATION is a shared secret compared in constant time. This route
+ * is deliberately NOT behind the institution session: a scheduler has no
+ * session. It performs no write to customer data and returns only counts
+ * and states.
+ */
+router.post("/sa/tenants/storage/monitor/run", async (req, res): Promise<void> => {
+  const provided = req.header("x-archhive-monitor-key");
+  if (!schedulerSecretMatches(provided, process.env.DRIVE_MONITOR_TRIGGER_SECRET)) {
+    // Identical answer whether the secret is wrong or unset, so the route
+    // reveals nothing about its own configuration.
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  try {
+    const result = await runMonitorCycle(monitorCycleDeps());
+    res.json({
+      claimed: result.claimed,
+      checked: result.checked,
+      alerts: result.alerts.map((entry) => ({
+        state: entry.alert.state,
+        severity: entry.alert.severity,
+        delivery: entry.delivery.status,
+      })),
+    });
+  } catch (error) {
+    res.status(503).json({
+      error: error instanceof Error ? error.message : "monitor cycle failed",
+    });
+  }
+});
+
 router.get("/sa/tenants/storage/diagnostics", async (req, res): Promise<void> => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   if (!actor || !hasAdminAccess(actor)) {

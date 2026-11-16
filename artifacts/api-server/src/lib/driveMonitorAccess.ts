@@ -6,6 +6,8 @@
 // the real world.
 
 import { getTenantDriveStatus } from "./tenantDrive";
+import type { MonitorStore } from "./driveMonitorStore";
+import { alertChannel, monitorStore } from "./monitorRunnerAccess";
 import {
   RECOVERY_ACTIONS,
   STATE_MESSAGES,
@@ -88,6 +90,20 @@ export interface Diagnostics {
   lastFailureAt: string | null;
   lastFailureReason: string | null;
   degradedStreak: number;
+  /** Consecutive failed checks, from durable state when available. */
+  consecutiveFailures: number;
+  /**
+   * Whether the last alert actually reached anyone. Reported because an
+   * alert that was raised and never delivered is indistinguishable, from
+   * the outside, from no fault at all.
+   */
+  alertDelivery: {
+    lastAlertState: string | null;
+    lastAlertAt: string | null;
+    status: "delivered" | "failed" | "pending" | null;
+    error: string | null;
+    channel: string;
+  };
   missingSettings: string[];
   recentTransitions: Array<{ from: ConnectionState | null; to: ConnectionState; reason: string; at: string }>;
 }
@@ -105,6 +121,15 @@ export async function connectionDiagnostics(
   now: () => Date = () => new Date(),
 ): Promise<Diagnostics> {
   const outcome = await probeTenantConnection(tenantId);
+  // Durable state when the table exists, otherwise the in-memory record.
+  // Delivery status only exists once a cycle has run, so it is reported as
+  // null rather than invented.
+  let durable: Awaited<ReturnType<MonitorStore["get"]>> = null;
+  try {
+    durable = await monitorStore().get(tenantId);
+  } catch {
+    durable = null;
+  }
   const { record } = monitorRegistry.observe(tenantId, outcome, now().toISOString());
   return {
     state: record.state,
@@ -120,5 +145,13 @@ export async function connectionDiagnostics(
     degradedStreak: record.degradedStreak,
     missingSettings: missingSettings(),
     recentTransitions: record.transitions.slice(-10),
+    consecutiveFailures: durable?.consecutiveFailures ?? record.degradedStreak,
+    alertDelivery: {
+      lastAlertState: durable?.lastAlertState ?? null,
+      lastAlertAt: durable?.lastAlertAt ?? null,
+      status: durable?.lastDeliveryStatus ?? null,
+      error: durable?.lastDeliveryError ?? null,
+      channel: alertChannel().name,
+    },
   };
 }
