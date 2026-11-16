@@ -20,6 +20,7 @@
 // moment, so a setInterval is not a schedule - it is a hope. The runner is
 // driven by an authenticated endpoint that an external scheduler calls.
 
+import { randomUUID } from "node:crypto";
 import type { ConnectionState } from "./driveMonitor";
 
 export interface HealthRow {
@@ -31,8 +32,14 @@ export interface HealthRow {
   lastSuccessAt: string | null;
   lastFailureAt: string | null;
   lastFailureReason: string | null;
-  /** When this tenant may next be claimed. The lease. */
+  /** When this tenant may next be claimed. The LEASE: who may work. */
   nextDueAt: string;
+  /**
+   * The FENCE: whose result is still valid. Regenerated on every claim.
+   * A lease alone is not enough - a worker paused past its lease would
+   * otherwise wake and overwrite a newer worker's result.
+   */
+  leaseToken: string;
   /** Which instance holds the current claim, for diagnosis only. */
   claimedBy: string | null;
   claimedAt: string | null;
@@ -51,7 +58,11 @@ export interface MonitorStore {
    */
   claimDue(now: Date, leaseMs: number, limit: number, instanceId: string): Promise<HealthRow[]>;
   get(tenantId: string): Promise<HealthRow | null>;
-  save(row: HealthRow): Promise<void>;
+  /**
+   * Writes a result. Returns false when the caller has been overtaken -
+   * normal for a slow worker, and never an error: the newer result wins.
+   */
+  save(row: HealthRow): Promise<boolean>;
   /** Registers a tenant for monitoring. Idempotent. */
   ensure(tenantId: string, now: Date): Promise<HealthRow>;
   list(): Promise<HealthRow[]>;
@@ -72,6 +83,7 @@ export function emptyHealthRow(tenantId: string, now: Date): HealthRow {
     lastFailureReason: null,
     // Due immediately, so a newly registered tenant is checked on the next run
     nextDueAt: now.toISOString(),
+    leaseToken: randomUUID(),
     claimedBy: null,
     claimedAt: null,
     lastAlertState: null,
@@ -104,8 +116,12 @@ export class InMemoryMonitorStore implements MonitorStore {
     return this.rows.get(tenantId) ?? null;
   }
 
-  async save(row: HealthRow): Promise<void> {
+  async save(row: HealthRow): Promise<boolean> {
+    const current = this.rows.get(row.tenantId);
+    // the fence, applied exactly as the SQL does
+    if (!current || current.leaseToken !== row.leaseToken) return false;
     this.rows.set(row.tenantId, { ...row, transitions: row.transitions.slice(-MAX_TRANSITIONS) });
+    return true;
   }
 
   async claimDue(now: Date, leaseMs: number, limit: number, instanceId: string): Promise<HealthRow[]> {
@@ -118,6 +134,7 @@ export class InMemoryMonitorStore implements MonitorStore {
       const taken: HealthRow = {
         ...row,
         nextDueAt: new Date(now.getTime() + leaseMs).toISOString(),
+        leaseToken: randomUUID(),
         claimedBy: instanceId,
         claimedAt: now.toISOString(),
       };

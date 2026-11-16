@@ -292,6 +292,26 @@ test("a failed delivery is persisted, so it is visible in diagnostics", async ()
     "the alert still counts as raised, so it is not re-sent every interval");
 });
 
+test("a result from an OVERTAKEN worker is discarded, not forced", async () => {
+  // The runner-level half of the fence: the store refuses the write and the
+  // cycle treats that as normal, because the newer worker's result is right.
+  const store = new InMemoryMonitorStore();
+  await store.ensure(T1, new Date());
+  const sink: Array<{ tenantId: string; message: AlertMessage }> = [];
+  const cycle = await runMonitorCycle({
+    store, instanceId: "slow", channel: recordingAlertChannel(sink),
+    probe: async () => {
+      // a newer worker claims the row while this probe is in flight
+      await store.claimDue(new Date(Date.now() + 3_600_000), 900_000, 10, "fast");
+      return ok;
+    },
+  });
+  assert.equal(cycle.claimed, 1);
+  assert.equal(cycle.checked, 0, "the stale result was not counted as a check");
+  assert.equal(cycle.overtaken, 1);
+  const row = await store.get(T1);
+  assert.equal(row?.claimedBy, "fast", "the newer claim stands");
+});
 test("an alert carries no token, secret or file name", () => {
   const message = buildAlertMessage({
     severity: "critical", state: "reauth_required",

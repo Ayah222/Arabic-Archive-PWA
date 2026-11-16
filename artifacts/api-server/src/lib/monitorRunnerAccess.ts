@@ -36,6 +36,7 @@ function toRow(record: Record<string, unknown>): HealthRow {
     lastFailureAt: (record.last_failure_at as string) ?? null,
     lastFailureReason: (record.last_failure_reason as string) ?? null,
     nextDueAt: String(record.next_due_at),
+    leaseToken: String(record.lease_token),
     claimedBy: (record.claimed_by as string) ?? null,
     claimedAt: (record.claimed_at as string) ?? null,
     lastAlertState: (record.last_alert_state as HealthRow["lastAlertState"]) ?? null,
@@ -95,17 +96,43 @@ export class SupabaseMonitorStore implements MonitorStore {
     return data ? toRow(data as Record<string, unknown>) : null;
   }
 
-  async save(row: HealthRow): Promise<void> {
-    const { error } = await supabaseAdmin().from(HEALTH_TABLE).upsert(toRecord(row));
+  /**
+   * Fenced write. Calls the function the migration creates, with exactly
+   * the parameter names and order declared there - a mismatch would fail
+   * at the first cycle rather than silently writing nothing.
+   */
+  async save(row: HealthRow): Promise<boolean> {
+    const { data, error } = await supabaseAdmin().rpc("save_drive_health_row", {
+      p_tenant_id: row.tenantId,
+      p_lease_token: row.leaseToken,
+      p_state: row.state,
+      p_reason: row.reason,
+      p_consecutive_failures: row.consecutiveFailures,
+      p_last_checked_at: row.lastCheckedAt,
+      p_last_success_at: row.lastSuccessAt,
+      p_last_failure_at: row.lastFailureAt,
+      p_last_failure_reason: row.lastFailureReason,
+      p_last_alert_state: row.lastAlertState,
+      p_last_alert_at: row.lastAlertAt,
+      p_last_delivery_status: row.lastDeliveryStatus,
+      p_last_delivery_error: row.lastDeliveryError,
+      p_transitions: row.transitions,
+    });
     if (error) throw new Error(error.message);
+    return Number(data ?? 0) > 0;
   }
 
-  async ensure(tenantId: string, now: Date): Promise<HealthRow> {
-    const existing = await this.get(tenantId);
-    if (existing) return existing;
-    const { emptyHealthRow } = await import("./driveMonitorStore");
-    const row = emptyHealthRow(tenantId, now);
-    await this.save(row);
+  /**
+   * Registration is done by the database, for every tenant that actually
+   * has a google_drive connection. Inserting from here would let a tenant
+   * with no Drive at all be monitored, which manufactures a disconnected
+   * alert for something nobody asked for.
+   */
+  async ensure(tenantId: string, _now: Date): Promise<HealthRow> {
+    const { error } = await supabaseAdmin().rpc("ensure_drive_health_rows", {});
+    if (error) throw new Error(error.message);
+    const row = await this.get(tenantId);
+    if (!row) throw new Error("tenant has no google_drive connection to monitor");
     return row;
   }
 

@@ -34,6 +34,12 @@ export interface CycleDeps {
 export interface CycleResult {
   claimed: number;
   checked: number;
+  /**
+   * Results the store refused because a newer worker already holds the row.
+   * The refusal is correct - the newer result is the true one - but it must
+   * be visible, because a discarded result is NOT a completed check.
+   */
+  overtaken: number;
   alerts: Array<{ tenantId: string; alert: Alert; delivery: DeliveryResult }>;
   states: Array<{ tenantId: string; state: HealthRow["state"] }>;
 }
@@ -49,7 +55,7 @@ export async function runMonitorCycle(deps: CycleDeps): Promise<CycleResult> {
   const at = now();
   const claimed = await deps.store.claimDue(at, leaseMs, deps.limit ?? 50, deps.instanceId);
 
-  const result: CycleResult = { claimed: claimed.length, checked: 0, alerts: [], states: [] };
+  const result: CycleResult = { claimed: claimed.length, checked: 0, overtaken: 0, alerts: [], states: [] };
 
   for (const row of claimed) {
     let outcome: ProbeOutcome;
@@ -111,7 +117,15 @@ export async function runMonitorCycle(deps: CycleDeps): Promise<CycleResult> {
       }
     }
 
-    await deps.store.save(next);
+    // The fence. save() returns false when the row moved on to another
+    // worker while this probe was in flight. The newer result is the
+    // right one, so this one is dropped - but it is never counted as a
+    // check, or the cycle would report a state it did not store.
+    const written = await deps.store.save(next);
+    if (!written) {
+      result.overtaken += 1;
+      continue;
+    }
     result.checked += 1;
     result.states.push({ tenantId: row.tenantId, state: next.state });
   }
