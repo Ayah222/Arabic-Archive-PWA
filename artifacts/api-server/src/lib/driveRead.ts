@@ -53,7 +53,43 @@ export interface DriveReadDeps {
   resolveProvider: () => Promise<DriveProvider | null>;
   readLegacy: (fileId: string, maxBytes: number) => Promise<TenantDriveFile>;
   readOAuth: (fileId: string, maxBytes: number) => Promise<TenantDriveFile>;
+  /**
+   * Whether the historical service-account reader is usable AT ALL.
+   *
+   * This is the separation that Phase 18CK exists for. It answers from
+   * server configuration - the service-account key - and NOT from the
+   * connection row, because connecting OAuth overwrites that row.
+   */
+  legacyReaderAvailable: () => Promise<boolean>;
 }
+
+/**
+ * OAuth failures for which the historical reader is worth trying.
+ *
+ * These all mean "the connected identity cannot serve this", which is
+ * exactly the case a migrated file produces:
+ *
+ *   not-found       drive.file hides files this app did not create
+ *   denied/forbidden the connected account is not permitted on the file
+ *   auth-failed     the refresh token is expired or revoked
+ *   not-configured  the OAuth connection is absent or half-configured
+ *
+ * Deliberately NOT here: invalid-id, too-large, incomplete, transient and
+ * not-referenced. Those describe the request, the file or the network, and
+ * retrying under another identity would fail identically while hiding the
+ * real cause.
+ *
+ * A revoked token therefore does not take historical documents down with
+ * it. The connection still reports unhealthy through diagnostics and
+ * monitoring - the fault stays visible, only the outage does not spread.
+ */
+const LEGACY_RESCUE_FAILURES: ReadonlySet<LegacyDriveFailure> = new Set([
+  "not-found",
+  "denied",
+  "forbidden",
+  "auth-failed",
+  "not-configured",
+]);
 
 /** The id shape Drive itself uses. Rejected before any provider work. */
 const FILE_ID_PATTERN = /^[A-Za-z0-9_-]{5,256}$/;
@@ -117,8 +153,33 @@ export async function readTenantDriveFile(
     try {
       return await deps.readOAuth(fileId, maxBytes);
     } catch (error) {
+      const failure = error instanceof LegacyDriveError
+        ? error.code
+        : classifyOAuthError(error);
+      // THE HISTORICAL SAFETY NET.
+      //
+      // The connected OAuth client is a different Google app from the one
+      // that uploaded the migrated files, and drive.file only ever shows an
+      // app the files it created or opened. So the connected identity
+      // reporting "I cannot see this file" is the EXPECTED answer for a
+      // historical file, not evidence that the file is gone.
+      //
+      // Falling back changes nothing about who may read what. The legacy
+      // reader keeps both of its own gates - the id must be referenced by
+      // an attachment row belonging to this tenant, and that row's project
+      // must belong to this tenant - so this can only ever reach a file the
+      // tenant already references. It cannot reach an arbitrary Drive file.
+      if (LEGACY_RESCUE_FAILURES.has(failure) && await deps.legacyReaderAvailable()) {
+        try {
+          return await deps.readLegacy(fileId, maxBytes);
+        } catch {
+          // The rescue did not help. Report the CONNECTED provider's
+          // failure, because that is the operative one: the fallback is a
+          // best-effort rescue, not the configured path.
+        }
+      }
       if (error instanceof LegacyDriveError) throw error;
-      throw new LegacyDriveError(classifyOAuthError(error), describe(error));
+      throw new LegacyDriveError(failure, describe(error));
     }
   }
   // No connection, an unreadable record, or a provider we do not recognise.

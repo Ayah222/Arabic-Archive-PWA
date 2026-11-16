@@ -102,6 +102,11 @@ const FAKES = {
     let provider = "legacy-service-account";
     export const __setProvider = (p) => { provider = p; };
     export const tenantUsesLegacyDriveConnection = async () => provider === "legacy-service-account";
+    // Phase 18CK: the historical reader is configured in the environment,
+    // not in the connection row, so it is controlled separately here.
+    let legacyConfigured = true;
+    export const __setLegacyConfigured = (v) => { legacyConfigured = v; };
+    export const legacyReaderConfigured = () => legacyConfigured;
     export const legacyDriveDepsFor = (tenantId) => ({
       lookupReference: async (fileId) =>
         fileId === "legacyFILE00001" && tenantId === "tenant-a" ? { projectId: "p1", recordedSize: 12 } : null,

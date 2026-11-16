@@ -29,6 +29,31 @@ import {
 const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 
 /**
+ * Whether the historical reader is usable at all.
+ *
+ * Answers from the service-account key in the environment, NOT from the
+ * connection row. That distinction is the whole point: completing an OAuth
+ * connection upserts tenant_storage_connections and overwrites
+ * encrypted_credentials, which is where the historical marker lives. Before
+ * Phase 18CK that single column decided BOTH which credential to use and
+ * which reader to route to, so connecting silently retired the only reader
+ * that can see the migrated files.
+ *
+ * Parses rather than merely checking presence, so a malformed key reports
+ * unavailable instead of failing later inside a read.
+ */
+export function legacyReaderConfigured(): boolean {
+  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON?.trim();
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw) as { client_email?: string; private_key?: string };
+    return Boolean(parsed.client_email && parsed.private_key);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Whether this tenant is still on the historical service-account marker.
  *
  * A plain select: no upsert, no folder creation. Returns false on anything

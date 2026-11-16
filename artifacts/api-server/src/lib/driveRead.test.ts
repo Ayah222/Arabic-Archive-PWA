@@ -36,10 +36,21 @@ function spyDeps(
   overrides: Partial<{
     legacy: (fileId: string, maxBytes: number) => Promise<TenantDriveFile>;
     oauth: (fileId: string, maxBytes: number) => Promise<TenantDriveFile>;
+    // Phase 18CK. Defaults to FALSE, so every test written before this
+    // phase keeps precisely the behaviour it had and the rescue path is
+    // reached only where a test asks for it.
+    legacyAvailable: boolean;
   }> = {},
 ) {
-  const calls = { resolve: 0, legacy: 0, oauth: 0, legacyArgs: [] as unknown[], oauthArgs: [] as unknown[] };
+  const calls = {
+    resolve: 0, legacy: 0, oauth: 0, available: 0,
+    legacyArgs: [] as unknown[], oauthArgs: [] as unknown[],
+  };
   const deps: DriveReadDeps = {
+    legacyReaderAvailable: async () => {
+      calls.available += 1;
+      return overrides.legacyAvailable ?? false;
+    },
     resolveProvider: async () => {
       calls.resolve += 1;
       return provider;
@@ -129,6 +140,7 @@ test("a provider lookup that throws is not swallowed into a success", async () =
     resolveProvider: async () => {
       throw new Error("database unreachable");
     },
+    legacyReaderAvailable: async () => false,
     readLegacy: async () => file(),
     readOAuth: async () => file(),
   };
@@ -419,4 +431,159 @@ test("every status in the mapper is a real HTTP status", () => {
   assert.equal(driveReadStatus("invalid-id"), 400);
   assert.equal(driveReadStatus("too-large"), 413);
   assert.equal(driveReadStatus("transient"), 503);
+});
+
+// ===================================================================
+// Phase 18CK - the historical reader must survive an OAuth connection.
+//
+// Connecting OAuth upserts tenant_storage_connections and overwrites
+// encrypted_credentials, which is where the historical marker lived. The
+// tenant therefore flips from "legacy-service-account" to "oauth", and a
+// newly created Web client cannot see files a DIFFERENT app uploaded,
+// because drive.file only ever shows an app its own files. Without a
+// rescue, connecting makes every migrated document unreadable.
+// ===================================================================
+
+/** What the OAuth reader throws for a file its app did not create. */
+const oauthCannotSee = () => {
+  throw new Error("Google Drive request failed (404)");
+};
+
+test("BEFORE connecting: a historical file is served by the legacy reader", async () => {
+  const { deps, calls } = spyDeps("legacy-service-account");
+  const result = await readTenantDriveFile(FILE_ID, deps, MAX);
+  assert.equal(result.filename, "doc.pdf");
+  assert.equal(calls.legacy, 1);
+  assert.equal(calls.oauth, 0, "the OAuth reader must never be reached");
+});
+
+test("AFTER connecting: the SAME historical file is still readable", async () => {
+  // the regression this phase exists to prevent
+  const { deps, calls } = spyDeps("oauth", {
+    oauth: async () => oauthCannotSee(),
+    legacy: async () => file("historical.pdf"),
+    legacyAvailable: true,
+  });
+  const result = await readTenantDriveFile(FILE_ID, deps, MAX);
+  assert.equal(result.filename, "historical.pdf");
+  assert.equal(calls.oauth, 1, "OAuth is still tried FIRST");
+  assert.equal(calls.legacy, 1, "and the historical reader rescues it");
+});
+
+test("the rescue passes the SAME file id and size limit, unaltered", async () => {
+  const { deps, calls } = spyDeps("oauth", {
+    oauth: async () => oauthCannotSee(),
+    legacyAvailable: true,
+  });
+  await readTenantDriveFile(FILE_ID, deps, MAX);
+  assert.deepEqual(calls.legacyArgs[0], [FILE_ID, MAX],
+    "file ids and paths must be preserved exactly");
+});
+
+test("a REVOKED OAuth token does not take historical documents down", async () => {
+  const { deps, calls } = spyDeps("oauth", {
+    oauth: async () => { throw new Error("Google Drive request failed (401)"); },
+    legacy: async () => file("still-here.pdf"),
+    legacyAvailable: true,
+  });
+  const result = await readTenantDriveFile(FILE_ID, deps, MAX);
+  assert.equal(result.filename, "still-here.pdf");
+  assert.equal(calls.legacy, 1);
+});
+
+test("an EXPIRED connection message does not take them down either", async () => {
+  const { deps } = spyDeps("oauth", {
+    oauth: async () => { throw new Error("انتهت صلاحية ربط Google Drive"); },
+    legacy: async () => file("still-here.pdf"),
+    legacyAvailable: true,
+  });
+  const result = await readTenantDriveFile(FILE_ID, deps, MAX);
+  assert.equal(result.filename, "still-here.pdf");
+});
+
+test("the rescue is NOT attempted when the service account is absent", async () => {
+  const { deps, calls } = spyDeps("oauth", {
+    oauth: async () => oauthCannotSee(),
+    legacyAvailable: false,
+  });
+  await assert.rejects(() => readTenantDriveFile(FILE_ID, deps, MAX), LegacyDriveError);
+  assert.equal(calls.legacy, 0, "no historical reader, no rescue");
+});
+
+test("the rescue does NOT bypass the legacy reader's own gates", async () => {
+  // cross-tenant / cross-project: the file is not referenced by THIS tenant
+  let served: unknown = null;
+  const { deps, calls } = spyDeps("oauth", {
+    oauth: async () => oauthCannotSee(),
+    legacy: async () => {
+      throw new LegacyDriveError("not-referenced", "الملف المطلوب غير مرتبط بأرشيف هذه المؤسسة");
+    },
+    legacyAvailable: true,
+  });
+  await assert.rejects(async () => { served = await readTenantDriveFile(FILE_ID, deps, MAX); });
+  assert.equal(served, null, "no content may be returned");
+  assert.equal(calls.legacy, 1, "the gate ran and refused");
+});
+
+test("a genuinely missing file still fails, and fails as 404", async () => {
+  const { deps } = spyDeps("oauth", {
+    oauth: async () => oauthCannotSee(),
+    legacy: async () => { throw new LegacyDriveError("not-found", "الملف غير موجود"); },
+    legacyAvailable: true,
+  });
+  const thrown = await readTenantDriveFile(FILE_ID, deps, MAX).catch((e) => e);
+  assert.ok(thrown instanceof LegacyDriveError);
+  assert.equal(driveReadStatus(thrown.code), 404);
+});
+
+test("failures that are NOT about identity never trigger a rescue", async () => {
+  // Retrying a too-large or corrupt file under another identity would fail
+  // identically while hiding the real cause.
+  for (const message of [
+    "File exceeds the allowed download size",
+    "Google Drive returned an incomplete file",
+    "Google Drive request failed (503)",
+    "Invalid Google Drive file ID",
+  ]) {
+    const { deps, calls } = spyDeps("oauth", {
+      oauth: async () => { throw new Error(message); },
+      legacyAvailable: true,
+    });
+    await assert.rejects(() => readTenantDriveFile(FILE_ID, deps, MAX));
+    assert.equal(calls.legacy, 0, `must not rescue: ${message}`);
+  }
+});
+
+test("when the rescue also fails, the CONNECTED provider's error is reported", async () => {
+  const { deps } = spyDeps("oauth", {
+    oauth: async () => { throw new Error("Google Drive request failed (401)"); },
+    legacy: async () => { throw new LegacyDriveError("not-referenced", "x"); },
+    legacyAvailable: true,
+  });
+  const thrown = await readTenantDriveFile(FILE_ID, deps, MAX).catch((e) => e);
+  assert.ok(thrown instanceof LegacyDriveError);
+  assert.equal(thrown.code, "auth-failed", "the operative failure is the OAuth one");
+});
+
+test("no error carries file content or credential material", async () => {
+  const secretish = "BEGIN PRIVATE KEY blob and 1//refresh-token";
+  const { deps } = spyDeps("oauth", {
+    oauth: async () => { throw new Error(`Google Drive request failed (401) ${secretish}`); },
+    legacy: async () => { throw new LegacyDriveError("not-referenced", secretish); },
+    legacyAvailable: true,
+  });
+  const thrown = await readTenantDriveFile(FILE_ID, deps, MAX).catch((e) => e);
+  assert.ok(!thrown.message.includes("PRIVATE KEY"));
+  assert.ok(!thrown.message.includes("1//refresh-token"));
+  assert.ok(!thrown.message.includes("synthetic"), "no file bytes in the message");
+});
+
+test("a tenant with NO connection is still refused outright", async () => {
+  // null provider must not become a free pass to the service account
+  const { deps, calls } = spyDeps(null, { legacyAvailable: true });
+  const thrown = await readTenantDriveFile(FILE_ID, deps, MAX).catch((e) => e);
+  assert.ok(thrown instanceof LegacyDriveError);
+  assert.equal(thrown.code, "not-configured");
+  assert.equal(calls.legacy, 0, "no reader may run without a resolved provider");
+  assert.equal(calls.oauth, 0);
 });

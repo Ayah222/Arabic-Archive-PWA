@@ -20,7 +20,11 @@ import type { Server } from "node:http";
 import tenantStorageRouter from "../src/routes/sa/tenantStorage";
 import hrFilesRouter from "../src/routes/sa/hr/files";
 import { calls as driveCalls } from "../src/lib/tenantDrive";
-import { calls as legacyCalls, __setProvider } from "../src/lib/legacyDriveAccess";
+import {
+  calls as legacyCalls,
+  __setProvider,
+  __setLegacyConfigured,
+} from "../src/lib/legacyDriveAccess";
 import { calls as objectCalls } from "../src/lib/objectStorage";
 import { __setActor } from "../src/lib/emailArchiveAuth";
 import { __setTenant } from "../src/lib/tenantContext";
@@ -74,6 +78,7 @@ const reset = () => {
   __setTenant("tenant-a");
   __setActor(null);
   __setProvider("legacy-service-account");
+  __setLegacyConfigured(true);
 };
 
 const get = (path: string, init: RequestInit = {}) => fetch(base + path, init);
@@ -343,4 +348,37 @@ test("diagnostics takes the tenant from the SESSION, not the request", async () 
   const source = readFileSync(join(currentDir, "..", "src", "routes", "sa", "tenantStorage.ts"), "utf8");
   assert.ok(/connectionDiagnostics\(actor\.tenantId\)/.test(source),
     "the tenant must come from the verified session, never a query parameter");
+});
+
+// --------------------------- Phase 18CK, through a real HTTP route
+test("END TO END: after connecting OAuth, a historical file still downloads", async () => {
+  reset();
+  // exactly what completing the OAuth connection does to routing:
+  // encrypted_credentials is overwritten, so the tenant resolves to oauth
+  __setProvider("oauth");
+  const res = await get("/api/sa/storage/files/legacyFILE00001");
+  assert.equal(res.status, 200, "the migrated document must still be served");
+  assert.equal(await res.text(), "legacy-bytes");
+  assert.ok(driveCalls.oauthRead > 0, "the connected identity was tried first");
+  assert.ok(legacyCalls.legacyRead > 0, "the historical reader rescued it");
+});
+
+test("END TO END: the rescue is skipped when no service account is configured", async () => {
+  reset();
+  __setProvider("oauth");
+  __setLegacyConfigured(false);
+  const res = await get("/api/sa/storage/files/legacyFILE00001");
+  assert.equal(res.status, 404, "without a historical reader this is simply not found");
+  assert.equal(legacyCalls.legacyRead, 0, "and no rescue was attempted");
+});
+
+test("END TO END: the rescue cannot fetch another tenant's file", async () => {
+  reset();
+  __setProvider("oauth");
+  // legacyFILE00001 is referenced by tenant-a only; ask as tenant-b
+  tenantForRequest = "tenant-b";
+  __setTenant("tenant-b");
+  const res = await get("/api/sa/storage/files/legacyFILE00001");
+  assert.notEqual(res.status, 200, "cross-tenant access must be refused");
+  assert.ok(!(await res.text()).includes("legacy-bytes"), "no bytes may leak");
 });

@@ -7,7 +7,11 @@
 
 import { downloadTenantFile } from "./tenantDrive";
 import { readLegacyDriveContent } from "./legacyDriveReader";
-import { legacyDriveDepsFor, tenantUsesLegacyDriveConnection } from "./legacyDriveAccess";
+import {
+  legacyDriveDepsFor,
+  legacyReaderConfigured,
+  tenantUsesLegacyDriveConnection,
+} from "./legacyDriveAccess";
 import type { DriveProvider, DriveReadDeps } from "./driveRead";
 
 /**
@@ -36,5 +40,7 @@ export function driveReadDepsFor(tenantId: string): DriveReadDeps {
     readLegacy: (fileId, maxBytes) =>
       readLegacyDriveContent(fileId, legacyDriveDepsFor(tenantId), maxBytes),
     readOAuth: (fileId, maxBytes) => downloadTenantFile(tenantId, fileId, maxBytes),
+    // Configuration, not connection state - see legacyReaderConfigured.
+    legacyReaderAvailable: async () => legacyReaderConfigured(),
   };
 }
