@@ -317,7 +317,7 @@ test("a client-supplied storage path can NEVER become a drive:// reference", () 
     "../drive://1AbCdEfGhIjKlMnOpQrStUvWxYz01234",
     "/drive://x",
     "..%2Fdrive%3A%2F%2Fx",
-    " drive://x",
+    String.fromCharCode(0) + "drive://x",
     "drive:/" + "/nested/../..",
     "",
     "attachments/p/e/ok.pdf",

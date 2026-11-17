@@ -7,7 +7,9 @@
 // Touches no database.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from "node:fs";
+import {
+  readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -149,4 +151,25 @@ test("the guard touches no database", () => {
     assert.ok(!new RegExp(`\\b${forbidden}\\b`).test(code),
       `the guard must not reference ${forbidden} in executable code`);
   }
+});
+
+test("no source file carries a literal NUL byte", () => {
+  // A real NUL in source makes grep treat the file as binary and refuse
+  // to print matching lines, which silently weakens every text-based
+  // scan run over the release - including the secret scan. It has
+  // happened once before, in driveUpload.ts. Write it as
+  // String.fromCharCode(0) when a test needs the character itself.
+  const roots = [join(ROOT, "artifacts", "api-server", "src"),
+                 join(ROOT, "artifacts", "api-server", "test")];
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(ts|mts|cts|js|mjs|cjs|json|sql|sh)$/.test(entry.name)) continue;
+      if (readFileSync(full).includes(0)) offenders.push(full);
+    }
+  };
+  for (const r of roots) walk(r);
+  assert.deepEqual(offenders, [], `literal NUL bytes found in: ${offenders.join(", ")}`);
 });
