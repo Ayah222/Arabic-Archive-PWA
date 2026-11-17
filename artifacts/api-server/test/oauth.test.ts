@@ -15,6 +15,7 @@ import {
 } from "../src/lib/tenantDrive";
 import { calls as dbCalls, __setConnection } from "../src/lib/supabaseAdmin";
 import { lines as logLines } from "../src/lib/logger";
+import { supabaseObjectPath } from "../src/lib/supabaseStorage";
 
 const TENANT = "tenant-a";
 const ROOT = "root-folder-id";
@@ -291,4 +292,51 @@ test("B14 no secret appears in an error, a status body or a log line", async () 
   const thrown = classifyTokenFailure(400, { error: "invalid_grant" });
   assert.ok(!thrown.message.includes(SECRET_SENTINEL));
   assert.ok(!thrown.message.includes(REFRESH_SENTINEL));
+});
+
+// =====================================================================
+// The invariant the Phase 18CK legacy rescue rests on.
+//
+// The rescue reads a file only when an attachment row of the CALLING
+// tenant has object_path exactly "drive://<fileId>". If a request could
+// ever cause such a row to be written, a caller could name any Drive file
+// the service account can see - including another tenant's migrated
+// documents - and the rescue would hand it over.
+//
+// Exactly one code path turns a client value into an object_path:
+// supabaseObjectPath, used by the attachments and photos routes. It
+// prefixes unconditionally, so its output is always a supabase:// path.
+// The only producer of a drive:// value is tenantDrive, from the id
+// Google itself returns for a file the app just uploaded - never a
+// request. This is the half that is cheap to assert; it is also the half
+// a future edit is most likely to break.
+// =====================================================================
+test("a client-supplied storage path can NEVER become a drive:// reference", () => {
+  const hostile = [
+    "drive://1AbCdEfGhIjKlMnOpQrStUvWxYz01234",
+    "../drive://1AbCdEfGhIjKlMnOpQrStUvWxYz01234",
+    "/drive://x",
+    "..%2Fdrive%3A%2F%2Fx",
+    " drive://x",
+    "drive:/" + "/nested/../..",
+    "",
+    "attachments/p/e/ok.pdf",
+  ];
+  for (const input of hostile) {
+    const stored = supabaseObjectPath(input);
+    assert.ok(stored.startsWith("supabase://"),
+      `must stay in the supabase namespace: ${JSON.stringify(input)} -> ${stored}`);
+    assert.ok(!stored.startsWith("drive://"),
+      `must never become a Drive reference: ${JSON.stringify(input)} -> ${stored}`);
+  }
+});
+
+test("the prefix is unconditional, so no input can escape it", () => {
+  // A guard that merely rejected bad input could be bypassed by an
+  // encoding this test did not imagine. Prefixing cannot be.
+  const probe = "anything-at-all";
+  assert.ok(supabaseObjectPath(probe).endsWith(probe),
+    "the input is appended, not interpreted");
+  assert.notEqual(supabaseObjectPath(probe), probe,
+    "the input is never stored verbatim");
 });
