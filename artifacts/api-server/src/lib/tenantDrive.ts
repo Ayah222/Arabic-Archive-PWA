@@ -168,6 +168,38 @@ export function getDriveOAuthAuthorizationUrl(state: string, redirectUri: string
   return url.toString();
 }
 
+/**
+ * Which step of the connect flow failed.
+ *
+ * finishDriveOAuth has five failure points and the callback catches them
+ * all into one redirect, so a failed connection used to be indistinguishable
+ * from any other - Phase 18CZ could not tell a wrong client secret from an
+ * unreachable archive folder without guessing. The stage is carried on the
+ * error so the route can record WHICH step failed.
+ *
+ * The stage name and an HTTP status are the whole payload. No authorization
+ * code, no token, no secret, and no Google error body - those can carry
+ * identifiers and must never reach a log.
+ */
+export type DriveConnectStage =
+  | "token-exchange"
+  | "account-identity"
+  | "root-folder-access"
+  | "root-folder-ownership"
+  | "credential-persistence";
+
+export class DriveConnectError extends Error {
+  readonly stage: DriveConnectStage;
+  /** The Google HTTP status, when the step made a request. 0 otherwise. */
+  readonly httpStatus: number;
+  constructor(stage: DriveConnectStage, httpStatus: number, message: string) {
+    super(message);
+    this.name = "DriveConnectError";
+    this.stage = stage;
+    this.httpStatus = httpStatus;
+  }
+}
+
 export async function finishDriveOAuth(tenantId: string, code: string, redirectUri: string) {
   const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
@@ -182,24 +214,30 @@ export async function finishDriveOAuth(tenantId: string, code: string, redirectU
   });
   const tokens = await tokenResponse.json() as { access_token?: string; refresh_token?: string };
   if (!tokenResponse.ok || !tokens.access_token || !tokens.refresh_token) {
-    throw new Error("تعذر إكمال ربط Google Drive. تأكد من إعداد OAuth وأعد الموافقة.");
+    throw new DriveConnectError("token-exchange", tokenResponse.status,
+      "تعذر إكمال ربط Google Drive. تأكد من إعداد OAuth وأعد الموافقة.");
   }
   const aboutResponse = await fetch(`${DRIVE_API}/about?fields=user(emailAddress)`, {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   const about = await aboutResponse.json() as { user?: { emailAddress?: string } };
   const connectedEmail = about.user?.emailAddress?.trim().toLowerCase();
-  if (!aboutResponse.ok || !connectedEmail) throw new Error("تعذر التحقق من حساب Google الذي تمت الموافقة عليه.");
+  if (!aboutResponse.ok || !connectedEmail) {
+    throw new DriveConnectError("account-identity", aboutResponse.status,
+      "تعذر التحقق من حساب Google الذي تمت الموافقة عليه.");
+  }
   const rootFolderId = sharedRootFolderId();
   const folderResponse = await fetch(`${DRIVE_API}/files/${encodeURIComponent(rootFolderId)}?fields=id,mimeType,owners(emailAddress),trashed`, {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   const folder = await folderResponse.json() as { id?: string; mimeType?: string; owners?: Array<{ emailAddress?: string }>; trashed?: boolean };
   if (!folderResponse.ok || folder.mimeType !== "application/vnd.google-apps.folder" || folder.trashed) {
-    throw new Error("حساب المكتب لا يستطيع الوصول إلى مجلد GOOGLE_DRIVE_ROOT_FOLDER_ID.");
+    throw new DriveConnectError("root-folder-access", folderResponse.status,
+      "حساب المكتب لا يستطيع الوصول إلى مجلد GOOGLE_DRIVE_ROOT_FOLDER_ID.");
   }
   if (folder.owners?.length && !folder.owners.some((owner) => owner.emailAddress?.toLowerCase() === connectedEmail)) {
-    throw new Error("الحساب الذي تمت الموافقة عليه ليس مالك مجلد الأرشيف المحدد.");
+    throw new DriveConnectError("root-folder-ownership", folderResponse.status,
+      "الحساب الذي تمت الموافقة عليه ليس مالك مجلد الأرشيف المحدد.");
   }
   const { error } = await supabaseAdmin().from("tenant_storage_connections").upsert({
     tenant_id: tenantId,
@@ -210,7 +248,10 @@ export async function finishDriveOAuth(tenantId: string, code: string, redirectU
     connected_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "tenant_id" });
-  if (error) throw new Error("تعذر حفظ ربط Google Drive المشفر.");
+  if (error) {
+    throw new DriveConnectError("credential-persistence", 0,
+      "تعذر حفظ ربط Google Drive المشفر.");
+  }
   accessTokens.set(tenantId, { token: tokens.access_token, expiresAt: Date.now() + 50 * 60 * 1000 });
   return connectedEmail;
 }

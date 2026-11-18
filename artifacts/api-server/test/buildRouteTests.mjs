@@ -73,6 +73,13 @@ const FAKES = {
   "lib/tenantDrive": `
     export const calls = { oauthRead: 0, decrypt: 0, save: 0 };
     export class GoogleDriveAccessDeniedError extends Error {}
+    // Phase 18DA: the connect failure carries which step failed.
+    export class DriveConnectError extends Error {
+      constructor(stage, httpStatus, message) {
+        super(message); this.name = "DriveConnectError";
+        this.stage = stage; this.httpStatus = httpStatus;
+      }
+    }
     export const parseTenantDriveObjectPath = (v) =>
       typeof v === "string" && v.startsWith("drive://") ? v.slice(8) : null;
     // Stands in for the REAL downloadTenantFile, whose first act is to

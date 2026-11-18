@@ -16,6 +16,10 @@ import {
 import { calls as dbCalls, __setConnection } from "../src/lib/supabaseAdmin";
 import { lines as logLines } from "../src/lib/logger";
 import { supabaseObjectPath } from "../src/lib/supabaseStorage";
+import { DriveConnectError } from "../src/lib/tenantDrive";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const SRC = join(import.meta.dirname, "..", "src");
 
 const TENANT = "tenant-a";
 const ROOT = "root-folder-id";
@@ -339,4 +343,85 @@ test("the prefix is unconditional, so no input can escape it", () => {
     "the input is appended, not interpreted");
   assert.notEqual(supabaseObjectPath(probe), probe,
     "the input is never stored verbatim");
+});
+
+// ===================================================================
+// Phase 18DA - the connect failure must say WHICH step failed, and
+// must say nothing else.
+//
+// The callback catches all five failure points into one redirect, so a
+// failed connection was indistinguishable from any other. The stage is
+// now carried on the error. The danger in logging anything at all here
+// is that the surrounding values are an authorization code, a token, a
+// client secret and Google's error body - so these tests pin down that
+// the payload carries the stage and the HTTP status and nothing more.
+// ===================================================================
+
+test("the error carries a stage and an HTTP status", () => {
+  const e = new DriveConnectError("root-folder-access", 404, "رسالة للمستخدم");
+  assert.equal(e.stage, "root-folder-access");
+  assert.equal(e.httpStatus, 404);
+  assert.equal(e.name, "DriveConnectError");
+  assert.ok(e instanceof Error, "must still be catchable as an Error");
+});
+
+test("the five stages are distinct and exhaustive", () => {
+  const stages = [
+    "token-exchange", "account-identity", "root-folder-access",
+    "root-folder-ownership", "credential-persistence",
+  ] as const;
+  assert.equal(new Set(stages).size, 5);
+  for (const stage of stages) {
+    const e = new DriveConnectError(stage, 0, "x");
+    assert.equal(e.stage, stage);
+  }
+});
+
+test("NO sensitive value can reach the logged payload", () => {
+  // The payload the route builds, reproduced exactly.
+  const CODE = "4/0AaBbCc-authorization-code-value";
+  const TOKEN = "ya29.a0AfH6SMB-access-token-value";
+  const REFRESH = "1//04-refresh-token-value";
+  const SECRET = "GOCSPX-client-secret-value";
+  const STATE = "state-nonce-signature-value";
+  // A Google error body is the realistic carrier of leaked identifiers.
+  const e = new DriveConnectError("token-exchange", 400,
+    `invalid_client ${CODE} ${TOKEN} ${REFRESH} ${SECRET} ${STATE}`);
+
+  const payload = {
+    tenantId: "e7c9121b-2450-402f-be8d-07bd65fa0156",
+    stage: e.stage,
+    googleStatus: e.httpStatus,
+  };
+  const serialised = JSON.stringify(payload);
+  for (const secret of [CODE, TOKEN, REFRESH, SECRET, STATE]) {
+    assert.ok(!serialised.includes(secret), `leaked: ${secret.slice(0, 12)}…`);
+  }
+  assert.ok(!serialised.includes("invalid_client"),
+    "Google error text must not be logged - it can carry identifiers");
+  assert.deepEqual(Object.keys(payload).sort(), ["googleStatus", "stage", "tenantId"],
+    "exactly three fields, no message and no cause");
+});
+
+test("the route logs the stage but still redirects the same way", () => {
+  // Behaviour must be unchanged: the user still lands on ?driveOAuth=failed.
+  const route = readFileSync(join(SRC, "routes", "sa", "tenantStorage.ts"), "utf8");
+  // Bound the slice by the NEXT route, not by the first '});' - that one
+  // now falls inside the logger.error(...) call and would truncate the
+  // body before the redirects, making this assertion lie.
+  const start = route.indexOf('/sa/tenants/storage/oauth/callback');
+  const rest = route.slice(start);
+  const nextRoute = rest.indexOf('router.get(', 10);
+  const body = nextRoute === -1 ? rest : rest.slice(0, nextRoute);
+  assert.ok(body.includes('res.redirect("/?driveOAuth=failed")'),
+    "the failure redirect must be unchanged");
+  assert.ok(body.includes('res.redirect("/?driveOAuth=connected")'),
+    "the success redirect must be unchanged");
+  for (const forbidden of [
+    "req.query.code", "storedState", "client_secret", "access_token", "refresh_token",
+  ]) {
+    const logged = body.slice(body.indexOf("logger.error"), body.indexOf("driveOAuth=failed"));
+    assert.ok(!logged.includes(forbidden),
+      `the log payload must not reference ${forbidden}`);
+  }
 });

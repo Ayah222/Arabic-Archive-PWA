@@ -6,6 +6,7 @@ import {
   getDriveOAuthAuthorizationUrl,
   getDriveOAuthRedirectUri,
   getTenantDriveStatus,
+  DriveConnectError,
 } from "../../lib/tenantDrive";
 import { saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStorage";
 import { FILE_LIMITS } from "../../lib/fileLimits";
@@ -16,6 +17,7 @@ import { runMonitorCycle, schedulerSecretMatches } from "../../lib/monitorRunner
 import { monitorCycleDeps } from "../../lib/monitorRunnerAccess";
 import { readTenantDriveFile, driveReadStatus } from "../../lib/driveRead";
 import { driveReadDepsFor } from "../../lib/driveReadAccess";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 const upload = multer({
@@ -158,7 +160,16 @@ router.get("/sa/tenants/storage/oauth/callback", async (req, res): Promise<void>
   try {
     await finishDriveOAuth(actor.tenantId, req.query.code, getDriveOAuthRedirectUri());
     res.redirect("/?driveOAuth=connected");
-  } catch {
+  } catch (error) {
+    // Record WHICH step failed. Stage and HTTP status only - never the
+    // authorization code, the state, a token, a secret, or Google's error
+    // body, any of which can carry identifiers. The redirect is unchanged,
+    // so the user-facing behaviour is exactly what it was.
+    logger.error({
+      tenantId: actor.tenantId,
+      stage: error instanceof DriveConnectError ? error.stage : "unclassified",
+      googleStatus: error instanceof DriveConnectError ? error.httpStatus : 0,
+    }, "Google Drive connect failed");
     res.redirect("/?driveOAuth=failed");
   }
 });
