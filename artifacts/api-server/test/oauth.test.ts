@@ -19,6 +19,7 @@ import { supabaseObjectPath } from "../src/lib/supabaseStorage";
 import { DriveConnectError } from "../src/lib/tenantDrive";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ensureOperatingRoot, operatingRootName } from "../src/lib/tenantDrive";
 const SRC = join(import.meta.dirname, "..", "src");
 
 const TENANT = "tenant-a";
@@ -424,4 +425,192 @@ test("the route logs the stage but still redirects the same way", () => {
     assert.ok(!logged.includes(forbidden),
       `the log payload must not reference ${forbidden}`);
   }
+});
+
+// ===================================================================
+// Phase 18DH - the operating root.
+//
+// Production logs proved the connect flow died at root-folder-access with
+// HTTP 404 because drive.file hides a folder another app created. The flow
+// now creates its own root under the consenting user. These tests pin the
+// properties that make that safe: it is idempotent across reconnects,
+// retries, crashes and concurrency; it is bound to one tenant; it is owned
+// by the institution; and it never deletes or moves anything.
+// ===================================================================
+
+const OP_TENANT = "e7c9121b-2450-402f-be8d-07bd65fa0156";
+const OP_OTHER_TENANT = "11111111-2222-4333-8444-555555555555";
+const OP_INSTITUTION = "mnba6196@gmail.com";
+
+/** A Drive fake that records every call. */
+function driveFake(opts: {
+  existing?: Array<{ id: string; createdTime: string; owners?: Array<{ emailAddress?: string }> }>;
+  listStatus?: number;
+  createStatus?: number;
+  createOwners?: Array<{ emailAddress?: string }>;
+} = {}) {
+  const calls = { lists: [] as string[], creates: [] as any[] };
+  const impl = (async (url: string, init?: RequestInit) => {
+    const u = String(url);
+    if ((init?.method ?? "GET") === "GET") {
+      calls.lists.push(u);
+      const status = opts.listStatus ?? 200;
+      if (status !== 200) return new Response("{}", { status });
+      return new Response(JSON.stringify({ files: opts.existing ?? [] }), { status: 200 });
+    }
+    calls.creates.push(JSON.parse(String(init?.body ?? "{}")));
+    const status = opts.createStatus ?? 200;
+    if (status !== 200) return new Response("{}", { status });
+    return new Response(JSON.stringify({
+      id: "newOperatingRoot001",
+      owners: opts.createOwners ?? [{ emailAddress: OP_INSTITUTION }],
+    }), { status: 200 });
+  }) as unknown as typeof fetch;
+  return { impl, calls };
+}
+
+test("1. a first connection CREATES an operating root", async () => {
+  const { impl, calls } = driveFake();
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  assert.equal(root.id, "newOperatingRoot001");
+  assert.equal(root.created, true);
+  assert.equal(calls.creates.length, 1);
+  assert.equal(calls.creates[0].name, operatingRootName(OP_TENANT));
+  assert.equal(calls.creates[0].mimeType, "application/vnd.google-apps.folder");
+  assert.equal(calls.creates[0].parents, undefined, "no parents: it lands in the user's My Drive root");
+});
+
+test("2. the root must be owned by the institution account", async () => {
+  const { impl } = driveFake({ createOwners: [{ emailAddress: "someone.else@gmail.com" }] });
+  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl).catch((x) => x);
+  assert.equal(e.stage, "root-folder-ownership");
+});
+
+test("3. the historical root is never consulted by this path", async () => {
+  const { impl, calls } = driveFake();
+  process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID = "1lZd3MvwChG2-XD_gdCP4RsfqrS108MBd";
+  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  for (const u of calls.lists) {
+    assert.ok(!u.includes("1lZd3Mvw"), "the historical archive root must not be requested");
+  }
+  for (const c of calls.creates) {
+    assert.ok(JSON.stringify(c).indexOf("1lZd3Mvw") === -1, "and must not become a parent");
+  }
+});
+
+test("4. a repeated consent REUSES the existing root, creating nothing", async () => {
+  const { impl, calls } = driveFake({
+    existing: [{ id: "existingRoot001", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] }],
+  });
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  assert.equal(root.id, "existingRoot001");
+  assert.equal(root.created, false);
+  assert.equal(calls.creates.length, 0, "no second folder may be created");
+});
+
+test("5. CONCURRENT consents converge on one root", async () => {
+  // Both run against a Drive that already holds the folder one of them made.
+  const { impl, calls } = driveFake({
+    existing: [{ id: "sharedRoot001", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] }],
+  });
+  const [a, b] = await Promise.all([
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl),
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl),
+  ]);
+  assert.equal(a.id, b.id);
+  assert.equal(calls.creates.length, 0);
+});
+
+test("6+7. a crash between creation and persistence does NOT duplicate", async () => {
+  // First attempt creates the folder, then the database write fails, so
+  // nothing is recorded. The retry must find the orphan, not make a second.
+  const first = driveFake();
+  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, first.impl);
+  assert.equal(made.created, true);
+  const retry = driveFake({
+    existing: [{ id: made.id, createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] }],
+  });
+  const recovered = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, retry.impl);
+  assert.equal(recovered.id, made.id);
+  assert.equal(recovered.created, false);
+  assert.equal(retry.calls.creates.length, 0, "the orphan is adopted, not duplicated");
+});
+
+test("8. a wrong institution account is refused on an EXISTING root too", async () => {
+  const { impl } = driveFake({
+    existing: [{ id: "existingRoot001", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: "intruder@gmail.com" }] }],
+  });
+  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl).catch((x) => x);
+  assert.equal(e.stage, "root-folder-ownership");
+});
+
+test("9. Google 403/404/429/5xx are classified with their real status", async () => {
+  for (const status of [403, 404, 429, 500, 503]) {
+    const listFail = driveFake({ listStatus: status });
+    const e1 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, listFail.impl).catch((x) => x);
+    assert.equal(e1.stage, "root-folder-access", `list ${status}`);
+    assert.equal(e1.httpStatus, status, `list ${status} status preserved`);
+    const createFail = driveFake({ createStatus: status });
+    const e2 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, createFail.impl).catch((x) => x);
+    assert.equal(e2.stage, "root-folder-access", `create ${status}`);
+    assert.equal(e2.httpStatus, status, `create ${status} status preserved`);
+  }
+});
+
+test("10. the lookup is bound to ONE tenant", async () => {
+  const { impl, calls } = driveFake();
+  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  // URLSearchParams encodes a space as '+', which decodeURIComponent leaves
+  // alone - so normalise before matching on the query text.
+  const q = decodeURIComponent(calls.lists[0]).replace(/\+/g, " ");
+  assert.ok(q.includes(OP_TENANT), "the query must pin this tenant");
+  assert.ok(!q.includes(OP_OTHER_TENANT));
+  assert.ok(q.includes("smartArchiveRole"), "and the operating-root role");
+  assert.ok(q.includes("trashed = false"));
+  assert.equal(calls.creates[0].appProperties.smartArchiveTenantId, OP_TENANT);
+});
+
+test("11. with several candidates the OLDEST wins and none is removed", async () => {
+  const { impl, calls } = driveFake({
+    existing: [
+      { id: "oldest", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] },
+      { id: "middle", createdTime: "2026-11-19T11:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] },
+      { id: "newest", createdTime: "2026-11-19T12:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] },
+    ],
+  });
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  assert.equal(root.id, "oldest", "deterministic: exactly one root is ever active");
+  assert.equal(root.duplicates, 2);
+  assert.equal(calls.creates.length, 0);
+});
+
+test("12. nothing is deleted, moved or renamed", async () => {
+  const seen: string[] = [];
+  const impl = (async (url: string, init?: RequestInit) => {
+    seen.push(`${init?.method ?? "GET"} ${String(url)}`);
+    if ((init?.method ?? "GET") === "GET") return new Response(JSON.stringify({ files: [] }), { status: 200 });
+    return new Response(JSON.stringify({ id: "r", owners: [{ emailAddress: OP_INSTITUTION }] }), { status: 200 });
+  }) as unknown as typeof fetch;
+  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  for (const call of seen) {
+    assert.ok(!call.startsWith("DELETE"), "no deletion");
+    assert.ok(!call.startsWith("PATCH"), "no rename or move");
+    assert.ok(!call.startsWith("PUT"), "no overwrite");
+  }
+  assert.equal(seen.filter((c) => c.startsWith("POST")).length, 1, "exactly one write: the folder itself");
+});
+
+test("13. no credential material reaches an error or a log payload", async () => {
+  const TOKEN = "ya29.a0AfH6SMB-access-token-value";
+  const { impl } = driveFake({ listStatus: 404 });
+  const e = await ensureOperatingRoot(TOKEN, OP_TENANT, OP_INSTITUTION, impl).catch((x) => x);
+  assert.ok(!String(e.message).includes(TOKEN));
+  assert.ok(!JSON.stringify({ stage: e.stage, googleStatus: e.httpStatus }).includes(TOKEN));
+});
+
+test("14. the operating root name is stable, so rollback finds it again", async () => {
+  // A rollback to an earlier build leaves the folder in place; a later
+  // roll-forward must adopt the same one rather than start a second.
+  assert.equal(operatingRootName(OP_TENANT), `ArchHive Operating Root - ${OP_TENANT}`);
+  assert.notEqual(operatingRootName(OP_TENANT), operatingRootName(OP_OTHER_TENANT));
 });

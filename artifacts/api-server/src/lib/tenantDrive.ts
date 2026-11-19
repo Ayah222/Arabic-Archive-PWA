@@ -200,6 +200,119 @@ export class DriveConnectError extends Error {
   }
 }
 
+/**
+ * THE OPERATING ROOT, and why it is not the historical archive root.
+ *
+ * Phase 18DG proved from production logs that connecting failed at
+ * root-folder-access with Google HTTP 404, twice, identically. The folder
+ * named by GOOGLE_DRIVE_ROOT_FOLDER_ID exists and the institution owns it -
+ * but it was created on 2026-10-13 by a DIFFERENT OAuth client, and
+ * drive.file shows an app only the files that app created or the user
+ * explicitly handed it. Ownership is irrelevant; visibility is per
+ * application. No configuration can repair that, so the connect flow stops
+ * demanding a folder it can never see.
+ *
+ * Instead the application creates and owns an OPERATING ROOT, under the
+ * consenting user's identity, inside their My Drive. Two distinct roots now
+ * exist and they must not be conflated:
+ *
+ *   historical archive root  GOOGLE_DRIVE_ROOT_FOLDER_ID, created by the
+ *                            old client. Never read, written, renamed or
+ *                            re-shared by this path. The 811 historical
+ *                            drive:// references do not live through it -
+ *                            they resolve per file through the service
+ *                            account, which is why they are unaffected.
+ *   operating root           created here, owned by the institution
+ *                            account, visible to this client under
+ *                            drive.file, stored as root_folder_id.
+ *
+ * IDEMPOTENCE. Discovery runs before creation and is keyed on appProperties
+ * private to this application, so a reconnect, a retry, a crash between
+ * creating the folder and persisting the row, or two concurrent consents all
+ * converge on the SAME folder. When more than one somehow exists, the oldest
+ * wins deterministically and the others are left untouched - this code never
+ * deletes anything in a user's Drive. Exactly one root is ever active.
+ */
+const OPERATING_ROOT_ROLE = "operating-root";
+export const operatingRootName = (tenantId: string) => `ArchHive Operating Root - ${tenantId}`;
+
+type OperatingRoot = { id: string; created: boolean; duplicates: number };
+
+export async function ensureOperatingRoot(
+  accessToken: string,
+  tenantId: string,
+  connectedEmail: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<OperatingRoot> {
+  const auth = { Authorization: `Bearer ${accessToken}` };
+  const esc = (v: string) => v.replace(/'/g, "\\'");
+  // drive.file already limits this search to files THIS app created, and the
+  // appProperties pin it to THIS tenant - so another tenant's root can never
+  // be returned here.
+  const q = [
+    "mimeType = 'application/vnd.google-apps.folder'",
+    "trashed = false",
+    `appProperties has { key='smartArchiveTenantId' and value='${esc(tenantId)}' }`,
+    `appProperties has { key='smartArchiveRole' and value='${OPERATING_ROOT_ROLE}' }`,
+  ].join(" and ");
+
+  const listUrl = `${DRIVE_API}/files?` + new URLSearchParams({
+    q,
+    fields: "files(id,createdTime,owners(emailAddress))",
+    orderBy: "createdTime",
+    pageSize: "10",
+  });
+  const listResponse = await fetchImpl(listUrl, { headers: auth });
+  if (!listResponse.ok) {
+    throw new DriveConnectError("root-folder-access", listResponse.status,
+      "تعذر الوصول إلى مجلد التشغيل في Google Drive.");
+  }
+  const found = (await listResponse.json() as {
+    files?: Array<{ id?: string; createdTime?: string; owners?: Array<{ emailAddress?: string }> }>;
+  }).files ?? [];
+
+  if (found[0]?.id) {
+    // Oldest first by orderBy, so concurrent creators converge on one folder.
+    assertOwnedByInstitution(found[0].owners, connectedEmail);
+    return { id: found[0].id, created: false, duplicates: Math.max(0, found.length - 1) };
+  }
+
+  // No parents: Drive places it at the root of the consenting user's My
+  // Drive, and creating it with THEIR token makes them the owner.
+  const createResponse = await fetchImpl(`${DRIVE_API}/files?fields=id,owners(emailAddress)`, {
+    method: "POST",
+    headers: { ...auth, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: operatingRootName(tenantId),
+      mimeType: "application/vnd.google-apps.folder",
+      appProperties: {
+        smartArchiveTenantId: tenantId,
+        smartArchiveRole: OPERATING_ROOT_ROLE,
+      },
+    }),
+  });
+  const created = await createResponse.json() as {
+    id?: string; owners?: Array<{ emailAddress?: string }>;
+  };
+  if (!createResponse.ok || !created.id) {
+    throw new DriveConnectError("root-folder-access", createResponse.status,
+      "تعذر إنشاء مجلد التشغيل في حساب Google الخاص بالمكتب.");
+  }
+  assertOwnedByInstitution(created.owners, connectedEmail);
+  return { id: created.id, created: true, duplicates: 0 };
+}
+
+/** The folder must belong to the account that just consented. */
+function assertOwnedByInstitution(
+  owners: Array<{ emailAddress?: string }> | undefined,
+  connectedEmail: string,
+): void {
+  if (owners?.length && !owners.some((o) => o.emailAddress?.toLowerCase() === connectedEmail)) {
+    throw new DriveConnectError("root-folder-ownership", 0,
+      "مجلد التشغيل ليس مملوكاً للحساب الذي تمت الموافقة عليه.");
+  }
+}
+
 export async function finishDriveOAuth(tenantId: string, code: string, redirectUri: string) {
   const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
@@ -226,19 +339,16 @@ export async function finishDriveOAuth(tenantId: string, code: string, redirectU
     throw new DriveConnectError("account-identity", aboutResponse.status,
       "تعذر التحقق من حساب Google الذي تمت الموافقة عليه.");
   }
-  const rootFolderId = sharedRootFolderId();
-  const folderResponse = await fetch(`${DRIVE_API}/files/${encodeURIComponent(rootFolderId)}?fields=id,mimeType,owners(emailAddress),trashed`, {
-    headers: { Authorization: `Bearer ${tokens.access_token}` },
-  });
-  const folder = await folderResponse.json() as { id?: string; mimeType?: string; owners?: Array<{ emailAddress?: string }>; trashed?: boolean };
-  if (!folderResponse.ok || folder.mimeType !== "application/vnd.google-apps.folder" || folder.trashed) {
-    throw new DriveConnectError("root-folder-access", folderResponse.status,
-      "حساب المكتب لا يستطيع الوصول إلى مجلد GOOGLE_DRIVE_ROOT_FOLDER_ID.");
-  }
-  if (folder.owners?.length && !folder.owners.some((owner) => owner.emailAddress?.toLowerCase() === connectedEmail)) {
-    throw new DriveConnectError("root-folder-ownership", folderResponse.status,
-      "الحساب الذي تمت الموافقة عليه ليس مالك مجلد الأرشيف المحدد.");
-  }
+  // Phase 18DH. The historical archive root is deliberately NOT touched here:
+  // this client cannot see it under drive.file, which is the confirmed 404.
+  // GOOGLE_DRIVE_ROOT_FOLDER_ID is left exactly as configured.
+  const operatingRoot = await ensureOperatingRoot(tokens.access_token, tenantId, connectedEmail);
+  const rootFolderId = operatingRoot.id;
+  logger.info({
+    tenantId,
+    created: operatingRoot.created,
+    duplicatesIgnored: operatingRoot.duplicates,
+  }, "Resolved Google Drive operating root");
   const { error } = await supabaseAdmin().from("tenant_storage_connections").upsert({
     tenant_id: tenantId,
     provider: "google_drive",
@@ -336,6 +446,14 @@ async function getConnection(tenantId: string): Promise<DriveConnection> {
   if (data?.provider !== "google_drive") throw new Error("يلزم ربط Google Drive بحساب المكتب.");
   decryptRefreshToken(data.encrypted_credentials);
 
+  // Prefer the operating root recorded at connect time. Falling back to the
+  // configured historical root keeps a tenant that predates Phase 18DH
+  // working exactly as before; a tenant connected after it never reaches the
+  // folder this client cannot see.
+  const storedRoot = typeof data.root_folder_id === "string" ? data.root_folder_id.trim() : "";
+  if (storedRoot) {
+    return { tenantId, rootFolderId: storedRoot };
+  }
   const sharedRootConnection = { tenantId, rootFolderId: sharedRootId };
   const tenantFolder = await ensureFolder(
     sharedRootConnection,
