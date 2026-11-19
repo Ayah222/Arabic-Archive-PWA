@@ -8,12 +8,30 @@ interface Tenant {
   active: boolean;
 }
 
+/**
+ * The decision the SERVER made about what to show.
+ *
+ * Deliberately semantic, never wording: the copy below stays with the rest
+ * of the translations, while which action exists - and whether this viewer
+ * may see it at all - is decided once, server side, and tested there.
+ */
+interface DriveUx {
+  tone: "none" | "info" | "warning" | "critical";
+  action: "none" | "connect" | "reconnect" | "contact-support";
+  canManageStorage: boolean;
+  actionRequired: boolean;
+  reason: "ok" | "transient" | "revoked" | "server_setup" | "never_connected" | "hidden";
+  pollAfterSeconds: number;
+}
+
 interface DriveStatus {
   connected: boolean;
   configured: boolean;
   connectedEmail: string | null;
   sharedAccount: boolean;
   accountVerified: boolean;
+  state: "healthy" | "degraded" | "reauth_required" | "misconfigured" | "disconnected";
+  ux: DriveUx;
 }
 
 interface TenantControlsProps {
@@ -44,6 +62,7 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [driveNotice, setDriveNotice] = useState("");
+  const [driveNoticeTone, setDriveNoticeTone] = useState<"ok" | "info" | "error">("ok");
 
   const surface = isDark ? "rgba(255,255,255,0.035)" : "rgba(99,102,241,0.045)";
   const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(99,102,241,0.12)";
@@ -57,9 +76,16 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     serviceAccountTitle: "Replit App Storage",
     serviceAccountMissing: "Private app storage is not configured on the server.",
     connectDrive: "Connect office Google Drive",
+    reconnectDrive: "Reconnect Google Drive",
     driveConnected: "Google Drive connected.",
     driveCancelled: "Google Drive connection was cancelled.",
-    driveFailed: "Could not connect Google Drive. Check OAuth settings and try again.",
+    // Shown ONLY after a reconnection attempt actually failed - never
+    // because the connection was briefly unavailable.
+    driveFailed: "Could not connect Google Drive.\nPlease make sure the correct organization account is selected, then try again.\nIf the problem continues, please contact technical support.",
+    driveTransient: "Google Drive is temporarily unreachable. Retrying automatically.",
+    driveReauth: "The Google Drive connection has expired or was revoked. Reconnect to restore it.",
+    driveServerSetup: "Storage is not fully configured on the server. Please contact technical support.",
+    driveCurrentAccount: "Current account",
     connected: "Configured",
     chooseOrganization: "Choose organization",
     loadOrganizations: "Unable to load organizations",
@@ -73,9 +99,16 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
     serviceAccountTitle: "تخزين Replit الخاص",
     serviceAccountMissing: "لم يتم إعداد تخزين الملفات الخاص على الخادم.",
     connectDrive: "ربط Google Drive الخاص بالمكتب",
+    reconnectDrive: "إعادة ربط Google Drive",
     driveConnected: "تم ربط Google Drive بنجاح.",
     driveCancelled: "تم إلغاء ربط Google Drive.",
-    driveFailed: "تعذر ربط Google Drive. تحقق من إعدادات OAuth وحاول مجدداً.",
+    // Shown ONLY after a reconnection attempt actually failed - never
+    // because the connection was briefly unavailable.
+    driveFailed: "تعذّر ربط Google Drive.\nيُرجى التأكد من اختيار حساب المؤسسة الصحيح ثم المحاولة مجددًا.\nإذا استمرت المشكلة، يُرجى التواصل مع الدعم الفني.",
+    driveTransient: "تعذّر الوصول إلى Google Drive مؤقتًا. تتم إعادة المحاولة تلقائيًا.",
+    driveReauth: "انتهت صلاحية ربط Google Drive أو تم إلغاؤه. أعد الربط لاستعادة الوصول.",
+    driveServerSetup: "إعداد التخزين غير مكتمل على الخادم. يُرجى التواصل مع الدعم الفني.",
+    driveCurrentAccount: "الحساب الحالي",
     connected: "مُعدّ",
     chooseOrganization: "اختيار المؤسسة",
     loadOrganizations: "تعذر تحميل المؤسسات",
@@ -84,34 +117,63 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
 
   useEffect(() => {
     let mounted = true;
-    void Promise.all([
-      fetch("/api/sa/tenants", { credentials: "include" }),
-      isAdmin ? fetch("/api/sa/tenants/storage", { credentials: "include" }) : Promise.resolve(null),
-    ]).then(async ([tenantResponse, driveResponse]) => {
+    void fetch("/api/sa/tenants", { credentials: "include" }).then(async (tenantResponse) => {
       if (!tenantResponse.ok) throw new Error(text.loadOrganizations);
       const nextTenants = await readApiJson<Tenant[]>(tenantResponse);
-      let nextDrive: DriveStatus | null = null;
-      if (driveResponse) {
-        if (!driveResponse.ok) throw new Error(text.loadStorage);
-        nextDrive = await readApiJson<DriveStatus>(driveResponse);
-      }
       if (mounted) {
         setTenants(nextTenants);
-        setDrive(nextDrive);
         setError("");
       }
     }).catch((loadError: unknown) => {
       if (mounted) setError(loadError instanceof Error ? loadError.message : text.loadOrganizations);
     });
     return () => { mounted = false; };
-  }, [isAdmin, text.loadOrganizations, text.loadStorage]);
+  }, [text.loadOrganizations]);
+
+  /**
+   * Drive health, on the cadence the SERVER asks for.
+   *
+   * The interval is the server's decision, not this view's: a healthy
+   * connection is checked rarely so that working storage never generates
+   * noise, a transient failure backs off instead of turning one outage into
+   * a sustained call rate against Google, and a confirmed revocation stops
+   * polling altogether because retrying cannot fix it - a person has to act.
+   */
+  useEffect(() => {
+    if (!isAdmin) return;
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function poll(failures: number): Promise<void> {
+      try {
+        const response = await fetch(`/api/sa/tenants/storage?failures=${failures}`, { credentials: "include" });
+        if (!response.ok) throw new Error(text.loadStorage);
+        const next = await readApiJson<DriveStatus>(response);
+        if (!mounted) return;
+        setDrive(next);
+        const streak = next.ux?.reason === "transient" ? failures + 1 : 0;
+        const after = next.ux?.pollAfterSeconds ?? 0;
+        if (after > 0) timer = setTimeout(() => void poll(streak), after * 1000);
+      } catch {
+        // A status request that failed is NOT a connection that failed.
+        // Keep the last known state and look again later rather than
+        // inventing a fault the server never reported.
+        if (mounted) timer = setTimeout(() => void poll(failures + 1), 60_000);
+      }
+    }
+
+    void poll(0);
+    return () => { mounted = false; if (timer) clearTimeout(timer); };
+  }, [isAdmin, text.loadStorage]);
 
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get("driveOAuth");
     if (!result) return;
-    if (result === "connected") setDriveNotice(text.driveConnected);
-    else if (result === "cancelled") setDriveNotice(text.driveCancelled);
-    else setDriveNotice(text.driveFailed);
+    // A failed attempt used to be rendered in the success colour. The tone
+    // is tracked so the message looks like what it is.
+    if (result === "connected") { setDriveNotice(text.driveConnected); setDriveNoticeTone("ok"); }
+    else if (result === "cancelled") { setDriveNotice(text.driveCancelled); setDriveNoticeTone("info"); }
+    else { setDriveNotice(text.driveFailed); setDriveNoticeTone("error"); }
     const url = new URL(window.location.href);
     url.searchParams.delete("driveOAuth");
     window.history.replaceState({}, "", url);
@@ -218,12 +280,57 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
               <HardDrive className="w-3.5 h-3.5" />
               {text.driveTitle}
             </div>
-            {drive?.configured ? (
+            {/*
+              Driven by the server's decision rather than by `configured`.
+              `configured` only means the stored credential decrypts, which
+              stays true for a token Google revoked long ago - that is how a
+              dead connection used to show a green tick for ever.
+            */}
+            {drive?.ux.tone === "none" && drive.configured && (
               <div className="flex items-center gap-1.5 text-[10px]" style={{ color: isDark ? "#86efac" : "#15803d" }}>
                 <Check className="w-3.5 h-3.5" />
                 <span className="truncate">{drive.connectedEmail || text.serviceAccountTitle}</span>
               </div>
-            ) : (
+            )}
+
+            {/* Transient: say so quietly. No dialog, and no consent prompt. */}
+            {drive?.ux.reason === "transient" && (
+              <p role="status" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fcd34d" : "#a16207" }}>
+                {text.driveTransient}
+              </p>
+            )}
+
+            {/* Confirmed revocation or expiry: the one case that offers consent. */}
+            {drive?.ux.action === "reconnect" && (
+              <div className="space-y-1">
+                <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
+                  {text.driveReauth}
+                </p>
+                {drive.connectedEmail && (
+                  <p className="text-[10px] truncate" style={{ color: muted }}>
+                    {text.driveCurrentAccount}: {drive.connectedEmail}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = "/api/sa/tenants/storage/oauth/start"; }}
+                  className="w-full rounded-lg px-2 py-1.5 text-start text-[10px] font-semibold"
+                  style={{ background: isDark ? "rgba(248,113,113,0.14)" : "rgba(185,28,28,0.1)", color: isDark ? "#fca5a5" : "#b91c1c" }}
+                >
+                  {text.reconnectDrive}
+                </button>
+              </div>
+            )}
+
+            {/* A missing SERVER setting. Consent cannot fix it, so none is offered. */}
+            {drive?.ux.action === "contact-support" && (
+              <p role="alert" className="text-[10px] leading-relaxed" style={{ color: isDark ? "#fca5a5" : "#b91c1c" }}>
+                {text.driveServerSetup}
+              </p>
+            )}
+
+            {/* Never connected. */}
+            {drive?.ux.action === "connect" && (
               <button
                 type="button"
                 onClick={() => { window.location.href = "/api/sa/tenants/storage/oauth/start"; }}
@@ -233,7 +340,22 @@ export default function TenantControls({ isDark, isAdmin, isSystemAdmin, lang }:
                 {text.connectDrive}
               </button>
             )}
-            {driveNotice && <p role="status" className="mt-1 text-[10px] leading-relaxed" style={{ color: isDark ? "#86efac" : "#15803d" }}>{driveNotice}</p>}
+
+            {driveNotice && (
+              <p
+                role={driveNoticeTone === "error" ? "alert" : "status"}
+                className="mt-1 text-[10px] leading-relaxed whitespace-pre-line"
+                style={{
+                  color: driveNoticeTone === "error"
+                    ? (isDark ? "#fca5a5" : "#b91c1c")
+                    : driveNoticeTone === "info"
+                      ? muted
+                      : (isDark ? "#86efac" : "#15803d"),
+                }}
+              >
+                {driveNotice}
+              </p>
+            )}
           </div>
         </>
       )}

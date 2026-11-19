@@ -19,7 +19,7 @@ import type { Server } from "node:http";
 
 import tenantStorageRouter from "../src/routes/sa/tenantStorage";
 import hrFilesRouter from "../src/routes/sa/hr/files";
-import { calls as driveCalls } from "../src/lib/tenantDrive";
+import { calls as driveCalls, __setDriveState } from "../src/lib/tenantDrive";
 import {
   calls as legacyCalls,
   __setProvider,
@@ -381,4 +381,115 @@ test("END TO END: the rescue cannot fetch another tenant's file", async () => {
   const res = await get("/api/sa/storage/files/legacyFILE00001");
   assert.notEqual(res.status, 200, "cross-tenant access must be refused");
   assert.ok(!(await res.text()).includes("legacy-bytes"), "no bytes may leak");
+});
+
+// ------------------------------------------------------------------
+// Phase 18DQ - self-service recovery.
+//
+// The rules worth protecting at the HTTP boundary: a transient failure
+// never offers consent, and nobody who cannot manage storage is ever
+// handed a control - whatever the connection state happens to be.
+// ------------------------------------------------------------------
+
+test("40. a healthy connection is reported silently, with no action", async () => {
+  __setDriveState("healthy");
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const body = await (await get("/api/sa/tenants/storage")).json();
+  assert.equal(body.ux.tone, "none");
+  assert.equal(body.ux.action, "none");
+  assert.equal(body.ux.actionRequired, false);
+  assert.equal(body.ux.canManageStorage, true);
+});
+
+test("41. a TRANSIENT failure does not offer consent over HTTP", async () => {
+  __setDriveState("degraded");
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const body = await (await get("/api/sa/tenants/storage")).json();
+  assert.equal(body.ux.reason, "transient");
+  assert.equal(body.ux.action, "none", "a blip must never ask the admin to reconnect");
+  assert.equal(body.ux.actionRequired, false);
+  assert.ok(body.ux.pollAfterSeconds > 0, "it keeps retrying by itself");
+});
+
+test("42. a CONFIRMED revocation offers reconnect and stops polling", async () => {
+  __setDriveState("reauth_required");
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const body = await (await get("/api/sa/tenants/storage")).json();
+  assert.equal(body.ux.action, "reconnect");
+  assert.equal(body.ux.actionRequired, true);
+  assert.equal(body.ux.pollAfterSeconds, 0);
+});
+
+test("43. a misconfigured server asks for support, not for consent", async () => {
+  __setDriveState("misconfigured");
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const body = await (await get("/api/sa/tenants/storage")).json();
+  assert.equal(body.ux.action, "contact-support");
+});
+
+test("44. AUTHORIZATION: a viewer is offered nothing, even when revoked", async () => {
+  __setDriveState("reauth_required");
+  __setActor({ tenantId: "tenant-a", role: "viewer" });
+  const body = await (await get("/api/sa/tenants/storage")).json();
+  assert.equal(body.ux.canManageStorage, false);
+  assert.equal(body.ux.action, "none", "an ordinary user must never see a reconnect control");
+  assert.equal(body.ux.tone, "none");
+});
+
+test("45. AUTHORIZATION: data entry is offered nothing either", async () => {
+  __setDriveState("reauth_required");
+  __setActor({ tenantId: "tenant-a", role: "data_entry" });
+  const body = await (await get("/api/sa/tenants/storage")).json();
+  assert.equal(body.ux.canManageStorage, false);
+  assert.equal(body.ux.action, "none");
+});
+
+test("46. AUTHORIZATION: signing out is required to read status at all", async () => {
+  __setActor(null);
+  const res = await get("/api/sa/tenants/storage");
+  assert.equal(res.status, 401);
+});
+
+test("47. AUTHORIZATION: a viewer cannot START the consent flow", async () => {
+  __setActor({ tenantId: "tenant-a", role: "viewer" });
+  const res = await fetch(base + "/api/sa/tenants/storage/oauth/start", { redirect: "manual" });
+  assert.equal(res.status, 403);
+});
+
+test("48. an admin starting recovery is sent to Google, not told to wait", async () => {
+  process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-secret";
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const res = await fetch(base + "/api/sa/tenants/storage/oauth/start", { redirect: "manual" });
+  assert.equal(res.status, 302);
+  assert.match(String(res.headers.get("location")), /^https:\/\/accounts\.google\.com\//);
+});
+
+test("49. AUTHORIZATION: a viewer cannot complete a callback", async () => {
+  __setActor({ tenantId: "tenant-a", role: "viewer" });
+  const res = await fetch(base + "/api/sa/tenants/storage/oauth/callback?code=x&state=y", { redirect: "manual" });
+  assert.equal(res.status, 400);
+});
+
+test("50. a client-reported failure streak cannot escape the backoff cap", async () => {
+  __setDriveState("degraded");
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const body = await (await get("/api/sa/tenants/storage?failures=99999")).json();
+  assert.ok(body.ux.pollAfterSeconds <= 900, "the cap is the server's, not the client's");
+  const junk = await (await get("/api/sa/tenants/storage?failures=not-a-number")).json();
+  assert.ok(junk.ux.pollAfterSeconds > 0);
+});
+
+test("51. an upload never silently falls back to Google Drive", async () => {
+  // 'Never claim a failed upload succeeded' starts with knowing which
+  // provider ran. Uploads go to private object storage; if one ever
+  // reached Drive instead, this counter would move.
+  __setDriveState("reauth_required");
+  __setActor({ tenantId: "tenant-a", role: "admin" });
+  const before = driveCalls.save;
+  const form = new FormData();
+  form.set("namespace", "agencies");
+  form.set("file", new Blob([Buffer.from("x")]), "a.bin");
+  const res = await fetch(base + "/api/sa/tenants/storage/upload", { method: "POST", body: form });
+  assert.equal(res.status, 201);
+  assert.equal(driveCalls.save, before, "the upload must not touch Drive");
 });

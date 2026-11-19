@@ -13,6 +13,7 @@ import { FILE_LIMITS } from "../../lib/fileLimits";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { LegacyDriveError } from "../../lib/legacyDriveReader";
 import { connectionDiagnostics } from "../../lib/driveMonitorAccess";
+import { driveConnectionUx, type DriveConnectionState } from "../../lib/driveConnectionUx";
 import { runMonitorCycle, schedulerSecretMatches } from "../../lib/monitorRunner";
 import { monitorCycleDeps } from "../../lib/monitorRunnerAccess";
 import { readTenantDriveFile, driveReadStatus } from "../../lib/driveRead";
@@ -131,6 +132,10 @@ router.get("/sa/tenants/storage/oauth/start", (req, res): void => {
   try {
     const state = makeOAuthState(actor.tenantId);
     const redirectUri = getDriveOAuthRedirectUri();
+    // A recovery attempt is recorded at the moment it starts, so a failure
+    // that never comes back is still visible as an attempt. Tenant and
+    // outcome only: no state, no code, no token, no secret, no account.
+    logger.info({ tenantId: actor.tenantId }, "Google Drive connect started");
     res.cookie("sa_drive_oauth_state", state, {
       httpOnly: true,
       sameSite: "lax",
@@ -159,6 +164,7 @@ router.get("/sa/tenants/storage/oauth/callback", async (req, res): Promise<void>
   }
   try {
     await finishDriveOAuth(actor.tenantId, req.query.code, getDriveOAuthRedirectUri());
+    logger.info({ tenantId: actor.tenantId }, "Google Drive connect succeeded");
     res.redirect("/?driveOAuth=connected");
   } catch (error) {
     // Record WHICH step failed. Stage and HTTP status only - never the
@@ -174,13 +180,42 @@ router.get("/sa/tenants/storage/oauth/callback", async (req, res): Promise<void>
   }
 });
 
+/**
+ * Phase 18DQ. The status now carries the INTERFACE DECISION, not just the
+ * facts, so the sidebar cannot reach a different conclusion from the monitor.
+ *
+ * It used to return the raw status and let the view decide. The view keyed
+ * off `configured`, which only means the stored credential decrypts - a
+ * local check that stays true for a token Google revoked months ago. So a
+ * dead connection showed a green tick and the administrator was never
+ * offered a way back. The state Google actually answers is `state`, and the
+ * rule for turning it into an interface now lives in one tested module.
+ *
+ * Any signed-in member may read this: an employee needs to know a document
+ * operation is affected. Only `ux.canManageStorage` ever unlocks a control,
+ * and that comes from hasAdminAccess - the same gate the OAuth routes use.
+ */
 router.get("/sa/tenants/storage", async (req, res): Promise<void> => {
   const actor = verifyEmailArchiveSession(req.cookies?.sa_email_archive_session);
   if (!actor) {
     res.status(401).json({ error: "يلزم تسجيل الدخول" });
     return;
   }
-  res.json(await getTenantDriveStatus(String(res.locals.tenantId)));
+  const status = await getTenantDriveStatus(String(res.locals.tenantId));
+  // The caller reports how many times IN A ROW it has seen a failure, which
+  // is only ever used to stretch its own retry interval. Clamped because it
+  // arrives from the client; it can lengthen the client's own backoff and
+  // nothing else, so there is no privilege in it.
+  const reported = Number(req.query.failures);
+  const failures = Number.isFinite(reported) ? Math.min(Math.max(Math.floor(reported), 0), 20) : 0;
+  res.json({
+    ...status,
+    ux: driveConnectionUx({
+      state: status.state as DriveConnectionState,
+      canManage: hasAdminAccess(actor),
+      consecutiveFailures: failures,
+    }),
+  });
 });
 
 router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res): Promise<void> => {

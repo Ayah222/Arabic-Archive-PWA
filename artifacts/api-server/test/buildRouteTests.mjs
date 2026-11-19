@@ -98,7 +98,19 @@ const FAKES = {
     export const saveTenantFile = async (i) => { calls.save += 1; return { objectName: "drive://newFILE00001" }; };
     export const getTenantDriveMetadata = async () => ({});
     export const findTenantFileByAppProperty = async () => null;
-    export const getTenantDriveStatus = async () => ({ connected: true, connectedEmail: "x@y.z" });
+    // Phase 18DQ: the route now turns this state into an interface
+    // decision, so the state has to be steerable from the tests.
+    let driveState = "healthy";
+    export const __setDriveState = (v) => { driveState = v; };
+    export const getTenantDriveStatus = async () => ({
+      connected: driveState === "healthy",
+      verified: driveState === "healthy",
+      state: driveState,
+      configured: driveState !== "disconnected",
+      connectedEmail: "x@y.z",
+      sharedAccount: false,
+      accountVerified: true,
+    });
     export const finishDriveOAuth = async () => ({});
     export const getDriveOAuthAuthorizationUrl = () => "https://accounts.google.com/o/oauth2/v2/auth?x=1";
     export const getDriveOAuthRedirectUri = () => "https://archiva.cloud/api/sa/tenants/storage/oauth/callback";
