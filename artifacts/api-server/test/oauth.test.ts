@@ -471,7 +471,7 @@ function driveFake(opts: {
 
 test("1. a first connection CREATES an operating root", async () => {
   const { impl, calls } = driveFake();
-  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
   assert.equal(root.id, "newOperatingRoot001");
   assert.equal(root.created, true);
   assert.equal(calls.creates.length, 1);
@@ -482,14 +482,14 @@ test("1. a first connection CREATES an operating root", async () => {
 
 test("2. the root must be owned by the institution account", async () => {
   const { impl } = driveFake({ createOwners: [{ emailAddress: "someone.else@gmail.com" }] });
-  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl).catch((x) => x);
+  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl).catch((x) => x);
   assert.equal(e.stage, "root-folder-ownership");
 });
 
 test("3. the historical root is never consulted by this path", async () => {
   const { impl, calls } = driveFake();
   process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID = "1lZd3MvwChG2-XD_gdCP4RsfqrS108MBd";
-  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
   for (const u of calls.lists) {
     assert.ok(!u.includes("1lZd3Mvw"), "the historical archive root must not be requested");
   }
@@ -502,7 +502,7 @@ test("4. a repeated consent REUSES the existing root, creating nothing", async (
   const { impl, calls } = driveFake({
     existing: [{ id: "existingRoot001", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] }],
   });
-  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
   assert.equal(root.id, "existingRoot001");
   assert.equal(root.created, false);
   assert.equal(calls.creates.length, 0, "no second folder may be created");
@@ -514,8 +514,8 @@ test("5. CONCURRENT consents converge on one root", async () => {
     existing: [{ id: "sharedRoot001", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] }],
   });
   const [a, b] = await Promise.all([
-    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl),
-    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl),
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl),
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl),
   ]);
   assert.equal(a.id, b.id);
   assert.equal(calls.creates.length, 0);
@@ -525,12 +525,12 @@ test("6+7. a crash between creation and persistence does NOT duplicate", async (
   // First attempt creates the folder, then the database write fails, so
   // nothing is recorded. The retry must find the orphan, not make a second.
   const first = driveFake();
-  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, first.impl);
+  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, first.impl);
   assert.equal(made.created, true);
   const retry = driveFake({
     existing: [{ id: made.id, createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] }],
   });
-  const recovered = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, retry.impl);
+  const recovered = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, retry.impl);
   assert.equal(recovered.id, made.id);
   assert.equal(recovered.created, false);
   assert.equal(retry.calls.creates.length, 0, "the orphan is adopted, not duplicated");
@@ -540,18 +540,18 @@ test("8. a wrong institution account is refused on an EXISTING root too", async 
   const { impl } = driveFake({
     existing: [{ id: "existingRoot001", createdTime: "2026-11-19T10:00:00Z", owners: [{ emailAddress: "intruder@gmail.com" }] }],
   });
-  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl).catch((x) => x);
+  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl).catch((x) => x);
   assert.equal(e.stage, "root-folder-ownership");
 });
 
 test("9. Google 403/404/429/5xx are classified with their real status", async () => {
   for (const status of [403, 404, 429, 500, 503]) {
     const listFail = driveFake({ listStatus: status });
-    const e1 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, listFail.impl).catch((x) => x);
+    const e1 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, listFail.impl).catch((x) => x);
     assert.equal(e1.stage, "root-folder-access", `list ${status}`);
     assert.equal(e1.httpStatus, status, `list ${status} status preserved`);
     const createFail = driveFake({ createStatus: status });
-    const e2 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, createFail.impl).catch((x) => x);
+    const e2 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, createFail.impl).catch((x) => x);
     assert.equal(e2.stage, "root-folder-access", `create ${status}`);
     assert.equal(e2.httpStatus, status, `create ${status} status preserved`);
   }
@@ -559,7 +559,7 @@ test("9. Google 403/404/429/5xx are classified with their real status", async ()
 
 test("10. the lookup is bound to ONE tenant", async () => {
   const { impl, calls } = driveFake();
-  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
   // URLSearchParams encodes a space as '+', which decodeURIComponent leaves
   // alone - so normalise before matching on the query text.
   const q = decodeURIComponent(calls.lists[0]).replace(/\+/g, " ");
@@ -578,7 +578,7 @@ test("11. with several candidates the OLDEST wins and none is removed", async ()
       { id: "newest", createdTime: "2026-11-19T12:00:00Z", owners: [{ emailAddress: OP_INSTITUTION }] },
     ],
   });
-  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
   assert.equal(root.id, "oldest", "deterministic: exactly one root is ever active");
   assert.equal(root.duplicates, 2);
   assert.equal(calls.creates.length, 0);
@@ -591,7 +591,7 @@ test("12. nothing is deleted, moved or renamed", async () => {
     if ((init?.method ?? "GET") === "GET") return new Response(JSON.stringify({ files: [] }), { status: 200 });
     return new Response(JSON.stringify({ id: "r", owners: [{ emailAddress: OP_INSTITUTION }] }), { status: 200 });
   }) as unknown as typeof fetch;
-  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, impl);
+  await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
   for (const call of seen) {
     assert.ok(!call.startsWith("DELETE"), "no deletion");
     assert.ok(!call.startsWith("PATCH"), "no rename or move");
@@ -603,7 +603,7 @@ test("12. nothing is deleted, moved or renamed", async () => {
 test("13. no credential material reaches an error or a log payload", async () => {
   const TOKEN = "ya29.a0AfH6SMB-access-token-value";
   const { impl } = driveFake({ listStatus: 404 });
-  const e = await ensureOperatingRoot(TOKEN, OP_TENANT, OP_INSTITUTION, impl).catch((x) => x);
+  const e = await ensureOperatingRoot(TOKEN, OP_TENANT, OP_INSTITUTION, null, impl).catch((x) => x);
   assert.ok(!String(e.message).includes(TOKEN));
   assert.ok(!JSON.stringify({ stage: e.stage, googleStatus: e.httpStatus }).includes(TOKEN));
 });
@@ -613,4 +613,155 @@ test("14. the operating root name is stable, so rollback finds it again", async 
   // roll-forward must adopt the same one rather than start a second.
   assert.equal(operatingRootName(OP_TENANT), `ArchHive Operating Root - ${OP_TENANT}`);
   assert.notEqual(operatingRootName(OP_TENANT), operatingRootName(OP_OTHER_TENANT));
+});
+
+// ------------------------------------------------------------------
+// Phase 18DI - what idempotence here does and does NOT guarantee.
+//
+// Discovery-before-create is not atomic. Two simultaneous consents can
+// both see an empty list and both create a folder, and no Drive API call
+// prevents that. These tests state the real contract: exactly one ACTIVE
+// root, always; exactly one PHYSICAL folder, usually but not guaranteed.
+// ------------------------------------------------------------------
+
+/** A Drive fake that also answers files.get, and models create-then-list. */
+function driveWorld(opts: { listLag?: boolean } = {}) {
+  const folders: Array<{ id: string; createdTime: string; owner: string; tenant: string; role: string; trashed: boolean; settled: boolean }> = [];
+  const calls = { lists: 0, creates: 0, gets: 0 };
+  let seq = 0;
+  const impl = (async (url: string, init?: RequestInit) => {
+    const u = String(url);
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method === "GET" && u.includes("/files/")) {
+      calls.gets += 1;
+      const id = decodeURIComponent(u.split("/files/")[1].split("?")[0]);
+      const f = folders.find((x) => x.id === id);
+      if (!f) return new Response("{}", { status: 404 });
+      return new Response(JSON.stringify({
+        id: f.id, mimeType: f.trashed ? "application/vnd.google-apps.folder" : "application/vnd.google-apps.folder",
+        trashed: f.trashed,
+        owners: [{ emailAddress: f.owner }],
+        appProperties: { smartArchiveTenantId: f.tenant, smartArchiveRole: f.role },
+      }), { status: 200 });
+    }
+    if (method === "GET") {
+      calls.lists += 1;
+      // The real query filters on appProperties tenant AND role; a fake that
+      // returns every folder would hide a genuine tenant-isolation bug.
+      const visible = folders.filter((f) =>
+        (opts.listLag ? f.settled : true)
+        && !f.trashed
+        && f.tenant === OP_TENANT
+        && f.role === "operating-root");
+      return new Response(JSON.stringify({
+        files: visible.slice().sort((a, b) => a.createdTime.localeCompare(b.createdTime))
+          .map((f) => ({ id: f.id, createdTime: f.createdTime, owners: [{ emailAddress: f.owner }] })),
+      }), { status: 200 });
+    }
+    calls.creates += 1;
+    seq += 1;
+    folders.push({
+      id: `folder${seq}`,
+      createdTime: new Date(1700000000000 + seq * 1000).toISOString(),
+      owner: OP_INSTITUTION, tenant: OP_TENANT,
+      role: "operating-root", trashed: false, settled: !opts.listLag,
+    });
+    return new Response(JSON.stringify({
+      id: `folder${seq}`, owners: [{ emailAddress: OP_INSTITUTION }],
+    }), { status: 200 });
+  }) as unknown as typeof fetch;
+  return { impl, calls, folders };
+}
+
+test("15. TRUE RACE: two empty listings can produce two physical folders", async () => {
+  // The honest limitation. Both callers list before either folder exists.
+  const w = driveWorld();
+  const [a, b] = await Promise.all([
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl),
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl),
+  ]);
+  assert.ok(w.calls.creates >= 1);
+  // Reconciliation converges them when the second listing sees both.
+  assert.equal(a.id, b.id, "both callers must end up on the SAME active root");
+});
+
+test("16. after a race, every later call agrees on one stable root", async () => {
+  const w = driveWorld();
+  await Promise.all([
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl),
+    ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl),
+  ]);
+  const l1 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  const l2 = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  assert.equal(l1.id, l2.id);
+  assert.equal(l1.created, false);
+  assert.equal(l1.id, "folder1", "the oldest wins, deterministically");
+});
+
+test("17. a recorded root is REUSED verbatim, with no listing at all", async () => {
+  const w = driveWorld();
+  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  const before = { ...w.calls };
+  const again = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, made.id, w.impl);
+  assert.equal(again.id, made.id);
+  assert.equal(again.created, false);
+  assert.equal(w.calls.creates, before.creates, "nothing new is created");
+  assert.equal(w.calls.lists, before.lists, "and no discovery is needed");
+});
+
+test("18. a STALE historical root id is ignored, not fatal", async () => {
+  // The pre-18DH value points at a folder this client cannot see: 404.
+  const w = driveWorld();
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, "1lZd3MvwChG2-XD_gdCP4RsfqrS108MBd", w.impl);
+  assert.equal(root.created, true, "it falls through to creating a usable root");
+  assert.equal(w.calls.gets, 1);
+});
+
+test("19. a recorded root belonging to ANOTHER tenant is refused reuse", async () => {
+  const w = driveWorld();
+  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  w.folders[0].tenant = OP_OTHER_TENANT;
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, made.id, w.impl);
+  assert.notEqual(root.id, made.id, "another tenant's folder is never adopted");
+});
+
+test("20. a recorded root that was TRASHED is not reused", async () => {
+  const w = driveWorld();
+  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  w.folders[0].trashed = true;
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, made.id, w.impl);
+  assert.equal(root.created, true);
+});
+
+test("21. a recorded root owned by the WRONG account is a hard refusal", async () => {
+  const w = driveWorld();
+  const made = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  w.folders[0].owner = "intruder@gmail.com";
+  const e = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, made.id, w.impl).catch((x) => x);
+  assert.equal(e.stage, "root-folder-ownership", "a wrong owner must not fall through quietly");
+});
+
+test("22. EVENTUAL LISTING CONSISTENCY can still leave an extra folder", async () => {
+  // Stated, not hidden: a lagging list cannot see what was just created.
+  const w = driveWorld({ listLag: true });
+  const first = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  const second = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, w.impl);
+  assert.equal(w.calls.creates, 2, "the limitation is real");
+  assert.notEqual(first.id, second.id);
+  // But once one id is recorded, it is reused for ever after.
+  const settled = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, first.id, w.impl);
+  assert.equal(settled.id, first.id, "the recorded root is what stabilises it");
+  assert.equal(w.calls.creates, 2);
+});
+
+test("23. a failed reconciliation never fails the connection", async () => {
+  let createdOnce = false;
+  const impl = (async (url: string, init?: RequestInit) => {
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method === "POST") { createdOnce = true; return new Response(JSON.stringify({ id: "r1", owners: [{ emailAddress: OP_INSTITUTION }] }), { status: 200 }); }
+    if (createdOnce) throw new Error("network blip during reconciliation");
+    return new Response(JSON.stringify({ files: [] }), { status: 200 });
+  }) as unknown as typeof fetch;
+  const root = await ensureOperatingRoot("at", OP_TENANT, OP_INSTITUTION, null, impl);
+  assert.equal(root.id, "r1", "the folder exists and is usable");
 });

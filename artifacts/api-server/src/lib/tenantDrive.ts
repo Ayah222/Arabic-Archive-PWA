@@ -242,9 +242,27 @@ export async function ensureOperatingRoot(
   accessToken: string,
   tenantId: string,
   connectedEmail: string,
+  storedRootId: string | null = null,
   fetchImpl: typeof fetch = fetch,
 ): Promise<OperatingRoot> {
   const auth = { Authorization: `Bearer ${accessToken}` };
+
+  // STEP 0, and the one that actually makes the active root stable.
+  //
+  // Discovery-before-create is NOT atomic: two simultaneous consents can
+  // both see an empty list and both create a folder. Nothing in the Drive
+  // API prevents that. What we can guarantee is that the tenant keeps using
+  // ONE root for ever after - by preferring the one already recorded,
+  // whenever it is still a folder this client can see, this tenant owns the
+  // marker on, and the institution owns.
+  //
+  // This also quietly rejects a stale historical id: the pre-18DH value
+  // points at a folder created by a different OAuth client, so files.get
+  // returns 404 here and we fall through to discovery instead of failing.
+  if (storedRootId) {
+    const adopted = await inspectCandidateRoot(storedRootId, tenantId, connectedEmail, auth, fetchImpl);
+    if (adopted) return { id: adopted, created: false, duplicates: 0 };
+  }
   const esc = (v: string) => v.replace(/'/g, "\\'");
   // drive.file already limits this search to files THIS app created, and the
   // appProperties pin it to THIS tenant - so another tenant's root can never
@@ -299,7 +317,64 @@ export async function ensureOperatingRoot(
       "تعذر إنشاء مجلد التشغيل في حساب Google الخاص بالمكتب.");
   }
   assertOwnedByInstitution(created.owners, connectedEmail);
+
+  // BEST EFFORT reconciliation. If a concurrent consent also created one,
+  // a second listing usually shows both and we converge on the oldest. It is
+  // only best effort: Drive's listing is eventually consistent, so a folder
+  // created moments ago may not appear yet. The stable guarantee is step 0,
+  // not this. Nothing is ever deleted - a loser is simply never used.
+  try {
+    const after = await fetchImpl(listUrl, { headers: auth });
+    if (after.ok) {
+      const siblings = (await after.json() as { files?: Array<{ id?: string }> }).files ?? [];
+      if (siblings.length > 1 && siblings[0]?.id) {
+        return { id: siblings[0].id, created: true, duplicates: siblings.length - 1 };
+      }
+    }
+  } catch {
+    // A failed reconciliation must never fail the connection: the folder
+    // exists and is usable.
+  }
   return { id: created.id, created: true, duplicates: 0 };
+}
+
+/**
+ * Is this id usable as THIS tenant's operating root right now?
+ *
+ * Returns the id when it is visible to this client, is a live folder, is
+ * owned by the consenting account, and carries this tenant's marker.
+ * Returns null for anything else - including a 404, which is exactly what a
+ * stale historical root id produces.
+ */
+async function inspectCandidateRoot(
+  candidateId: string,
+  tenantId: string,
+  connectedEmail: string,
+  auth: Record<string, string>,
+  fetchImpl: typeof fetch,
+): Promise<string | null> {
+  let response: Response;
+  try {
+    response = await fetchImpl(
+      `${DRIVE_API}/files/${encodeURIComponent(candidateId)}`
+      + "?fields=id,mimeType,trashed,owners(emailAddress),appProperties",
+      { headers: auth },
+    );
+  } catch {
+    return null;
+  }
+  if (!response.ok) return null;
+  const file = await response.json() as {
+    id?: string; mimeType?: string; trashed?: boolean;
+    owners?: Array<{ emailAddress?: string }>;
+    appProperties?: Record<string, string>;
+  };
+  if (file.mimeType !== "application/vnd.google-apps.folder" || file.trashed) return null;
+  if (file.appProperties?.smartArchiveTenantId !== tenantId) return null;
+  if (file.appProperties?.smartArchiveRole !== OPERATING_ROOT_ROLE) return null;
+  // A wrong owner is a real refusal, not a quiet fall-through.
+  assertOwnedByInstitution(file.owners, connectedEmail);
+  return file.id ?? null;
 }
 
 /** The folder must belong to the account that just consented. */
@@ -342,7 +417,18 @@ export async function finishDriveOAuth(tenantId: string, code: string, redirectU
   // Phase 18DH. The historical archive root is deliberately NOT touched here:
   // this client cannot see it under drive.file, which is the confirmed 404.
   // GOOGLE_DRIVE_ROOT_FOLDER_ID is left exactly as configured.
-  const operatingRoot = await ensureOperatingRoot(tokens.access_token, tenantId, connectedEmail);
+  // Read what this tenant already has, so a reconnect keeps the same root.
+  const { data: existing } = await supabaseAdmin()
+    .from("tenant_storage_connections")
+    .select("root_folder_id")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const storedRootId = typeof existing?.root_folder_id === "string"
+    ? existing.root_folder_id.trim() || null
+    : null;
+  const operatingRoot = await ensureOperatingRoot(
+    tokens.access_token, tenantId, connectedEmail, storedRootId,
+  );
   const rootFolderId = operatingRoot.id;
   logger.info({
     tenantId,
