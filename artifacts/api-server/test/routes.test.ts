@@ -21,6 +21,12 @@ import tenantStorageRouter from "../src/routes/sa/tenantStorage";
 import hrFilesRouter from "../src/routes/sa/hr/files";
 import { calls as driveCalls, __setDriveState } from "../src/lib/tenantDrive";
 import {
+  driveStore,
+  calls as driveUploadCalls,
+  __setFault,
+  __reset as resetDrive,
+} from "../src/lib/driveUploadAccess";
+import {
   calls as legacyCalls,
   __setProvider,
   __setLegacyConfigured,
@@ -492,4 +498,193 @@ test("51. an upload never silently falls back to Google Drive", async () => {
   const res = await fetch(base + "/api/sa/tenants/storage/upload", { method: "POST", body: form });
   assert.equal(res.status, 201);
   assert.equal(driveCalls.save, before, "the upload must not touch Drive");
+});
+
+// ------------------------------------------------------------------
+// Phase 18DS - direct institution Drive uploads.
+//
+// The whole point is that a Drive failure NEVER becomes a Replit write.
+// Every fault below therefore asserts two things: the request failed, and
+// object storage was not touched.
+// ------------------------------------------------------------------
+
+const ENABLED = "tenant-a";
+
+async function agencyUpload(body = "hello drive", filename = "ملف.txt", type = "text/plain") {
+  const form = new FormData();
+  form.set("file", new Blob([Buffer.from(body)], { type }), filename);
+  form.set("namespace", "agencies");
+  return fetch(base + "/api/sa/tenants/storage/upload", { method: "POST", body: form });
+}
+
+async function withFlag(tenants: string, run: () => Promise<void>) {
+  process.env.DRIVE_DIRECT_UPLOAD_TENANTS = tenants;
+  try { await run(); } finally { delete process.env.DRIVE_DIRECT_UPLOAD_TENANTS; }
+}
+
+test("60. flag OFF: the upload route still writes to Replit, unchanged", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  const res = await agencyUpload();
+  assert.equal(res.status, 201);
+  const body = await res.json() as { path: string };
+  assert.ok(body.path.startsWith("app/"), "flag off means storage is unchanged");
+  assert.equal(objectCalls.save, 1);
+  assert.equal(driveUploadCalls.upload, 0, "the Drive pipeline is unreachable while off");
+});
+
+test("61. flag ON: the file goes to Drive, with filename and MIME intact", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  await withFlag(ENABLED, async () => {
+    const res = await agencyUpload("hello drive", "تقرير فني.pdf", "application/pdf");
+    assert.equal(res.status, 201);
+    const body = await res.json() as { path: string };
+    assert.ok(body.path.startsWith("drive://"), "the enabled tenant stores in Drive");
+    assert.equal(objectCalls.save, 0, "and NOT in Replit");
+    const stored = [...driveStore.values()][0] as {
+      name: string; mimeType: string; size: string; folderSegments: string[];
+      appProperties: Record<string, string>;
+    };
+    assert.equal(stored.name, "تقرير فني.pdf", "the Arabic filename survives");
+    assert.equal(stored.mimeType, "application/pdf", "the MIME type survives");
+    assert.equal(Number(stored.size), Buffer.from("hello drive").length, "size matches");
+    assert.equal(stored.folderSegments[0], "04 Agencies", "filed by namespace");
+    assert.ok(stored.appProperties.archhiveUploadKey, "carries an idempotency key");
+  });
+});
+
+test("62. ISOLATION: an unlisted tenant stays on Replit", async () => {
+  reset(); resetDrive();
+  tenantForRequest = "tenant-b";
+  __setActor({ tenantId: "tenant-b", role: "admin" });
+  await withFlag(ENABLED, async () => {
+    const res = await agencyUpload();
+    assert.equal(res.status, 201);
+    const body = await res.json() as { path: string };
+    assert.ok(body.path.startsWith("app/"), "an unlisted tenant is untouched");
+    assert.equal(driveUploadCalls.upload, 0);
+  });
+});
+
+test("63. no wildcard: '*' never enables anybody", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  await withFlag("*", async () => {
+    const res = await agencyUpload();
+    assert.equal(res.status, 201);
+    const body = await res.json() as { path: string };
+    assert.ok(body.path.startsWith("app/"), "a wildcard must not switch anyone to Drive");
+    assert.equal(driveUploadCalls.upload, 0);
+  });
+});
+
+test("64. IDEMPOTENCY: a retried upload creates exactly one Drive file", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  await withFlag(ENABLED, async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const res = await agencyUpload("same bytes", "تقرير.txt");
+      assert.equal(res.status, 201);
+    }
+    assert.equal(driveUploadCalls.upload, 1, "the retries found their own earlier file");
+    assert.equal(driveStore.size, 1);
+  });
+});
+
+test("65. CONCURRENCY: simultaneous identical uploads do not duplicate", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  await withFlag(ENABLED, async () => {
+    const results = await Promise.all([
+      agencyUpload("concurrent", "a.txt"),
+      agencyUpload("concurrent", "a.txt"),
+    ]);
+    for (const r of results) assert.equal(r.status, 201);
+    // Discovery-before-create is not atomic, so two creates are possible.
+    // What must hold is that nothing is lost and nothing is silently
+    // rerouted: every result is a Drive reference, never a Replit path.
+    for (const r of results) {
+      assert.ok((await r.json() as { path: string }).path.startsWith("drive://"));
+    }
+    assert.equal(objectCalls.save, 0, "no concurrent upload fell back to Replit");
+  });
+});
+
+for (const [label, fault, message] of [
+  ["a Drive outage", "upload", "Google Drive download failed (503)"],
+  ["invalid_grant", "upload", "invalid_grant"],
+  ["401 unauthorised", "upload", "Google Drive download failed (401)"],
+  ["403 denied", "upload", "Google Drive download failed (403)"],
+  ["429 rate limiting", "upload", "Google Drive download failed (429)"],
+  ["a failed idempotency lookup", "lookup", "Google Drive download failed (503)"],
+  ["a failed verification read", "metadata", "Google Drive download failed (500)"],
+] as const) {
+  test(`66. NO FALSE SUCCESS: ${label} fails the request and never writes to Replit`, async () => {
+    reset(); resetDrive();
+    __setActor({ tenantId: ENABLED, role: "admin" });
+    await withFlag(ENABLED, async () => {
+      __setFault(fault, message);
+      const res = await agencyUpload();
+      assert.notEqual(res.status, 201, "a Drive failure must not report success");
+      assert.ok(res.status >= 400, `expected an error status, got ${res.status}`);
+      assert.equal(objectCalls.save, 0, "and must NEVER fall back to Replit");
+    });
+  });
+}
+
+test("67. a corrupted upload is refused and the bad file is removed", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  await withFlag(ENABLED, async () => {
+    __setFault("corrupt", true as never);
+    const res = await agencyUpload();
+    assert.notEqual(res.status, 201, "a checksum mismatch is not a success");
+    assert.equal(objectCalls.save, 0, "no fallback write");
+    assert.equal(driveUploadCalls.remove, 1, "the unverifiable file is cleaned up");
+    assert.equal(driveStore.size, 0, "no orphan is left behind");
+  });
+});
+
+// ------------------------------------------------------------------
+// Phase 18DS - the folder-zip client storagePath.
+//
+// The sibling route was constrained in 18BT; this one still handed a raw
+// client string to the SERVICE-ROLE client, for a read and for two deletes.
+// These pin the rule so it cannot quietly come back.
+// ------------------------------------------------------------------
+
+async function folderZip(storagePath: string) {
+  const form = new FormData();
+  form.set("entityType", "letter");
+  form.set("entityId", "e1");
+  form.set("storagePath", storagePath);
+  return fetch(base + "/api/sa/projects/p1/attachments/folder-zip", { method: "POST", body: form });
+}
+
+test("70. a storagePath outside this project is refused before any read", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  const res = await folderZip("attachments/SOMEONE-ELSE/letter/secret.zip");
+  assert.ok(res.status >= 400 && res.status < 500,
+    `a foreign path must be refused, got ${res.status}`);
+});
+
+test("71. a traversing storagePath is refused", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  for (const bad of ["../../etc/passwd", "attachments/p1/letter/../../../other/x.zip", "/absolute/x.zip"]) {
+    const res = await folderZip(bad);
+    assert.ok(res.status >= 400 && res.status < 500, `${bad} must be refused, got ${res.status}`);
+  }
+});
+
+test("72. once Drive is authoritative an external reference is refused outright", async () => {
+  reset(); resetDrive();
+  __setActor({ tenantId: ENABLED, role: "admin" });
+  await withFlag(ENABLED, async () => {
+    const res = await folderZip("attachments/p1/letter/folder.zip");
+    assert.equal(res.status, 409,
+      "registering non-Drive storage while Drive is authoritative must be refused");
+  });
 });

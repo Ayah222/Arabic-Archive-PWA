@@ -14,6 +14,8 @@ import { currentTenantId } from "../../../lib/tenantContext";
 import { readTenantDriveFile } from "../../../lib/driveRead";
 import { driveReadDepsFor } from "../../../lib/driveReadAccess";
 import { downloadPrivateObject, getPrivateObjectMetadata, isTenantPrivateObject, saveTenantPrivateObject } from "../../../lib/objectStorage";
+import { storeTenantDocument } from "../../../lib/storeDocument";
+import { storeDepsFor } from "../../../lib/driveUploadAccess";
 
 const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
   ? path.resolve(process.cwd(), "../..")
@@ -86,25 +88,33 @@ router.post("/sa/hr/upload", (req, res, next) => {
   }
   const tenantId = currentTenantId();
   const uploadFile = req.file;
-  void saveTenantPrivateObject({
-    tenantId,
-    namespace: "hr",
-    filename: uploadFile.originalname,
-    bytes: uploadFile.buffer,
-    contentType: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
-  }).then((saved) => {
+  // Phase 18BS. This was a floating `void ...then()`: a rejection here
+  // was unhandled, so a failed upload left the client waiting and said
+  // nothing. Awaited now, which also means a Drive failure surfaces.
+  try {
+    const saved = await storeTenantDocument({
+      tenantId,
+      namespace: "hr",
+      filename: uploadFile.originalname,
+      bytes: uploadFile.buffer,
+      contentType: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
+    }, storeDepsFor());
     const driveFileId = saved.objectName.startsWith("drive://") ? saved.objectName.slice("drive://".length) : "";
     res.json({
       url: driveFileId
         ? `/api/sa/hr/storage/files/drive_${encodeURIComponent(driveFileId)}`
         : `/api/sa/hr/storage/files/app_${Buffer.from(saved.objectName, "utf8").toString("base64url")}`,
       filename: uploadFile.originalname,
-      size: uploadFile.size,
-      mimetype: SAFE_EXTENSIONS[path.extname(uploadFile.originalname).toLowerCase()],
     });
-  }).catch((error: unknown) => {
-    if (!res.headersSent) res.status(503).json({ error: error instanceof Error ? error.message : "تعذر حفظ الملف" });
-  });
+  } catch (error) {
+    // 503 preserves the status the previous .catch() returned.
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: error instanceof Error ? error.message : "تعذر حفظ الملف",
+      });
+    }
+  }
+
 });
 
 router.get("/sa/hr/storage/files/:fileRef", async (req, res): Promise<void> => {

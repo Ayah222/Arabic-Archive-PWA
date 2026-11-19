@@ -391,10 +391,14 @@ test("the routes still read Replit Object Storage exactly as before", () => {
     "routes/sa/hr/files.ts",
     "routes/sa/tenantStorage.ts",
   ];
+  // READ calls only. The write calls used to be listed here too, but Phase
+  // 18DS routes every write through storeTenantDocument, so comparing their
+  // count against the previous commit would fail on the intended change.
+  // They are not unguarded: storeDocument.test.ts asserts the routes make
+  // ZERO direct write calls, which is stronger than "unchanged since HEAD".
   const storageCalls = [
-    "downloadPrivateObject(", "savePrivateObject(", "saveTenantPrivateObject(",
-    "getPrivateObjectMetadata(", "deletePrivateObject(", "isTenantPrivateObject(",
-    "downloadSupabaseObject(", "uploadSupabaseObject(",
+    "downloadPrivateObject(", "getPrivateObjectMetadata(", "isTenantPrivateObject(",
+    "downloadSupabaseObject(",
   ];
   const count = (text: string, needle: string) =>
     (text.match(new RegExp(needle.replace("(", "\\("), "g")) ?? []).length;

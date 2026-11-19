@@ -675,6 +675,16 @@ export async function saveTenantFile(input: {
   bytes: Buffer;
   contentType?: string;
   folderSegments?: string[];
+  /**
+   * Phase 18BP, brought forward in 18DS. Extra app-private tags stamped on
+   * the created file. The idempotency key lives here, so a retried upload is
+   * recognised in Drive itself rather than needing a new database table.
+   *
+   * The tenant tag is always written LAST and can never be overridden from
+   * here - a caller that could forge smartArchiveTenantId could make one
+   * tenant's file readable as another's.
+   */
+  appProperties?: Record<string, string>;
 }) {
   if (input.bytes.length === 0) throw new Error("الملف المحدد فارغ");
   if (
@@ -729,7 +739,7 @@ export async function saveTenantFile(input: {
     const metadata = JSON.stringify({
       name: safeFilename,
       parents: [parentId],
-      appProperties: { smartArchiveTenantId: input.tenantId },
+      appProperties: { ...(input.appProperties ?? {}), smartArchiveTenantId: input.tenantId },
     });
     const sessionResponse = await driveFetch(
       connection,
@@ -799,6 +809,62 @@ export async function saveTenantFile(input: {
     }
     throw error;
   }
+}
+
+/**
+ * Phase 18BP. Metadata for one file this tenant owns, by id.
+ *
+ * Read-only. Used to VERIFY an upload after the fact: the caller compares
+ * size and sha256Checksum to what it actually sent before any database row
+ * is written. Refuses a file that does not carry this tenant's tag, so it
+ * cannot be used to inspect another tenant's object.
+ */
+export async function getTenantDriveMetadata(tenantId: string, fileId: string) {
+  if (!/^[A-Za-z0-9_-]{5,256}$/.test(fileId)) throw new Error("Invalid Google Drive file ID");
+  const connection = await getConnection(tenantId);
+  const metadata = await driveRequest<{
+    id?: string; name?: string; mimeType?: string; size?: string;
+    sha256Checksum?: string; trashed?: boolean;
+    owners?: Array<{ emailAddress?: string }>; parents?: string[];
+    appProperties?: Record<string, string>;
+  }>(
+    connection,
+    `${DRIVE_API}/files/${encodeURIComponent(fileId)}`
+      + "?fields=id,name,mimeType,size,sha256Checksum,trashed,owners(emailAddress),parents,appProperties",
+  );
+  if (metadata.appProperties?.smartArchiveTenantId !== tenantId) {
+    throw new Error("Google Drive file belongs to a different organization");
+  }
+  return metadata;
+}
+
+/**
+ * Phase 18BP. Finds a file this tenant already uploaded under one
+ * app-private key. This is the idempotency lookup: a retried upload finds
+ * its own earlier result instead of creating a second copy.
+ *
+ * appProperties are private to the writing application, so this can only
+ * ever see files this same OAuth client created.
+ */
+export async function findTenantFileByAppProperty(
+  tenantId: string,
+  key: string,
+  value: string,
+) {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(key)) throw new Error("Invalid app property key");
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(value)) throw new Error("Invalid app property value");
+  const connection = await getConnection(tenantId);
+  const q = `appProperties has { key='${key}' and value='${value}' } and `
+    + `appProperties has { key='smartArchiveTenantId' and value='${tenantId}' } and trashed = false`;
+  const found = await driveRequest<{ files?: DriveFile[] }>(
+    connection,
+    `${DRIVE_API}/files?q=${encodeURIComponent(q)}`
+      + "&fields=files(id,name,mimeType,size,sha256Checksum)&pageSize=2",
+  );
+  const files = found.files ?? [];
+  // Two matches means the key does not identify one upload; treat that as
+  // unknown rather than picking one.
+  return files.length === 1 ? files[0] : null;
 }
 
 export async function downloadTenantFile(tenantId: string, fileId: string, maxBytes = MAX_DRIVE_FILE_BYTES) {

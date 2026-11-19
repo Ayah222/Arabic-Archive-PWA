@@ -15,6 +15,16 @@ import {
 } from "../../lib/tenantDrive";
 import { readTenantDriveFile } from "../../lib/driveRead";
 import { driveReadDepsFor } from "../../lib/driveReadAccess";
+import { uploadDocumentToDrive } from "../../lib/driveUpload";
+import { uploadDepsFor } from "../../lib/driveUploadAccess";
+import { directDriveUploadEnabled } from "../../lib/driveFlags";
+import {
+  StorageReferenceError,
+  assertClientStoragePath,
+  storageReferenceStatus,
+} from "../../lib/attachmentReference";
+import { storeTenantDocument } from "../../lib/storeDocument";
+import { storeDepsFor } from "../../lib/driveUploadAccess";
 import { runWithTenant } from "../../lib/tenantContext";
 import { verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { listAttachments, listAttachmentStorageByIds, createAttachment, deleteAttachment, deleteAttachmentFolder } from "./archiveDb";
@@ -355,10 +365,29 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
       res.status(400).json({ error: `حجم الملف يتجاوز ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB` });
       return;
     }
+    // Phase 18BT. This used to store whatever string the client sent, and
+    // downloads hand that string to the SERVICE-ROLE Supabase client. It is
+    // now constrained to this project's own prefix, and refused outright
+    // once Drive is the authoritative provider for this tenant.
+    let safeStoragePath: string;
+    try {
+      safeStoragePath = assertClientStoragePath({
+        storagePath: req.body.storagePath,
+        projectId,
+        entityType,
+        driveEnabled: directDriveUploadEnabled(String(res.locals.tenantId)),
+      });
+    } catch (error) {
+      if (error instanceof StorageReferenceError) {
+        res.status(storageReferenceStatus(error.code)).json({ error: error.message });
+        return;
+      }
+      throw error;
+    }
     const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
       entityType,
       entityId,
-      objectPath: supabaseObjectPath(String(req.body.storagePath)),
+      objectPath: supabaseObjectPath(safeStoragePath),
       name: name || relativePath || req.body.filename || "file",
       customType,
       mimeType: req.body.mimeType,
@@ -380,14 +409,22 @@ router.post("/sa/projects/:id/attachments", upload.single("file"), async (req, r
     .slice(0, -1)
     .filter((part) => part && part !== "." && part !== "..")
     .slice(0, 20);
-  const saved = await saveTenantPrivateObject({
+  // Phase 18BQ. The ONE provider switch for document uploads.
+  //
+  // OFF is the default and means this block behaves exactly as it did
+  // before: saveTenantPrivateObject, Replit Object Storage, same arguments.
+  // ON routes through the verified Drive transaction, which refuses rather
+  // than falling back - a silent fallback would record a Replit path while
+  // the institution believed the file was in its own Drive.
+  const saved = await storeTenantDocument({
     tenantId: String(res.locals.tenantId),
     namespace: "attachments",
     filename: uploadedFile.originalname,
     bytes: uploadedFile.buffer,
     contentType: uploadedFile.mimetype,
     segments: [projectId, entityType, ...relativeParts],
-  });
+    destination: { projectId, category: entityType },
+  }, storeDepsFor());
   try {
     const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
       entityType,
@@ -424,10 +461,33 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
     return;
   }
 
+  // Phase 18DS. The sibling route was constrained in 18BT; this one was not,
+  // and it is the more dangerous of the two - the client string reaches the
+  // SERVICE-ROLE client for a read and for two deletes, so an unvalidated
+  // value could read or DESTROY any object in the bucket. Validated here with
+  // the same rule, before the path is used for anything.
+  let safeDirectPath: string | null = null;
+  if (directStoragePath) {
+    try {
+      safeDirectPath = assertClientStoragePath({
+        storagePath: directStoragePath,
+        projectId,
+        entityType,
+        driveEnabled: directDriveUploadEnabled(String(res.locals.tenantId)),
+      });
+    } catch (error) {
+      if (error instanceof StorageReferenceError) {
+        res.status(storageReferenceStatus(error.code)).json({ error: error.message });
+        return;
+      }
+      throw error;
+    }
+  }
+
   const createdIds: string[] = [];
   const createdObjectPaths: string[] = [];
   const zipBytes = directStoragePath
-    ? await downloadSupabaseObject(directStoragePath, MAX_ZIP_ARCHIVE_BYTES)
+    ? await downloadSupabaseObject(safeDirectPath!, MAX_ZIP_ARCHIVE_BYTES)
     : req.file!.buffer;
   try {
     const files = extractZipFiles(zipBytes);
@@ -451,15 +511,19 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       const filename = basename(relativePath);
       const mimeType = mimeByExtension[extname(filename).toLowerCase()] || "application/octet-stream";
       const savedPath = directStoragePath
+        // uploadSupabaseObject is a stub that ALWAYS throws, so this branch
+        // can never write. Kept rather than deleted so the failure stays
+        // explicit instead of silently falling through to another provider.
         ? await uploadSupabaseObject({ storagePath: `attachments/${projectId}/${entityType}/${relativePath}`, bytes, contentType: mimeType })
-        : (await saveTenantPrivateObject({
+        : (await storeTenantDocument({
             tenantId: String(res.locals.tenantId),
             namespace: "attachments",
             filename,
             bytes,
             contentType: mimeType,
             segments: [projectId, entityType, ...relativeParts],
-          })).objectName;
+            destination: { projectId, category: entityType },
+          }, storeDepsFor())).objectName;
       try {
         const attachment = await runWithTenant(String(res.locals.tenantId), () => createAttachment(projectId, {
           entityType,
@@ -484,7 +548,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
         throw error;
       }
     }
-    if (directStoragePath) await deleteSupabaseObject(directStoragePath).catch(() => undefined);
+    if (safeDirectPath) await deleteSupabaseObject(safeDirectPath).catch(() => undefined);
     res.status(201).json(results);
   } catch (error) {
     for (const id of createdIds) await deleteAttachment(projectId, id).catch(() => undefined);
@@ -495,7 +559,7 @@ router.post("/sa/projects/:id/attachments/folder-zip", upload.single("file"), as
       else if (driveFileId) await deleteTenantFile(String(res.locals.tenantId), driveFileId).catch(() => undefined);
       else await deletePrivateObject(objectPath).catch(() => undefined);
     }
-    if (directStoragePath) await deleteSupabaseObject(directStoragePath).catch(() => undefined);
+    if (safeDirectPath) await deleteSupabaseObject(safeDirectPath).catch(() => undefined);
     res.status(400).json({ error: error instanceof Error ? error.message : "Could not extract ZIP folder" });
   }
 });

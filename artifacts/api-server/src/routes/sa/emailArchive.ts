@@ -7,6 +7,8 @@ import { addAuditLog } from "./archiveDb";
 import { currentTenantId, DEFAULT_TENANT_ID } from "../../lib/tenantContext";
 import { parseTenantDriveObjectPath } from "../../lib/tenantDrive";
 import { FILE_LIMITS } from "../../lib/fileLimits";
+import { storeTenantDocument } from "../../lib/storeDocument";
+import { storeDepsFor } from "../../lib/driveUploadAccess";
 import { readTenantDriveFile } from "../../lib/driveRead";
 import { driveReadDepsFor } from "../../lib/driveReadAccess";
 
@@ -209,14 +211,15 @@ async function saveAttachment(
   );
   const bytes = payload.data ? base64UrlToBuffer(payload.data) : Buffer.alloc(0);
   const safeName = attachment.filename.replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 160) || "attachment";
-  const saved = await saveTenantPrivateObject({
+  const saved = await storeTenantDocument({
     tenantId: currentTenantId(),
     namespace: "email-archive",
     filename: `${randomUUID().slice(0, 8)}-${safeName}`,
     bytes,
     contentType: attachment.mimeType,
     segments: [messageId],
-  });
+    destination: { category: messageId },
+  }, storeDepsFor());
 
   return {
     id: randomUUID(),

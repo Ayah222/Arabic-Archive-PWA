@@ -7,6 +7,8 @@ import { supabaseAdmin } from "../../lib/supabaseAdmin";
 import { currentTenantId } from "../../lib/tenantContext";
 import { deleteTenantFile, parseTenantDriveObjectPath } from "../../lib/tenantDrive";
 import { saveTenantPrivateObject } from "../../lib/objectStorage";
+import { storeTenantDocument } from "../../lib/storeDocument";
+import { storeDepsFor } from "../../lib/driveUploadAccess";
 
 const router = Router();
 const upload = multer({
@@ -82,14 +84,15 @@ router.post("/sa/projects/:id/photos", upload.single("file"), async (req, res): 
   }
 
   const projectId = String(req.params.id);
-  const saved = await saveTenantPrivateObject({
+  const saved = await storeTenantDocument({
     tenantId: currentTenantId(),
     namespace: "project-photos",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
     segments: [projectId],
-  });
+    destination: { projectId },
+  }, storeDepsFor());
   const { data, error } = await supabaseAdmin()
     .from("project_photos")
     .insert({

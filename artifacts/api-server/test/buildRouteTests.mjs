@@ -116,6 +116,64 @@ const FAKES = {
     export const getDriveOAuthRedirectUri = () => "https://archiva.cloud/api/sa/tenants/storage/oauth/callback";
   `,
 
+  "lib/driveUploadAccess": `
+    import { createHash } from "node:crypto";
+    import { directDriveUploadEnabled } from "./driveFlags";
+    import { saveTenantPrivateObject, storageObjectUrl } from "./objectStorage";
+    // A synthetic Drive. It answers getMetadata with what it was actually
+    // given, so the verification step in driveUpload is exercised for real
+    // rather than waved through.
+    export const driveStore = new Map();
+    export const calls = { upload: 0, remove: 0 };
+    const OWNER = "synthetic-owner-digest";
+    export const faults = { upload: null, metadata: null, lookup: null, corrupt: false };
+    export const __setFault = (k, v) => { faults[k] = v; };
+    export const __reset = () => {
+      driveStore.clear(); calls.upload = 0; calls.remove = 0;
+      faults.upload = null; faults.metadata = null; faults.lookup = null; faults.corrupt = false;
+    };
+    export const uploadDepsFor = () => ({
+      isEnabled: () => true,
+      findByUploadKey: async (t, k) => {
+        if (faults.lookup) throw new Error(faults.lookup);
+        for (const f of driveStore.values()) {
+          if (f.appProperties?.archhiveUploadKey === k) return f;
+        }
+        return null;
+      },
+      upload: async (input) => {
+        if (faults.upload) throw new Error(faults.upload);
+        calls.upload += 1;
+        const id = "drvSYN" + String(calls.upload).padStart(8, "0");
+        driveStore.set(id, {
+          id, name: input.filename, mimeType: input.contentType,
+          size: String(input.bytes.length),
+          sha256Checksum: faults.corrupt
+            ? createHash("sha256").update("tampered").digest("hex")
+            : createHash("sha256").update(input.bytes).digest("hex"),
+          trashed: false, owners: [{ emailAddress: "inst@example.org" }],
+          appProperties: input.appProperties, folderSegments: input.folderSegments,
+        });
+        return { objectName: "drive://" + id };
+      },
+      getMetadata: async (t, id) => {
+        if (faults.metadata) throw new Error(faults.metadata);
+        return driveStore.get(id);
+      },
+      remove: async (t, id) => { calls.remove += 1; driveStore.delete(id); },
+      expectedOwnerDigest: OWNER,
+      digestOf: () => OWNER,
+    });
+    export const storeDepsFor = () => ({
+      isEnabled: (t) => directDriveUploadEnabled(t),
+      saveToObjectStorage: (i) => saveTenantPrivateObject(i),
+      uploadDeps: uploadDepsFor(),
+      urlFor: (n) => storageObjectUrl(n),
+    });
+    export const INSTITUTION_ACCOUNT_DIGEST = OWNER;
+    export const digest12 = (v) => createHash("sha256").update(String(v)).digest("hex").slice(0, 12);
+  `,
+
   "lib/legacyDriveAccess": `
     export const calls = { legacyRead: 0 };
     let provider = "legacy-service-account";
@@ -216,7 +274,8 @@ await build({
 const missing = Object.keys(FAKES).filter((k) => !used.has(k));
 // A fake that was never used means the real module got through, and the test
 // would silently be hitting the database or Google.
-const REQUIRED = ["lib/tenantDrive", "lib/legacyDriveAccess", "lib/objectStorage", "lib/emailArchiveAuth"];
+const REQUIRED = ["lib/tenantDrive", "lib/legacyDriveAccess", "lib/objectStorage",
+  "lib/emailArchiveAuth", "lib/driveUploadAccess"];
 const escaped = REQUIRED.filter((k) => missing.includes(k));
 if (escaped.length > 0) {
   console.error("REFUSED: these real modules were not substituted: " + escaped.join(", "));

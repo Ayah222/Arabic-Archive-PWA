@@ -10,6 +10,8 @@ import {
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { DEFAULT_TENANT_ID } from "../../lib/tenantContext";
 import { saveTenantPrivateObject } from "../../lib/objectStorage";
+import { storeTenantDocument } from "../../lib/storeDocument";
+import { storeDepsFor } from "../../lib/driveUploadAccess";
 import { parseTenantDriveObjectPath } from "../../lib/tenantDrive";
 import { readTenantDriveFile } from "../../lib/driveRead";
 import { driveReadDepsFor } from "../../lib/driveReadAccess";
@@ -35,14 +37,15 @@ router.post("/sa/upload", upload.single("file"), async (req, res): Promise<void>
     res.status(400).json({ error: "يلزم تحديد مشروع وقسم صالحين قبل رفع الملف" });
     return;
   }
-  const saved = await saveTenantPrivateObject({
+  const saved = await storeTenantDocument({
     tenantId: String(res.locals.tenantId),
     namespace: "uploads",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
     segments: [projectId, section],
-  });
+    destination: { projectId, category: section },
+  }, storeDepsFor());
 
   res.json({
     url: saved.url,

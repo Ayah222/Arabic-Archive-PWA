@@ -8,7 +8,9 @@ import {
   getTenantDriveStatus,
   DriveConnectError,
 } from "../../lib/tenantDrive";
-import { saveTenantPrivateObject, storageObjectUrl } from "../../lib/objectStorage";
+import { storageObjectUrl } from "../../lib/objectStorage";
+import { storeTenantDocument } from "../../lib/storeDocument";
+import { storeDepsFor } from "../../lib/driveUploadAccess";
 import { FILE_LIMITS } from "../../lib/fileLimits";
 import { hasAdminAccess, verifyEmailArchiveSession } from "../../lib/emailArchiveAuth";
 import { LegacyDriveError } from "../../lib/legacyDriveReader";
@@ -232,14 +234,15 @@ router.post("/sa/tenants/storage/upload", upload.single("file"), async (req, res
     res.status(400).json({ error: "يرجى اختيار ملف صالح" });
     return;
   }
-  const saved = await saveTenantPrivateObject({
+  const saved = await storeTenantDocument({
     tenantId: String(res.locals.tenantId),
     namespace: "agencies",
     filename: req.file.originalname,
     bytes: req.file.buffer,
     contentType: req.file.mimetype,
     segments: folderSegments.slice(1),
-  });
+    destination: { category: folderSegments[1] },
+  }, storeDepsFor());
   res.status(201).json({ path: saved.objectName, url: storageObjectUrl(saved.objectName) });
 });
 
