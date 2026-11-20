@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { chooseCanonical } from "./driveUpload";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { FILE_LIMITS } from "./fileLimits";
 import { logger } from "./logger";
@@ -27,6 +28,10 @@ interface DriveFile {
   name: string;
   mimeType?: string;
   size?: string;
+  /** Google computes this itself, which is what makes it evidence. */
+  sha256Checksum?: string;
+  /** Needed to resolve duplicates deterministically: oldest wins. */
+  createdTime?: string;
   parents?: string[];
   appProperties?: Record<string, string>;
 }
@@ -859,12 +864,19 @@ export async function findTenantFileByAppProperty(
   const found = await driveRequest<{ files?: DriveFile[] }>(
     connection,
     `${DRIVE_API}/files?q=${encodeURIComponent(q)}`
-      + "&fields=files(id,name,mimeType,size,sha256Checksum)&pageSize=2",
+      + "&fields=files(id,name,mimeType,size,sha256Checksum,createdTime)&pageSize=10",
   );
-  const files = found.files ?? [];
-  // Two matches means the key does not identify one upload; treat that as
-  // unknown rather than picking one.
-  return files.length === 1 ? files[0] : null;
+  // Phase 18DU. Several matches no longer mean "unknown".
+  //
+  // Returning null here was what made a single race compound: two concurrent
+  // first-time uploads could both create a file, and from then on this lookup
+  // reported none, so every retry added another copy. Collapsing to a
+  // deterministic canonical file stops that - and deletes nothing.
+  //
+  // The caller still verifies size, checksum and owner before reusing what
+  // comes back, so a match with the wrong content is refused rather than
+  // silently adopted.
+  return chooseCanonical(found.files ?? []);
 }
 
 export async function downloadTenantFile(tenantId: string, fileId: string, maxBytes = MAX_DRIVE_FILE_BYTES) {

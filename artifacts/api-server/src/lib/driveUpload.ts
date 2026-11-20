@@ -165,6 +165,50 @@ export function uploadKeyFor(input: {
     .slice(0, 40);
 }
 
+/**
+ * The one file a set of duplicates collapses to.
+ *
+ * Returning null on "more than one match" was the real defect. Two concurrent
+ * first-time uploads can both create a file - find-then-create is not atomic -
+ * and once two existed, this lookup answered "none", so EVERY later retry
+ * added another copy. One race turned into unbounded growth.
+ *
+ * Oldest wins, ties broken by file id. Oldest because it is the one any
+ * earlier reference already points at; the id because createdTime has
+ * millisecond resolution and two files created in the same millisecond must
+ * still resolve the same way on every instance, every time.
+ *
+ * NOTHING IS DELETED. A losing duplicate is simply never selected again; it
+ * stays in the institution's Drive until a human decides otherwise.
+ */
+export function chooseCanonical<T extends { id?: string; createdTime?: string }>(
+  files: readonly T[],
+): T | null {
+  if (!Array.isArray(files) || files.length === 0) return null;
+  return files.slice().sort((a, b) => {
+    const byAge = String(a.createdTime ?? "").localeCompare(String(b.createdTime ?? ""));
+    return byAge !== 0 ? byAge : String(a.id ?? "").localeCompare(String(b.id ?? ""));
+  })[0] ?? null;
+}
+
+/**
+ * Identical uploads already in flight in THIS process.
+ *
+ * Collapses the realistic trigger: one person double-clicking Upload, or a
+ * client retrying before the first response arrives. Both callers await the
+ * same promise, so one file is created and both receive it.
+ *
+ * THIS IS NOT CROSS-INSTANCE ATOMICITY, and must not be described as such.
+ * Autoscale runs several instances and this Map is per-process, so two
+ * simultaneous uploads landing on two instances can still create two files.
+ * What bounds that is chooseCanonical above: the duplicate is created at most
+ * once per racing instance and never compounds, because every later lookup
+ * resolves to the same canonical file. Exactly-once across instances would
+ * need shared durable coordination, which does not exist here and is not
+ * claimed.
+ */
+const inFlight = new Map<string, Promise<UploadResult>>();
+
 /** Drive permits duplicate names; humans do not cope with them. */
 export function disambiguate(filename: string, uploadKey: string, collides: boolean) {
   const safe = String(filename).normalize("NFKC").trim().slice(0, MAX_FILENAME);
@@ -216,6 +260,27 @@ export async function uploadDocumentToDrive(
   const sha256 = createHash("sha256").update(request.bytes).digest("hex");
   const uploadKey = uploadKeyFor(request);
   const folderSegments = request.folderSegments ?? folderSegmentsFor(request);
+
+  // Validation above runs for EVERY caller, so a disabled tenant or bad input
+  // still fails immediately rather than joining someone else's flight.
+  const flightKey = `${request.tenantId}:${uploadKey}`;
+  const pending = inFlight.get(flightKey);
+  if (pending) return pending;
+  const flight = performUpload(request, deps, { sha256, uploadKey, folderSegments });
+  inFlight.set(flightKey, flight);
+  try {
+    return await flight;
+  } finally {
+    if (inFlight.get(flightKey) === flight) inFlight.delete(flightKey);
+  }
+}
+
+async function performUpload(
+  request: UploadRequest,
+  deps: UploadDeps,
+  ctx: { sha256: string; uploadKey: string; folderSegments: string[] },
+): Promise<UploadResult> {
+  const { sha256, uploadKey, folderSegments } = ctx;
 
   // 3. idempotency. A retry must find its own earlier file, not make another.
   let existing: DriveObject | null = null;

@@ -16,6 +16,7 @@ import {
   ORIGIN_NATIVE,
   ORIGIN_PROPERTY,
   UPLOAD_KEY_PROPERTY,
+  chooseCanonical,
   disambiguate,
   folderSegmentsFor,
   uploadDocumentToDrive,
@@ -388,4 +389,124 @@ test("the provider switch lives in exactly ONE module, not in the routes", () =>
     assert.ok(!/uploadDocumentToDrive\s*\(/.test(source),
       `${file} must not call the Drive uploader directly`);
   }
+});
+
+// ------------------------------------------------------------------
+// Phase 18DU - the duplicate-compounding defect, and what actually
+// bounds it.
+//
+// Find-then-create is NOT atomic. These tests state what is true rather
+// than what would be convenient: duplicates are possible across
+// instances, they are collapsed deterministically, and nothing is ever
+// deleted to achieve that.
+// ------------------------------------------------------------------
+
+test("canonical: an empty match set is still nothing", () => {
+  assert.equal(chooseCanonical([]), null);
+  assert.equal(chooseCanonical(undefined as never), null);
+});
+
+test("canonical: a single match is returned unchanged", () => {
+  const only = { id: "a", createdTime: "2026-11-20T10:00:00Z" };
+  assert.equal(chooseCanonical([only]), only);
+});
+
+test("canonical: THE REGRESSION - several matches never return null", () => {
+  // Returning null here is what made one race compound into unbounded
+  // copies: every later retry saw none and added another.
+  const many = [
+    { id: "b", createdTime: "2026-11-20T10:00:02Z" },
+    { id: "a", createdTime: "2026-11-20T10:00:01Z" },
+  ];
+  const picked = chooseCanonical(many);
+  assert.notEqual(picked, null, "several matches must resolve, not reset");
+  assert.equal(picked?.id, "a", "the oldest wins");
+});
+
+test("canonical: ties on createdTime break by id, stably", () => {
+  const same = "2026-11-20T10:00:00.000Z";
+  const files = [{ id: "zz", createdTime: same }, { id: "aa", createdTime: same }];
+  assert.equal(chooseCanonical(files)?.id, "aa");
+  assert.equal(chooseCanonical(files.slice().reverse())?.id, "aa",
+    "input order must not change the answer - two instances must agree");
+});
+
+test("canonical: choosing does not mutate or delete anything", () => {
+  const files = [{ id: "b", createdTime: "2" }, { id: "a", createdTime: "1" }];
+  const before = JSON.stringify(files);
+  chooseCanonical(files);
+  assert.equal(JSON.stringify(files), before, "the caller's array is untouched");
+});
+
+test("concurrent identical uploads create exactly ONE file", async () => {
+  const { deps, calls } = fakeDrive();
+  const [a, b] = await Promise.all([
+    uploadDocumentToDrive(request(), deps),
+    uploadDocumentToDrive(request(), deps),
+  ]);
+  assert.equal(calls.upload, 1, "the second caller joined the first flight");
+  assert.equal(a.fileId, b.fileId, "both callers get the same file");
+  assert.equal(a.objectPath, b.objectPath);
+});
+
+test("concurrent DIFFERENT uploads are not collapsed together", async () => {
+  const { deps, calls } = fakeDrive();
+  const [a, b] = await Promise.all([
+    uploadDocumentToDrive(request(), deps),
+    uploadDocumentToDrive(request({ category: "03 Drawings" }), deps),
+  ]);
+  assert.equal(calls.upload, 2, "different destinations are different documents");
+  assert.notEqual(a.fileId, b.fileId);
+});
+
+test("a failed upload does not poison later attempts", async () => {
+  // If the in-flight entry survived a failure, the next retry would await
+  // a promise that already rejected and could never recover.
+  let attempt = 0;
+  const { deps } = fakeDrive({
+    upload: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("Google Drive upload failed (503)");
+      return { objectName: "drive://recovered0001" };
+    },
+    getMetadata: async () => ({
+      id: "recovered0001", name: "عقد المقاول.pdf", mimeType: "application/pdf",
+      size: String(BYTES.length),
+      sha256Checksum: createHash("sha256").update(BYTES).digest("hex"),
+      trashed: false, owners: [{ emailAddress: "institution@example.org" }],
+    }),
+  });
+  const first = await refusal(() => uploadDocumentToDrive(request(), deps));
+  assert.equal(first.code, "transient");
+  const second = await uploadDocumentToDrive(request(), deps);
+  assert.equal(second.fileId, "recovered0001", "the retry is allowed to proceed");
+});
+
+test("a canonical duplicate is REUSED, never re-uploaded or deleted", async () => {
+  // What the lookup now hands back when two copies exist.
+  const canonical: DriveObject = {
+    id: "oldest00001", name: "عقد المقاول.pdf", mimeType: "application/pdf",
+    size: String(BYTES.length),
+    sha256Checksum: createHash("sha256").update(BYTES).digest("hex"),
+    trashed: false, owners: [{ emailAddress: "institution@example.org" }],
+  };
+  const { deps, calls } = fakeDrive({ findByUploadKey: async () => canonical });
+  const out = await uploadDocumentToDrive(request(), deps);
+  assert.equal(out.fileId, "oldest00001");
+  assert.equal(out.reused, true);
+  assert.equal(calls.upload, 0, "no second copy is created");
+  assert.equal(calls.remove, 0, "and the duplicate is NOT deleted");
+});
+
+test("a duplicate whose content differs is refused, not adopted", async () => {
+  const wrong: DriveObject = {
+    id: "wrong000001", name: "عقد المقاول.pdf", mimeType: "application/pdf",
+    size: "999", sha256Checksum: "0".repeat(64),
+    trashed: false, owners: [{ emailAddress: "institution@example.org" }],
+  };
+  const { deps, calls } = fakeDrive({ findByUploadKey: async () => wrong });
+  const error = await refusal(() => uploadDocumentToDrive(request(), deps));
+  assert.equal(error.code, "verification-failed");
+  assert.equal(calls.upload, 0, "it must not quietly upload beside it");
+  assert.equal(calls.remove, 0, "and must not delete what it did not create");
 });
