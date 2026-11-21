@@ -11,7 +11,7 @@
 // race receive nothing and do nothing. There is no leader, no lock service
 // and no coordination beyond the store.
 
-import { applyObservation, classifyProbe, type Alert, type ProbeOutcome } from "./driveMonitor";
+import { alertForState, applyObservation, classifyProbe, type Alert, type ProbeOutcome } from "./driveMonitor";
 import { deliverAlert, type AlertChannel, type DeliveryResult } from "./driveAlerts";
 import {
   DEFAULT_LEASE_MS,
@@ -29,6 +29,8 @@ export interface CycleDeps {
   leaseMs?: number;
   limit?: number;
   maxAttempts?: number;
+  /** Override only in tests. */
+  retryAfterMs?: number;
 }
 
 export interface CycleResult {
@@ -47,6 +49,62 @@ export interface CycleResult {
 /** The failure counter counts anything that is not healthy. */
 function isFailure(state: HealthRow["state"]): boolean {
   return state !== "healthy";
+}
+
+/**
+ * How long before an UNDELIVERED alert is attempted again.
+ *
+ * Matches the default cycle, so a retry costs at most one extra attempt per
+ * cycle even if the scheduler is driven faster than intended.
+ */
+export const ALERT_RETRY_AFTER_MS = 15 * 60 * 1000;
+
+/**
+ * Which alert, if any, this cycle should try to deliver.
+ *
+ * PHASE 18EG - THE DEFECT THIS CLOSES, AND WHY THE OBVIOUS FIX IS NOT ENOUGH.
+ * The runner recorded lastAlertState even when delivery FAILED, so an
+ * identical state was then suppressed for ever: one failed notification
+ * silenced a revoked connection permanently.
+ *
+ * Only recording the state on success does NOT fix it. decideAlert emits an
+ * alert only on a TRANSITION, so on the next cycle there is no alert object
+ * to retry - the notification is simply lost by a different route. The retry
+ * has to be driven from the stored row, which is what this does.
+ *
+ * Two rules:
+ *   a fresh transition alert is delivered unless that exact state has
+ *   already been DELIVERED;
+ *   with no transition, an alert whose delivery FAILED and whose state still
+ *   stands is rebuilt and tried again, no more often than retryAfterMs.
+ *
+ * Retries are bounded in RATE, deliberately not in COUNT: giving up on an
+ * undelivered critical alert is the failure being fixed, and lastDeliveryError
+ * stays visible in diagnostics throughout.
+ *
+ * Cross-instance safety is unchanged. Everything here reads the CLAIMED row
+ * and is written under the fence, so only the lease holder for a tenant can
+ * alert for it, and a worker that was overtaken has its result discarded.
+ */
+export function alertToDeliver(
+  row: Pick<HealthRow, "lastAlertState" | "lastAlertAt" | "lastDeliveryStatus">,
+  next: Pick<HealthRow, "state" | "reason" | "lastCheckedAt">,
+  fresh: Alert | null,
+  now: Date,
+  retryAfterMs: number = ALERT_RETRY_AFTER_MS,
+): Alert | null {
+  if (fresh) {
+    const alreadyDelivered = row.lastAlertState === fresh.state
+      && row.lastDeliveryStatus === "delivered";
+    return alreadyDelivered ? null : fresh;
+  }
+  if (row.lastDeliveryStatus !== "failed") return null;
+  if (!row.lastAlertState || row.lastAlertState !== next.state) return null;
+  const last = row.lastAlertAt ? Date.parse(row.lastAlertAt) : Number.NaN;
+  if (Number.isFinite(last) && now.getTime() - last < retryAfterMs) return null;
+  // lastCheckedAt is nullable on the row; this cycle's clock is the
+  // correct fallback, never an empty string that would read as unknown.
+  return alertForState(next.state, next.reason, next.lastCheckedAt ?? now.toISOString());
 }
 
 export async function runMonitorCycle(deps: CycleDeps): Promise<CycleResult> {
@@ -100,21 +158,19 @@ export async function runMonitorCycle(deps: CycleDeps): Promise<CycleResult> {
       claimedAt: at.toISOString(),
     };
 
-    if (alert) {
-      // Belt and braces over the reducer: even if the policy were ever
-      // loosened, an identical state is not alerted twice.
-      const duplicate = row.lastAlertState === alert.state;
-      if (!duplicate) {
-        const delivery = await deliverAlert(row.tenantId, alert, deps.channel, {
-          maxAttempts: deps.maxAttempts ?? 3,
-          now,
-        });
-        next.lastAlertState = alert.state;
-        next.lastAlertAt = delivery.at;
-        next.lastDeliveryStatus = delivery.status;
-        next.lastDeliveryError = delivery.error;
-        result.alerts.push({ tenantId: row.tenantId, alert, delivery });
-      }
+    const pending = alertToDeliver(row, next, alert, at, deps.retryAfterMs);
+    if (pending) {
+      const delivery = await deliverAlert(row.tenantId, pending, deps.channel, {
+        maxAttempts: deps.maxAttempts ?? 3,
+        now,
+      });
+      // What was ATTEMPTED, and whether it actually landed. Both are needed:
+      // the state alone cannot distinguish "told them" from "tried to".
+      next.lastAlertState = pending.state;
+      next.lastAlertAt = delivery.at;
+      next.lastDeliveryStatus = delivery.status;
+      next.lastDeliveryError = delivery.error;
+      result.alerts.push({ tenantId: row.tenantId, alert: pending, delivery });
     }
 
     // The fence. save() returns false when the row moved on to another

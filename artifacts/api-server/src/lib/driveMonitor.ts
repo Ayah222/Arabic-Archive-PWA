@@ -183,39 +183,53 @@ export function applyObservation(
   return { record, alert: decideAlert(previous, record, changed, hadEverBeenObserved) };
 }
 
+/**
+ * Severity and urgency for a state. ONE table, used by both the transition
+ * path and the retry path below.
+ *
+ * Phase 18EG. The retry path has to rebuild an alert for a state that was
+ * decided on an earlier cycle. Rebuilding it with a second copy of this
+ * mapping is how two copies of a policy drift apart - so there is one.
+ */
+const ALERT_SHAPE: Record<ConnectionState, { severity: AlertSeverity; actionRequired: boolean }> = {
+  healthy: { severity: "info", actionRequired: false },
+  degraded: { severity: "warning", actionRequired: false },
+  reauth_required: { severity: "critical", actionRequired: true },
+  misconfigured: { severity: "critical", actionRequired: true },
+  disconnected: { severity: "critical", actionRequired: true },
+};
+
+/** The alert that represents a state, independent of WHEN it was decided. */
+export function alertForState(state: ConnectionState, reason: string, at: string): Alert {
+  return { state, reason, message: STATE_MESSAGES[state], at, ...ALERT_SHAPE[state] };
+}
+
 function decideAlert(
   previous: MonitorRecord,
   record: MonitorRecord,
   changed: boolean,
   hadEverBeenObserved: boolean,
 ): Alert | null {
-  const base = {
-    state: record.state,
-    reason: record.reason,
-    message: STATE_MESSAGES[record.state],
-    at: record.lastCheckedAt,
-  };
-
   if (record.state === "reauth_required" || record.state === "misconfigured") {
-    return changed ? { ...base, severity: "critical", actionRequired: true } : null;
+    return changed ? alertForState(record.state, record.reason, record.lastCheckedAt) : null;
   }
 
   if (record.state === "disconnected") {
     // Never having been connected is a starting condition, not an incident.
     const wasWorking = hadEverBeenObserved && previous.state !== "disconnected";
-    return wasWorking ? { ...base, severity: "critical", actionRequired: true } : null;
+    return wasWorking ? alertForState(record.state, record.reason, record.lastCheckedAt) : null;
   }
 
   if (record.state === "degraded") {
     // Exactly at the threshold, so a long outage alerts once, not forever.
     return record.degradedStreak === DEGRADED_ALERT_THRESHOLD
-      ? { ...base, severity: "warning", actionRequired: false }
+      ? alertForState(record.state, record.reason, record.lastCheckedAt)
       : null;
   }
 
   // healthy: notify only when it is a RECOVERY from something that alerted
   const recovered = changed && hadEverBeenObserved && previous.state !== "healthy";
-  return recovered ? { ...base, severity: "info", actionRequired: false } : null;
+  return recovered ? alertForState(record.state, record.reason, record.lastCheckedAt) : null;
 }
 
 /**
