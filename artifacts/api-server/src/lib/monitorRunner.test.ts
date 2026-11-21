@@ -13,7 +13,12 @@ import {
   emptyHealthRow,
   type HealthRow,
 } from "./driveMonitorStore";
-import { runMonitorCycle, schedulerSecretMatches } from "./monitorRunner";
+import {
+  runMonitorCycle,
+  schedulerSecretMatches,
+  ALERT_RETRY_AFTER_MS,
+  alertToDeliver,
+} from "./monitorRunner";
 import {
   buildAlertMessage,
   deliverAlert,
@@ -22,6 +27,7 @@ import {
   type AlertMessage,
 } from "./driveAlerts";
 import type { ProbeOutcome } from "./driveMonitor";
+import { alertForState } from "./driveMonitor";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const T1 = "tenant-1";
@@ -375,4 +381,90 @@ test("an empty row starts due, so a new tenant is checked on the next run", () =
   assert.equal(row.nextDueAt, now.toISOString());
   assert.equal(row.consecutiveFailures, 0);
   assert.equal(row.lastDeliveryStatus, null);
+});
+
+// ------------------------------------------------------------------
+// Phase 18EG - an alert is OUTSTANDING until it has actually landed.
+//
+// The defect: lastAlertState was recorded even when delivery FAILED, so
+// the identical state was suppressed for ever - one failed notification
+// silenced a revoked connection permanently.
+//
+// These tests also pin down WHY the obvious fix is not enough: with no
+// transition there is no fresh alert to retry, so the retry has to be
+// driven from the stored row.
+// ------------------------------------------------------------------
+
+const ROW = (over = {}) => ({
+  lastAlertState: null, lastAlertAt: null, lastDeliveryStatus: null, ...over,
+}) as never;
+const NEXT = (over = {}) => ({
+  state: "reauth_required", reason: "invalid_grant", lastCheckedAt: "2026-11-22T10:00:00.000Z", ...over,
+}) as never;
+const FRESH = (state = "reauth_required") => alertForState(state as never, "invalid_grant", "2026-11-22T10:00:00.000Z");
+const T0 = new Date("2026-11-22T10:00:00.000Z");
+const LATER = new Date("2026-11-22T10:20:00.000Z");
+
+test("EG1. a first transition alert is delivered", () => {
+  const out = alertToDeliver(ROW(), NEXT(), FRESH(), T0);
+  assert.equal(out?.state, "reauth_required");
+  assert.equal(out?.severity, "critical");
+});
+
+test("EG2. a DELIVERED alert is never repeated for an unchanged state", () => {
+  const row = ROW({ lastAlertState: "reauth_required", lastDeliveryStatus: "delivered", lastAlertAt: T0.toISOString() });
+  assert.equal(alertToDeliver(row, NEXT(), FRESH(), LATER), null, "no repeat on a fresh duplicate");
+  assert.equal(alertToDeliver(row, NEXT(), null, LATER), null, "and none without a transition");
+});
+
+test("EG3. THE DEFECT: a FAILED delivery stays eligible for retry", () => {
+  const row = ROW({ lastAlertState: "reauth_required", lastDeliveryStatus: "failed", lastAlertAt: T0.toISOString() });
+  // No transition this cycle - which is exactly when the old code lost it.
+  const out = alertToDeliver(row, NEXT(), null, LATER);
+  assert.notEqual(out, null, "an undelivered alert must come back");
+  assert.equal(out?.state, "reauth_required");
+  assert.equal(out?.actionRequired, true, "rebuilt with the same urgency");
+});
+
+test("EG4. retry is rate bounded, not a storm", () => {
+  const row = ROW({ lastAlertState: "reauth_required", lastDeliveryStatus: "failed", lastAlertAt: T0.toISOString() });
+  const tooSoon = new Date(T0.getTime() + ALERT_RETRY_AFTER_MS - 1000);
+  assert.equal(alertToDeliver(row, NEXT(), null, tooSoon), null, "inside the window: silent");
+  const due = new Date(T0.getTime() + ALERT_RETRY_AFTER_MS + 1000);
+  assert.notEqual(alertToDeliver(row, NEXT(), null, due), null, "after the window: retried");
+});
+
+test("EG5. a retry is abandoned once the state moves on", () => {
+  const row = ROW({ lastAlertState: "degraded", lastDeliveryStatus: "failed", lastAlertAt: T0.toISOString() });
+  // the connection is no longer degraded, so the stale alert is not resent
+  assert.equal(alertToDeliver(row, NEXT({ state: "healthy" }), null, LATER), null);
+});
+
+test("EG6. a newer, more serious transition wins over a stale retry", () => {
+  const row = ROW({ lastAlertState: "degraded", lastDeliveryStatus: "failed", lastAlertAt: T0.toISOString() });
+  const out = alertToDeliver(row, NEXT(), FRESH("reauth_required"), LATER);
+  assert.equal(out?.state, "reauth_required");
+});
+
+test("EG7. a recovery notice is still delivered after a failed critical", () => {
+  const row = ROW({ lastAlertState: "reauth_required", lastDeliveryStatus: "failed", lastAlertAt: T0.toISOString() });
+  const out = alertToDeliver(row, NEXT({ state: "healthy", reason: "ok" }), FRESH("healthy"), LATER);
+  assert.equal(out?.state, "healthy");
+  assert.equal(out?.severity, "info");
+  assert.equal(out?.actionRequired, false);
+});
+
+test("EG8. nothing is sent when there is nothing outstanding", () => {
+  assert.equal(alertToDeliver(ROW(), NEXT(), null, T0), null);
+  assert.equal(alertToDeliver(ROW({ lastDeliveryStatus: "pending" }), NEXT(), null, LATER), null);
+});
+
+test("EG9. delivery success is never assumed without evidence", () => {
+  // The rebuilt alert carries the CURRENT state and reason, never a stale
+  // claim that something was delivered.
+  const row = ROW({ lastAlertState: "degraded", lastDeliveryStatus: "failed", lastAlertAt: T0.toISOString() });
+  const out = alertToDeliver(row, NEXT({ state: "degraded", reason: "http_503" }), null, LATER);
+  assert.equal(out?.reason, "http_503");
+  assert.equal(out?.severity, "warning");
+  assert.equal(out?.actionRequired, false, "a transient fault never demands a human");
 });
